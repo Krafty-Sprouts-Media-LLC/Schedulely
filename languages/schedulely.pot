@@ -1,0 +1,230 @@
+# Copyright (C) 2025 Krafty Sprouts Media, LLC
+# This file is distributed under the GPL v2 or later.
+msgid ""
+msgstr ""
+"Project-Id-Version: Schedulely 1.0.4\n"
+"Report-Msgid-Bugs-To: https://kraftysprouts.com/contact\n"
+"POT-Creation-Date: 2025-10-06 00:00:00+00:00\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"PO-Revision-Date: 2025-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: en\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: schedulely.php
+msgid "Permission denied."
+msgstr ""
+
+msgid "Successfully scheduled %d posts!"
+msgstr ""
+
+msgid "An error occurred: "
+msgstr ""
+
+#: includes/class-scheduler.php
+msgid "No posts available in %s status to schedule."
+msgstr ""
+
+msgid "No available time slots for scheduling."
+msgstr ""
+
+msgid "Successfully scheduled %d posts (%d filled deficits)."
+msgstr ""
+
+msgid "Failed to schedule post ID %d"
+msgstr ""
+
+#: includes/class-notifications.php
+msgid "Schedulely: %d Posts Scheduled Successfully"
+msgstr ""
+
+msgid "Schedulely: Scheduling Error"
+msgstr ""
+
+msgid "Yes"
+msgstr ""
+
+msgid "No"
+msgstr ""
+
+msgid "REMAINING DEFICITS"
+msgstr ""
+
+#: includes/class-settings.php
+msgid "Schedulely Settings"
+msgstr ""
+
+msgid "Schedulely"
+msgstr ""
+
+msgid "You do not have sufficient permissions to access this page."
+msgstr ""
+
+msgid "Settings saved successfully!"
+msgstr ""
+
+msgid "Scheduling Settings"
+msgstr ""
+
+msgid "Post Status to Monitor"
+msgstr ""
+
+msgid "Draft"
+msgstr ""
+
+msgid "Pending Review"
+msgstr ""
+
+msgid "Private"
+msgstr ""
+
+msgid "Posts with this status will be scheduled for publication."
+msgstr ""
+
+msgid "Posts Per Day"
+msgstr ""
+
+msgid "Number of posts to schedule per day."
+msgstr ""
+
+msgid "Publishing Time Window"
+msgstr ""
+
+msgid "to"
+msgstr ""
+
+msgid "Posts will be randomly scheduled within this time window each day."
+msgstr ""
+
+msgid "Minimum Interval Between Posts"
+msgstr ""
+
+msgid "minutes"
+msgstr ""
+
+msgid "Minimum time between scheduled posts to avoid publishing too close together."
+msgstr ""
+
+msgid "Active Days"
+msgstr ""
+
+msgid "Mon"
+msgstr ""
+
+msgid "Tue"
+msgstr ""
+
+msgid "Wed"
+msgstr ""
+
+msgid "Thu"
+msgstr ""
+
+msgid "Fri"
+msgstr ""
+
+msgid "Sat"
+msgstr ""
+
+msgid "Sun"
+msgstr ""
+
+msgid "Posts will only be scheduled on these days."
+msgstr ""
+
+msgid "Author Assignment"
+msgstr ""
+
+msgid "Randomize Post Authors"
+msgstr ""
+
+msgid "Randomly assign authors to scheduled posts"
+msgstr ""
+
+msgid "Excluded Authors"
+msgstr ""
+
+msgid "These authors will not be assigned to posts."
+msgstr ""
+
+msgid "Automation Settings"
+msgstr ""
+
+msgid "Automatic Scheduling"
+msgstr ""
+
+msgid "Enable automatic scheduling via WordPress Cron (hourly)"
+msgstr ""
+
+msgid "Email Notifications"
+msgstr ""
+
+msgid "Send email notifications after scheduling runs"
+msgstr ""
+
+msgid "Notification Email"
+msgstr ""
+
+msgid "Email address to receive scheduling notifications."
+msgstr ""
+
+msgid "Save Changes"
+msgstr ""
+
+msgid "Scheduling Overview"
+msgstr ""
+
+msgid "Available Posts"
+msgstr ""
+
+msgid "Next Scheduled"
+msgstr ""
+
+msgid "Active Deficits"
+msgstr ""
+
+msgid "Last Run"
+msgstr ""
+
+msgid "Schedule Now"
+msgstr ""
+
+msgid "View All Scheduled Posts"
+msgstr ""
+
+msgid "Upcoming Scheduled Posts"
+msgstr ""
+
+msgid "No posts currently scheduled."
+msgstr ""
+
+msgid "Deficit Status"
+msgstr ""
+
+msgid "No deficits currently tracked. All days are meeting their quotas!"
+msgstr ""
+
+msgid "Deficit: %d"
+msgstr ""
+
+msgid "Made with %s by %s"
+msgstr ""
+
+msgid "None"
+msgstr ""
+
+msgid "dates"
+msgstr ""
+
+msgid "Never"
+msgstr ""
+
+msgid "Schedule available posts now?"
+msgstr ""
+
+msgid "Scheduling..."
+msgstr ""
+
