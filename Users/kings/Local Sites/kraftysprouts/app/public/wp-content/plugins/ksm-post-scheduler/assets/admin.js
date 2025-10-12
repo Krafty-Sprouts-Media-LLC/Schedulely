@@ -2,7 +2,7 @@
  * KSM Post Scheduler Admin JavaScript
  * 
  * @package KSM_Post_Scheduler
- * @version 1.1.5
+ * @version 2.0.2
  * @since 1.0.0
  */
 
@@ -29,30 +29,50 @@
          * Bind event handlers
          */
         bindEvents: function() {
+            var self = this;
+            
             // Run Now button
-            $('#ksm-ps-run-now').on('click', this.runNow);
+            $('#ksm-ps-run-now').on('click', function(e) {
+                return self.runNow.call(self, e);
+            });
             
             // Refresh Status button
-            $('#ksm-ps-refresh-status').on('click', this.refreshStatus);
+            $('#ksm-ps-refresh-status').on('click', function(e) {
+                return self.refreshStatus.call(self, e);
+            });
             
             // Time validation and conversion
-            $('#ksm_ps_start_time, #ksm_ps_end_time').on('blur', this.handleTimeInput);
-            $('#ksm_ps_start_time, #ksm_ps_end_time').on('change', this.validateTimeInputs);
+            $('#ksm_ps_start_time, #ksm_ps_end_time').on('blur', function(e) {
+                return self.handleTimeInput.call(self, e);
+            });
+            $('#ksm_ps_start_time, #ksm_ps_end_time').on('change', function(e) {
+                return self.validateTimeInputs.call(self, e);
+            });
             
             // Posts per day validation
-            $('#ksm_ps_posts_per_day').on('change', this.validatePostsPerDay);
+            $('#ksm_ps_posts_per_day').on('change', function(e) {
+                return self.validatePostsPerDay.call(self, e);
+            });
             
             // Minimum interval validation
-            $('#ksm_ps_min_interval').on('change', this.validateMinInterval);
+            $('#ksm_ps_min_interval').on('change', function(e) {
+                return self.validateMinInterval.call(self, e);
+            });
             
             // Form submission validation
-            $('form').on('submit', this.validateForm);
+            $('form').on('submit', function(e) {
+                return self.validateForm.call(self, e);
+            });
             
             // Smart suggestion buttons
-            $(document).on('click', '.suggestion-btn', this.applySuggestion);
+            $(document).on('click', '.suggestion-btn', function(e) {
+                return self.applySuggestion.call(self, e);
+            });
             
             // Notice dismissal
-            $(document).on('click', '.notice.is-dismissible .notice-dismiss', this.handleNoticeDismiss);
+            $(document).on('click', '.notice.is-dismissible .notice-dismiss', function(e) {
+                return self.handleNoticeDismiss.call(self, e);
+            });
         },
         
         /**

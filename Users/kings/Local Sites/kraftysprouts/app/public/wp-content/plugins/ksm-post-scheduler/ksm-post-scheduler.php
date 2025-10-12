@@ -3,7 +3,7 @@
  * Plugin Name: KSM Post Scheduler
  * Plugin URI: https://kraftysprouts.com
  * Description: Automatically schedules posts from a specific status to publish at random times
- * Version: 2.0.0
+ * Version: 2.0.2
  * Author: Krafty Sprouts Media, LLC
  * Author URI: https://kraftysprouts.com
  * License: GPL v2 or later
@@ -16,7 +16,7 @@
  * Network: false
  * 
  * @package KSM_Post_Scheduler
- * @version 2.0.0
+ * @version 2.0.2
  * @author KraftySpoutsMedia, LLC
  * @copyright 2025 KraftySpouts
  * @license GPL-2.0-or-later
@@ -38,7 +38,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('KSM_PS_VERSION', '2.0.0');
+define('KSM_PS_VERSION', '2.0.2');
 define('KSM_PS_PLUGIN_FILE', __FILE__);
 define('KSM_PS_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('KSM_PS_PLUGIN_URL', plugin_dir_url(__FILE__));
@@ -688,7 +688,7 @@ class KSM_PS_Main {
         }
         
         // DEFICIT DETECTION: Check if yesterday met its quota before scheduling today
-        $this->detect_and_record_deficit();
+        $this->detect_and_record_yesterday_deficit();
         
         // Check if today is an active day (using WordPress timezone)
         $today = strtolower(current_time('l'));
@@ -1241,6 +1241,15 @@ class KSM_PS_Main {
         
         if (!$is_cron_run) {
             $message .= ' ' . __('(Manual scheduling - distributed across future dates)', 'ksm-post-scheduler');
+            
+            // Add progress report entries if any were collected during scheduling
+            if (!empty($progress_report)) {
+                $message .= "\n\n📋 " . __('SCHEDULING PROGRESS:', 'ksm-post-scheduler') . "\n";
+                foreach ($progress_report as $progress_entry) {
+                    $message .= $progress_entry . "\n";
+                }
+                $message .= "\n";
+            }
             
             // Add detailed progress report for manual runs
             if (!empty($scheduled_posts_details)) {
@@ -1822,6 +1831,51 @@ class KSM_PS_Main {
     }
 
     /**
+     * Check if yesterday met its quota and record deficit if needed
+     * Called by daily cron job to detect deficits from previous day
+     * 
+     * @since 1.9.6
+     */
+    private function detect_and_record_yesterday_deficit() {
+        $options = get_option($this->option_name, array());
+        $posts_per_day = intval($options['posts_per_day'] ?? 1);
+        
+        // Get yesterday's date
+        $yesterday = date('Y-m-d', strtotime('-1 day'));
+        
+        // Check if yesterday was an active day
+        $yesterday_day_name = strtolower(date('l', strtotime($yesterday)));
+        if (!in_array($yesterday_day_name, $options['days_active'] ?? array())) {
+            return; // Yesterday wasn't an active day, no deficit to check
+        }
+        
+        // Count how many posts were actually published yesterday
+        $posts_published_yesterday = get_posts(array(
+            'post_status' => 'publish',
+            'posts_per_page' => -1,
+            'date_query' => array(
+                array(
+                    'year'  => date('Y', strtotime($yesterday)),
+                    'month' => date('n', strtotime($yesterday)),
+                    'day'   => date('j', strtotime($yesterday)),
+                ),
+            ),
+            'fields' => 'ids'
+        ));
+        
+        $actual_posts = count($posts_published_yesterday);
+        $deficit = $posts_per_day - $actual_posts;
+        
+        if ($deficit > 0) {
+            $this->record_deficit($yesterday, $deficit);
+            error_log("KSM Post Scheduler: Detected deficit of {$deficit} posts for {$yesterday} (published: {$actual_posts}, target: {$posts_per_day})");
+        } else {
+            // If quota was met or exceeded, clear any existing deficit
+            $this->clear_deficit($yesterday);
+        }
+    }
+
+    /**
      * Detect and record deficits after scheduling posts
      * This should be called after the main scheduling logic
      * 
@@ -1849,6 +1903,7 @@ class KSM_PS_Main {
 
     /**
      * Smart backfill algorithm - completes deficit days before scheduling future posts
+     * Only allocates the exact number of posts needed for each deficit
      * 
      * @param array $available_posts Array of post objects available for scheduling
      * @param array $options Plugin settings
@@ -1860,42 +1915,65 @@ class KSM_PS_Main {
         if (empty($deficits) || empty($available_posts)) {
             return array(
                 'backfill_posts' => array(),
-                'future_posts' => $available_posts
+                'remaining_posts' => $available_posts
             );
         }
 
-        $posts_per_day = intval($options['posts_per_day'] ?? 1);
+        $total_available = count($available_posts);
+        $total_deficit = array_sum($deficits);
+        
+        // Only use posts for backfill if we have deficits to fill
+        // Reserve at least 1 post for future scheduling unless total deficit exceeds available posts
+        $posts_needed_for_backfill = min($total_deficit, max(1, $total_available - 1));
+        
         $backfill_posts = array();
         $remaining_posts = $available_posts;
+        $posts_used_for_backfill = 0;
 
         // Sort deficits by date (oldest first)
         ksort($deficits);
 
         foreach ($deficits as $deficit_date => $deficit_count) {
-            if (empty($remaining_posts)) {
-                break; // No more posts available
+            if (empty($remaining_posts) || $posts_used_for_backfill >= $posts_needed_for_backfill) {
+                break; // No more posts available or reached backfill allocation
             }
 
-            // Take posts for this deficit date
-            $posts_for_date = array_splice($remaining_posts, 0, min($deficit_count, count($remaining_posts)));
+            // Calculate how many posts to allocate for this specific deficit
+            $posts_for_this_deficit = min(
+                $deficit_count,  // Don't exceed the actual deficit
+                count($remaining_posts), // Don't exceed available posts
+                $posts_needed_for_backfill - $posts_used_for_backfill // Don't exceed backfill allocation
+            );
+            
+            if ($posts_for_this_deficit <= 0) {
+                break; // Can't allocate any posts for this deficit
+            }
+
+            // Take exactly the number of posts needed for this deficit
+            $posts_for_date = array_splice($remaining_posts, 0, $posts_for_this_deficit);
             
             if (!empty($posts_for_date)) {
                 $backfill_posts[$deficit_date] = $posts_for_date;
+                $posts_used_for_backfill += count($posts_for_date);
                 
-                // If we filled the deficit completely, clear it
-                if (count($posts_for_date) >= $deficit_count) {
+                // Update the deficit with remaining count
+                $remaining_deficit = $deficit_count - count($posts_for_date);
+                if ($remaining_deficit <= 0) {
                     $this->clear_deficit($deficit_date);
                 } else {
-                    // Update the deficit with remaining count
-                    $remaining_deficit = $deficit_count - count($posts_for_date);
                     $this->record_deficit($deficit_date, $remaining_deficit);
                 }
             }
         }
 
+        // Log backfill allocation for debugging
+        if (!empty($backfill_posts)) {
+            error_log("KSM Post Scheduler: Backfill allocated {$posts_used_for_backfill} posts for deficits, reserved " . count($remaining_posts) . " for future scheduling (total available: {$total_available})");
+        }
+
         return array(
             'backfill_posts' => $backfill_posts,
-            'future_posts' => $remaining_posts
+            'remaining_posts' => $remaining_posts
         );
     }
 

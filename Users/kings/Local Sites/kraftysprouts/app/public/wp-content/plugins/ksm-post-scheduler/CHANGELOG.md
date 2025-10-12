@@ -2,6 +2,28 @@
 
 All notable changes to the KSM Post Scheduler plugin will be documented in this file.
 
+## [2.0.2] - 06/10/2025
+
+### Critical Bug Fixes
+- **FIXED**: Smart backfill feature consuming all available posts, preventing multi-day scheduling
+- **FIXED**: `detect_and_record_deficit()` function call bug in cron job - was called without required parameters
+- **ENHANCED**: Completely redesigned backfill algorithm to only allocate exact posts needed for deficits
+- **IMPROVED**: Multi-day scheduling now works correctly even when deficit days exist
+- **ADDED**: New `detect_and_record_yesterday_deficit()` function for proper cron job deficit detection
+
+### Technical Details
+- Replaced percentage-based backfill allocation with precise deficit-based allocation
+- Backfill now only takes the exact number of posts needed for each deficit date
+- Added proper parameter handling for deficit detection in cron jobs
+- Improved logging to show actual posts allocated vs. total available
+- Fixed issue where backfill could allocate 70% of posts to a single day instead of filling actual shortfalls
+
+## [2.0.1] - 06/10/2025
+
+### Bug Fixes
+- **FIXED**: Missing progress report functionality in manual scheduling - progress messages now display correctly
+- **ENHANCED**: Progress report now includes intermediate scheduling messages (daily limits, day transitions, etc.)
+
 ## [2.0.0] - 06/10/2025
 
 ### MAJOR REFACTORING: NATIVE WORDPRESS SCHEDULING
@@ -21,6 +43,11 @@ All notable changes to the KSM Post Scheduler plugin will be documented in this 
 - Eliminated direct database updates that bypassed WordPress hooks
 - Simplified cron system to focus only on scheduling, not publishing
 - Enhanced compatibility with third-party plugins that depend on standard WordPress hooks
+
+### Bug Fixes
+- **FIXED**: JavaScript context issue in admin.js that prevented manual scheduling button from working
+- **FIXED**: Event binding problems that caused "this.validateForm is not a function" error
+- **IMPROVED**: All admin JavaScript event handlers now properly preserve object context
 
 ## [1.9.6] - 03/10/2025
 
