@@ -5,6 +5,32 @@ All notable changes to Schedulely will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.2] - 12/10/2025
+
+### Fixed
+- **Capacity expansion suggestions now intelligently handle both start and end times**
+- Plugin previously only suggested extending the end time to accommodate more articles
+- End time hard limit of 11:59 PM created a ceiling that couldn't be exceeded
+- Now provides three expansion strategies:
+  1. Extend end time only (when space available before 11:59 PM)
+  2. Start earlier AND extend to 11:59 PM (when end time is near limit)
+  3. Start earlier only (when end time is already at or near 11:59 PM)
+- Users can now fit more articles by adjusting either start time, end time, or both
+
+### Changed
+- Improved capacity calculation logic in `calculate_capacity()` method
+- Smarter "Expand Time Window" suggestions based on available time at day's end
+- More descriptive messages explaining why start time needs to change
+- Better user experience when configuring scheduling windows
+
+### Technical Details
+- Modified `Schedulely_Scheduler::calculate_capacity()` in `class-scheduler.php`
+- Added logic to calculate available minutes between current end time and 11:59 PM
+- Three-tiered suggestion strategy based on `minutes_available_at_end`
+- Respects 11:59 PM hard limit while maximizing scheduling capacity
+
+---
+
 ## [1.2.1] - 12/10/2025
 
 ### Fixed - CRITICAL

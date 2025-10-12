@@ -3,7 +3,7 @@
  * Filename: class-scheduler.php
  * Author: Krafty Sprouts Media, LLC
  * Created: 06/10/2025
- * Version: 1.2.1
+ * Version: 1.2.2
  * Last Modified: 12/10/2025
  * Description: Main Scheduling Engine - Handles all post scheduling logic with last date completion
  *
@@ -483,26 +483,68 @@ class Schedulely_Scheduler {
             $needed_minutes = $target_theoretical * $min_interval;
             $needed_hours = ceil($needed_minutes / 60);
             
-            // Calculate new end time
-            $new_end_timestamp = $start_timestamp + ($needed_minutes * 60);
-            $new_end_time = date('g:i A', $new_end_timestamp);
+            // Calculate how much to add (needed - current)
+            $minutes_to_add = $needed_minutes - $total_minutes;
+            
+            // Hard limit: end time cannot go past 11:59 PM
+            $max_end_timestamp = strtotime($date . ' 11:59 PM');
+            $minutes_available_at_end = ($max_end_timestamp - $end_timestamp) / 60;
+            
+            // Decide strategy based on available space at end
+            $suggested_start_time = $start_time;
+            $suggested_end_time = $end_time;
+            $expand_message = '';
+            
+            if ($minutes_to_add <= $minutes_available_at_end) {
+                // Can expand by just extending the end time
+                $new_end_timestamp = $end_timestamp + ($minutes_to_add * 60);
+                $suggested_end_time = date('g:i A', $new_end_timestamp);
+                $expand_message = sprintf(
+                    __('Extend end time from %s-%s to %s-%s (~%d hours needed)', 'schedulely'),
+                    $start_time,
+                    $end_time,
+                    $start_time,
+                    $suggested_end_time,
+                    $needed_hours
+                );
+            } elseif ($minutes_available_at_end > 0 && $minutes_to_add > $minutes_available_at_end) {
+                // Need to extend to 11:59 PM AND start earlier
+                $suggested_end_time = '11:59 PM';
+                $remaining_minutes_needed = $minutes_to_add - $minutes_available_at_end;
+                $new_start_timestamp = $start_timestamp - ($remaining_minutes_needed * 60);
+                $suggested_start_time = date('g:i A', $new_start_timestamp);
+                $expand_message = sprintf(
+                    __('Extend from %s-%s to %s-%s (start earlier + extend to 11:59 PM, ~%d hours needed)', 'schedulely'),
+                    $start_time,
+                    $end_time,
+                    $suggested_start_time,
+                    $suggested_end_time,
+                    $needed_hours
+                );
+            } else {
+                // End time already at or near limit, must start earlier
+                $new_start_timestamp = $start_timestamp - ($minutes_to_add * 60);
+                $suggested_start_time = date('g:i A', $new_start_timestamp);
+                $suggested_end_time = $end_time;
+                $expand_message = sprintf(
+                    __('Start earlier from %s-%s to %s-%s (end time cannot extend past 11:59 PM, ~%d hours needed)', 'schedulely'),
+                    $start_time,
+                    $end_time,
+                    $suggested_start_time,
+                    $suggested_end_time,
+                    $needed_hours
+                );
+            }
             
             $suggestions[] = [
                 'type' => 'expand_window',
                 'label' => __('Expand Time Window', 'schedulely'),
                 'current_start' => $start_time,
                 'current_end' => $end_time,
-                'suggested_start' => $start_time,
-                'suggested_end' => $new_end_time,
+                'suggested_start' => $suggested_start_time,
+                'suggested_end' => $suggested_end_time,
                 'needed_hours' => $needed_hours,
-                'message' => sprintf(
-                    __('Extend window from %s-%s to %s-%s (~%d hours needed for random scheduling)', 'schedulely'),
-                    $start_time,
-                    $end_time,
-                    $start_time,
-                    $new_end_time,
-                    $needed_hours
-                )
+                'message' => $expand_message
             ];
         }
         
