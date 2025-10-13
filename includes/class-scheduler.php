@@ -3,8 +3,8 @@
  * Filename: class-scheduler.php
  * Author: Krafty Sprouts Media, LLC
  * Created: 06/10/2025
- * Version: 1.2.2
- * Last Modified: 12/10/2025
+ * Version: 1.2.3
+ * Last Modified: 13/10/2025
  * Description: Main Scheduling Engine - Handles all post scheduling logic with last date completion
  *
  * @package Schedulely
@@ -427,10 +427,24 @@ class Schedulely_Scheduler {
         
         // CRITICAL: Account for random time generation inefficiency
         // Random placement cannot achieve perfect packing like sequential placement
-        // Apply 30% reduction to account for randomness overhead and collision avoidance
-        // Testing shows 70% efficiency is realistic for random scheduling
-        // Example: 10 theoretical * 0.70 = 7 actual posts
-        $capacity = max(1, floor($theoretical_capacity * 0.70));
+        // Efficiency factor depends on interval size - smaller intervals = harder to pack randomly
+        
+        // Dynamic efficiency based on interval size:
+        // - Large intervals (60+ min): 70% efficiency (easier to find gaps)
+        // - Medium intervals (30-59 min): 65% efficiency
+        // - Small intervals (20-29 min): 55% efficiency (high collision probability)
+        // - Tiny intervals (<20 min): 50% efficiency (very difficult)
+        if ($min_interval >= 60) {
+            $efficiency = 0.70;
+        } elseif ($min_interval >= 30) {
+            $efficiency = 0.65;
+        } elseif ($min_interval >= 20) {
+            $efficiency = 0.55;
+        } else {
+            $efficiency = 0.50;
+        }
+        
+        $capacity = max(1, floor($theoretical_capacity * $efficiency));
         
         // For very small capacities (1-3 posts), be more conservative
         if ($theoretical_capacity <= 3) {
@@ -444,11 +458,13 @@ class Schedulely_Scheduler {
         if (!$meets_quota) {
             // Suggestion 1: Reduce interval
             // Account for randomness: need to target higher theoretical capacity to achieve desired actual capacity
-            $target_theoretical = ceil($desired_quota / 0.70); // Reverse the 70% factor
+            $target_theoretical = ceil($desired_quota / $efficiency); // Use current efficiency factor
             $needed_interval = floor($total_minutes / $target_theoretical);
             if ($needed_interval > 0 && $needed_interval < $min_interval) {
                 $theoretical = floor($total_minutes / $needed_interval);
-                $realistic_capacity = max(1, floor($theoretical * 0.70));
+                // Calculate efficiency for the suggested interval
+                $suggested_efficiency = $needed_interval >= 60 ? 0.70 : ($needed_interval >= 30 ? 0.65 : ($needed_interval >= 20 ? 0.55 : 0.50));
+                $realistic_capacity = max(1, floor($theoretical * $suggested_efficiency));
                 $suggestions[] = [
                     'type' => 'reduce_interval',
                     'label' => __('Reduce Minimum Interval', 'schedulely'),
@@ -479,7 +495,7 @@ class Schedulely_Scheduler {
             
             // Suggestion 3: Expand time window
             // Account for randomness: need more minutes than theoretical minimum
-            $target_theoretical = ceil($desired_quota / 0.70); // Reverse the 70% factor
+            $target_theoretical = ceil($desired_quota / $efficiency); // Use current efficiency factor
             $needed_minutes = $target_theoretical * $min_interval;
             $needed_hours = ceil($needed_minutes / 60);
             
@@ -582,7 +598,15 @@ class Schedulely_Scheduler {
             return false; // Invalid time window
         }
         
-        $max_attempts = 100; // Prevent infinite loop
+        // CRITICAL FIX: Dynamic max_attempts based on scheduling density
+        // As more posts are scheduled, collision probability increases exponentially
+        // Base attempts: 200 (doubled from 100)
+        // Additional attempts: 50 per already-scheduled post to account for increasing difficulty
+        // Example: 0 posts = 200 attempts, 8 posts = 200 + (8 * 50) = 600 attempts, 15 posts = 950 attempts
+        $base_attempts = 200;
+        $additional_attempts_per_post = 50;
+        $max_attempts = $base_attempts + (count($used_times) * $additional_attempts_per_post);
+        
         $attempt = 0;
         
         while ($attempt < $max_attempts) {

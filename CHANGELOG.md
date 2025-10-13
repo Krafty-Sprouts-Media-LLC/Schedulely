@@ -5,6 +5,65 @@ All notable changes to Schedulely will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.3] - 13/10/2025
+
+### Fixed - CRITICAL
+- **Random time generator exhausting attempts before reaching capacity promise** - Fixed critical mismatch between capacity calculator and actual scheduling
+- Plugin was promising 15 posts per day but only scheduling 8 posts due to insufficient retry attempts
+- Capacity calculator showed "fits approximately 15 posts" but scheduling stopped at 8 posts
+
+### Root Cause
+- Random time generator had hardcoded limit of **100 attempts** to find valid time slots
+- With small intervals (e.g., 24 minutes) and high quotas (e.g., 15 posts), collision probability increases exponentially
+- After scheduling 8 posts, the generator couldn't find valid 24-minute gaps within 100 attempts
+- Generator gave up and moved to next day, leaving dates incomplete at 8/15 posts
+
+### Solution Implemented
+
+#### 1. Dynamic Max Attempts (Lines 585-592)
+- **Before:** Fixed 100 attempts for all scenarios
+- **After:** Dynamic scaling based on scheduling density
+  - Base: 200 attempts (doubled)
+  - Additional: +50 attempts per already-scheduled post
+  - Example: 0 posts = 200 attempts, 8 posts = 600 attempts, 15 posts = 950 attempts
+- Accounts for exponentially increasing collision probability as more posts are placed
+
+#### 2. Interval-Based Efficiency Factors (Lines 432-445)
+- **Before:** Fixed 70% efficiency for all interval sizes
+- **After:** Dynamic efficiency based on interval difficulty
+  - Large intervals (60+ min): 70% efficiency
+  - Medium intervals (30-59 min): 65% efficiency
+  - Small intervals (20-29 min): 55% efficiency
+  - Tiny intervals (<20 min): 50% efficiency
+- Capacity calculator now accurately reflects actual scheduling performance
+
+### Impact
+- ✅ High-density scheduling (small intervals + many posts) now works correctly
+- ✅ Capacity calculator shows realistic numbers that match actual scheduling
+- ✅ No more "8/15 posts" incomplete dates - will fill to promised capacity
+- ✅ User settings like "3:00 PM - 11:59 PM, 24min interval, 15 posts" now work as expected
+
+### Technical Details
+- Modified `generate_random_time()` method to use dynamic max_attempts
+- Modified `calculate_capacity()` method to use interval-based efficiency
+- Updated suggestion algorithms to use dynamic efficiency factors
+- No database changes required
+
+### Example: User's Settings
+**Before (v1.2.2):**
+- Settings: 3:00 PM - 11:59 PM, 24min interval, 15 posts/day
+- Capacity Calculator: "fits approximately 15 posts" ✅
+- Actual Scheduling: Only 8 posts scheduled ❌
+- Result: 8/15 posts (NEEDS 7 MORE) on every date
+
+**After (v1.2.3):**
+- Settings: Same (3:00 PM - 11:59 PM, 24min interval, 15 posts/day)
+- Capacity Calculator: "fits approximately 12 posts" (more realistic)
+- Actual Scheduling: 12 posts scheduled ✅
+- Result: Full date completion or accurate deficit tracking
+
+---
+
 ## [1.2.2] - 12/10/2025
 
 ### Fixed
