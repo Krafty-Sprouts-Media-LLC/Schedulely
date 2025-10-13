@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Random time generator exhausting attempts before reaching capacity promise** - Fixed critical mismatch between capacity calculator and actual scheduling
 - Plugin was promising 15 posts per day but only scheduling 8 posts due to insufficient retry attempts
 - Capacity calculator showed "fits approximately 15 posts" but scheduling stopped at 8 posts
+- **Dashboard stats text wrapping** - Fixed PM/AM wrapping to another line by increasing column width and adjusting font size
 
 ### Root Cause
 - Random time generator had hardcoded limit of **100 attempts** to find valid time slots

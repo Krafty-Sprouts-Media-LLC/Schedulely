@@ -1,3 +1,14 @@
+/**
+ * Filename: admin.css
+ * Author: Krafty Sprouts Media, LLC
+ * Created: 06/10/2025
+ * Version: 1.2.3
+ * Last Modified: 13/10/2025
+ * Description: Admin dashboard styles for Schedulely plugin - WordPress native design
+ *
+ * @package Schedulely
+ */
+
 /* ========================================
    SCHEDULELY - CLEAN WORDPRESS NATIVE STYLES
    ======================================== */
@@ -23,7 +34,7 @@
 /* Statistics Grid */
 .schedulely-stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     gap: 16px;
     margin-bottom: 20px;
 }
@@ -37,15 +48,18 @@
 .schedulely-stat-label {
     font-size: 13px;
     color: #646970;
-    margin-bottom: 4px;
+    margin-bottom: 8px;
     display: block;
 }
 
 .schedulely-stat-value {
-    font-size: 28px;
+    font-size: 20px;
     font-weight: 600;
     color: #1d2327;
-    line-height: 1;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* Actions */
