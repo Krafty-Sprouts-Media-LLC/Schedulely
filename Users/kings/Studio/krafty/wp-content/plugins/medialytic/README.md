@@ -8,7 +8,8 @@ Medialytic unifies Krafty Sprouts Media’s internal media-management tooling in
 - **Featured image suite** – Duplicate finder, fallback assignment, admin list thumbnails (with inline media-modal editing), RSS image injection, and background bulk initialization.
 - **Auto upload images** – Seamlessly import external images referenced in post content, attach them to the Media Library, and rewrite `src` / `srcset` / `alt` attributes. Based on _Auto Upload Images_ by Ali Irani.
 - **Image title & alt optimizer** – Clean filenames become SEO-friendly titles, captions, descriptions, and alt text, with configurable capitalization and filename renaming. Based on _Auto Image Title & Alt_ by Diego de Guindos.
-- **Attachment tools** – One-click “Optimize title & tags” actions inside both the Media Library list view and the attachment edit screen.
+- **Attachment tools** – One-click “Optimize title & tags” actions inside the Media Library list view and attachment edit screen.
+- **Media library sizing** – Adds sortable file-size columns, “Index/Reindex Media” workflows, and variant previews (based on SS88 LLC’s Media Library File Size).
 
 ## Modules at a glance
 
@@ -21,6 +22,7 @@ Medialytic unifies Krafty Sprouts Media’s internal media-management tooling in
 | `featured-image-manager` | `Medialytic_Featured_Image_Manager`     | Fallbacks, RSS injection, admin thumbnails, cache init. |
 | `auto-upload-images`     | `Medialytic_Auto_Upload_Images`         | Imports remote images on save; exposes full settings UI. |
 | `image-title-alt`        | `Medialytic_Image_Title_Alt`            | Cleans titles/alt/captions + file renaming + AJAX actions. |
+| `media-file-size`        | `Medialytic_Media_File_Size`            | Displays sortable file sizes, totals the entire library, and surfaces variant previews with indexing helpers. |
 
 Each module is registered with the internal `Medialytic_Module_Manager`, so you can programmatically enable/disable or extend modules without touching the bootstrapper.
 
@@ -45,6 +47,9 @@ Each module is registered with the internal `Medialytic_Module_Manager`, so you 
 - **Image Title & Alt**
   - Pick which fields to update (title, alt, caption, description), choose capitalization, and decide whether to rename images only, all files, or none.
   - Use the “Optimize” buttons in the Media Library to retroactively clean existing attachments.
+- **Media File Size**
+  - Switch the Media Library to list view and click **Index Media** (or **Reindex Media** from the sidebar) to populate file-size metadata in batches of 100 items.
+  - View combined variant weights, open the modal to inspect each variant, and monitor total library size via the heading badge.
 
 ## Uninstall / cleanup
 
@@ -55,12 +60,14 @@ Running the built-in WordPress uninstall routine removes:
 - `medialytic_image_counter_initialized`
 - `medialytic_auto_upload_images`
 - `medialytic_image_title_alt`
+- Post meta keys `SS88MLFS` / `SS88MLFSV` used for cached file sizes
 - All Medialytic transients and database tables (`medialytic_media_counts`, `medialytic_media_history`)
 
 ## Credits
 
 - **Auto Upload Images** – Original plugin by [Ali Irani](https://github.com/airani/wp-auto-upload) (GPLv2+). Ported with enhancements (AVIF support, CDN overrides, WP coding standards).
 - **Auto Image Title & Alt** – Original plugin by [Diego de Guindos](https://wordpress.org/plugins/auto-image-title-alt/) (GPLv2+). Rebuilt to match Medialytic’s UX, AJAX, and settings conventions.
+- **Media Library File Size** – Original plugin by [SS88 LLC](https://wordpress.org/plugins/media-library-file-size/) (GPLv2+). Batch indexing, modal UI, and summary patterns inspired this module.
 - **Duplicate finder & featured image tooling** – Internal Krafty Sprouts Media utilities, now consolidated here.
 
 Medialytic itself is GPLv2+—feel free to submit pull requests or open issues on [GitHub](https://github.com/Krafty-Sprouts-Media-LLC/medialytic). Contributions should follow the WordPress Coding Standards (PHPCS) and include updates to this README plus the changelog entry for each release.

@@ -5,6 +5,26 @@ All notable changes to Medialytic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2025-11-14
+
+### Added
+- Ported SS88 LLC’s Media Library File Size plugin into the new `media-file-size` module so the Media Library gains a sortable “File Size” column, total library badge, and variant modal
+- Added “Index Media” and “Reindex Media” controls with AJAX-powered batch processing (100 attachments at a time) plus success/error messaging inside Medialytic
+- Brought over the variant viewer modal so editors can inspect width/height/file size for every generated image size and download each variant in a click
+
+### Changed
+- Localized assets (`assets/css/media-file-size.css`, `assets/js/media-file-size.js`) now ship with Medialytic, honouring our admin color palette and notices instead of third-party libraries
+- `Medialytic::uninstall()` delegates to module uninstall callbacks ensuring `SS88MLFS` / `SS88MLFSV` meta keys are purged during plugin removal
+- README now documents the Media File Size workflow, configuration steps, and credits the upstream GPL plugin
+
+## [1.7.1] - 2025-11-14
+
+### Added
+- Authored a project-level `README.md` that documents every module, configuration surface, uninstall behaviour, and upstream credits so teams can onboard quickly
+
+### Changed
+- `Medialytic::uninstall()` now imports the feature modules and removes all related options/tables so the plugin cleans up after itself without relying on a standalone `uninstall.php`
+
 ## [1.7.0] - 2025-11-14
 
 ### Added
