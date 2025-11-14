@@ -85,22 +85,22 @@
 14. types of frogs in maine
 15. types of frogs in america
 
-## Batch 6: More Frogs by Region (15 tasks)
-1. types of frogs in vermont
-2. types of frogs in europe
-3. types of frogs in bali
-4. types of frogs in colorado
-5. types of frogs in washington state
-6. types of frogs in cape town
-7. types of frogs in puerto rico
-8. types of frogs in new hampshire
-9. types of frogs in new york
-10. types of frogs in the desert
-11. types of frogs in northern virginia
-12. types of frogs in san diego
-13. types of frogs in the jungle
-14. types of frogs in new england
-15. types of frogs in las vegas
+## Batch 6: Fish & Aquatic Species (15 tasks)
+1. types of fish in florida
+2. types of fish in california
+3. types of fish in texas
+4. tropical fish species
+5. freshwater fish species
+6. saltwater fish species
+7. fish in coral reefs
+8. fish in rivers
+9. fish in lakes
+10. endangered fish species
+11. fish migration patterns
+12. fish predators
+13. fish reproduction facts
+14. fish communication methods
+15. fish anatomy facts
 
 ## Batch 7: Green Snakes Geographic Distribution (10 tasks)
 1. green snakes in asia
@@ -207,19 +207,19 @@
 11. what animals eat wheat
 12. what animals eat trees
 
-## Batch 15: Mammals - Predators & Facts (12 tasks)
-1. interesting facts about squirrels
-2. interesting facts about raccoons
-3. interesting facts about bears
-4. interesting facts about deer
-5. interesting facts about moose
-6. interesting facts about elk
-7. interesting facts about mountain lions
-8. interesting facts about coyotes
-9. what animals eat armadillos
-10. what animals eat hippos
-11. what animals eat opossums
-12. what animals eat lichen
+## Batch 15: Birds of Prey & Raptors (12 tasks)
+1. facts about falcons
+2. facts about hawks
+3. facts about eagles
+4. facts about owls
+5. facts about vultures
+6. hunting techniques of raptors
+7. raptor nesting behaviors
+8. raptor species worldwide
+9. endangered raptors
+10. raptor vision and hearing
+11. raptor migration patterns
+12. raptor conservation efforts
 
 ## Batch 16: Miscellaneous Wildlife (12 tasks)
 1. what animals eat vegetables
