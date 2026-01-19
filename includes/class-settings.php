@@ -303,6 +303,11 @@ class Schedulely_Settings
         if (isset($_POST['schedulely_save_settings'])) {
             check_admin_referer('schedulely_settings_save');
 
+            // Check user capabilities
+            if (!current_user_can('manage_options')) {
+                wp_die(__('You do not have sufficient permissions to perform this action.', 'schedulely'));
+            }
+
             // Update settings
             update_option('schedulely_post_status', $this->sanitize_post_status($_POST['schedulely_post_status'] ?? 'draft'));
             update_option('schedulely_posts_per_day', absint($_POST['schedulely_posts_per_day'] ?? 8));
@@ -715,7 +720,7 @@ class Schedulely_Settings
                         $('#schedulely-welcome-notice').fadeOut();
                         $.post(ajaxurl, {
                             action: 'schedulely_dismiss_notice',
-                            nonce: '<?php echo wp_create_nonce('schedulely_dismiss_notice'); ?>'
+                            nonce: '<?php echo esc_js(wp_create_nonce('schedulely_dismiss_notice')); ?>'
                         });
                     });
             
@@ -723,7 +728,7 @@ class Schedulely_Settings
                     $('#schedulely-welcome-notice').on('click', '.notice-dismiss', function() {
                         $.post(ajaxurl, {
                             action: 'schedulely_dismiss_notice',
-                            nonce: '<?php echo wp_create_nonce('schedulely_dismiss_notice'); ?>'
+                            nonce: '<?php echo esc_js(wp_create_nonce('schedulely_dismiss_notice')); ?>'
                         });
                     });
                 });

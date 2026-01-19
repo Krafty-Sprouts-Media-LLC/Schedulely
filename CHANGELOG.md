@@ -5,6 +5,46 @@ All notable changes to Schedulely will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.2] - 19/01/2026
+
+### Changed
+- **Documentation Cleanup** - Consolidated and organized documentation
+- **Repository Structure** - Moved internal documentation to `docs/` folder and excluded from public repository
+- **Removed Outdated Files** - Deleted old version notes, bug reports, and deployment checklists that are no longer relevant
+
+### Technical Details
+- Added `docs/` folder to `.gitignore` to keep internal documentation private
+- Removed 18 outdated documentation files from git tracking
+- Kept essential documentation files: `INSTALL.md`, `PROJECT_SUMMARY.md`, `QUICK_REFERENCE.md`, `AI_INTEGRATION_OPPORTUNITIES.md` (in docs folder, not tracked)
+
+---
+
+## [1.3.1] - 19/01/2026
+
+### Fixed
+- **Security Vulnerabilities** - Fixed all critical and high-priority security issues identified in security audit
+- **Capability Check** - Added capability verification in form submission handler to prevent unauthorized access
+- **SQL Injection Prevention** - Converted all direct SQL queries to use `$wpdb->prepare()` for proper parameter binding
+- **XSS Prevention** - Escaped JavaScript context outputs with `esc_js()` for nonce values
+- **Uninstall Security** - Fixed uninstall script to use prepared statements with proper escaping
+
+### Technical Details
+- Fixed `includes/class-settings.php`:
+  - Added `current_user_can('manage_options')` check inside form submission handler (Line 308-311)
+  - Escaped JavaScript nonce outputs with `esc_js()` (Lines 718, 726)
+- Fixed `includes/class-scheduler.php`:
+  - Converted `get_last_scheduled_date()` query to use `$wpdb->prepare()` with parameter binding (Lines 151-160)
+- Fixed `uninstall.php`:
+  - Converted transient deletion queries to use `$wpdb->prepare()` with `$wpdb->esc_like()` for LIKE patterns (Lines 37-42)
+
+### Security
+- All critical security vulnerabilities from security audit have been resolved
+- Plugin now fully complies with WordPress security coding standards
+- All SQL queries use prepared statements
+- All output is properly escaped for context
+
+---
+
 ## [1.3.0] - 19/01/2026
 
 ### Added

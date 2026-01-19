@@ -34,8 +34,14 @@ wp_clear_scheduled_hook('schedulely_auto_schedule');
 
 // Delete transients
 global $wpdb;
-$wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_schedulely_%'");
-$wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_timeout_schedulely_%'");
+$wpdb->query($wpdb->prepare(
+    "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s",
+    $wpdb->esc_like('_transient_schedulely_') . '%'
+));
+$wpdb->query($wpdb->prepare(
+    "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s",
+    $wpdb->esc_like('_transient_timeout_schedulely_') . '%'
+));
 
 // Clear any cached data
 wp_cache_flush();

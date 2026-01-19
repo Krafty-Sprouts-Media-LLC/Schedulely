@@ -149,12 +149,16 @@ class Schedulely_Scheduler
         global $wpdb;
 
         $last_date = $wpdb->get_var(
-            "SELECT DATE(post_date) as schedule_date 
-             FROM {$wpdb->posts} 
-             WHERE post_status = 'future' 
-             AND post_type = 'post'
-             ORDER BY post_date DESC 
-             LIMIT 1"
+            $wpdb->prepare(
+                "SELECT DATE(post_date) as schedule_date 
+                 FROM {$wpdb->posts} 
+                 WHERE post_status = %s 
+                 AND post_type = %s
+                 ORDER BY post_date DESC 
+                 LIMIT 1",
+                'future',
+                'post'
+            )
         );
 
         return $last_date; // Returns "2025-10-09" or null
