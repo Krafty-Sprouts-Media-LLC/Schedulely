@@ -2,282 +2,459 @@
  * Filename: admin.css
  * Author: Krafty Sprouts Media, LLC
  * Created: 06/10/2025
- * Version: 1.2.4
- * Last Modified: 13/10/2025
- * Description: Admin dashboard styles for Schedulely plugin - WordPress native design
+ * Last Modified: 05/01/2026
+ * Description: Modern Dashboard Grid styles for Schedulely
  *
  * @package Schedulely
  */
 
 /* ========================================
-   SCHEDULELY - CLEAN WORDPRESS NATIVE STYLES
+   Base & Layout
    ======================================== */
 
-/* Cards */
-.schedulely-card {
-    background: #fff;
-    border: 1px solid #c3c4c7;
-    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
-    padding: 20px;
-    margin-bottom: 20px;
-}
-
-.schedulely-card-header {
-    font-size: 18px;
-    font-weight: 600;
-    margin-bottom: 16px;
-    color: #1d2327;
-    padding-bottom: 12px;
-    border-bottom: 1px solid #dcdcde;
-}
-
-/* Statistics Grid */
-.schedulely-stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 16px;
-    margin-bottom: 20px;
-}
-
-.schedulely-stat-item {
-    padding: 16px;
-    background: #f6f7f7;
-    border-left: 4px solid #2271b1;
-}
-
-.schedulely-stat-label {
-    font-size: 13px;
-    color: #646970;
-    margin-bottom: 8px;
-    display: block;
-}
-
-.schedulely-stat-value {
-    font-size: 20px;
-    font-weight: 600;
-    color: #1d2327;
-    line-height: 1.3;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-/* Actions */
-.schedulely-actions {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    margin-top: 16px;
-}
-
-.schedulely-actions .button {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.schedulely-actions .dashicons {
-    font-size: 18px;
-    width: 18px;
-    height: 18px;
-}
-
-/* Buttons */
-.schedulely-btn-primary {
-    background: #2271b1;
-    color: #fff;
-    border: 1px solid #2271b1;
-    padding: 8px 16px;
-    border-radius: 3px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-    text-decoration: none;
-    display: inline-block;
-}
-
-.schedulely-btn-primary:hover {
-    background: #135e96;
-    border-color: #135e96;
-    color: #fff;
-}
-
-.schedulely-btn-primary:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.schedulely-btn-secondary {
-    background: #f6f7f7;
-    color: #2c3338;
-    border: 1px solid #c3c4c7;
-    padding: 8px 16px;
-    border-radius: 3px;
-    cursor: pointer;
-    font-size: 14px;
-    text-decoration: none;
-    display: inline-block;
-}
-
-.schedulely-btn-secondary:hover {
-    background: #fff;
-    border-color: #8c8f94;
-    color: #2c3338;
-}
-
-/* Form Elements */
-.schedulely-form-row {
-    margin-bottom: 20px;
-}
-
-.schedulely-form-label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: 600;
-    color: #1d2327;
-}
-
-.schedulely-form-description {
-    font-size: 13px;
-    color: #646970;
-    margin-top: 4px;
-}
-
-/* Scheduled Posts List */
-.schedulely-post-list {
-    list-style: none;
+/* WordPress Admin Wrapper - Full Width */
+.wrap {
     margin: 0;
     padding: 0;
 }
 
-.schedulely-post-item {
-    padding: 12px 0;
-    border-bottom: 1px solid #dcdcde;
-    display: flex;
-    align-items: flex-start;
-    gap: 16px;
+/* Plugin Content Wrapper - Constrained */
+.schedulely-wrap {
+    max-width: 1200px;
+    margin: 20px auto;
 }
 
-.schedulely-post-item:last-child {
+/* Dashboard Header */
+.dash-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+}
+
+.dash-title {
+    font-family: 'Lato', sans-serif;
+    font-size: 24px;
+    font-weight: 700;
+    color: #1d2327;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.dash-badge {
+    background: #2271b1;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    vertical-align: middle;
+}
+
+.dash-subtitle {
+    font-size: 14px;
+    color: #646970;
+    margin-top: 5px;
+}
+
+.action-bar {
+    display: flex;
+    gap: 10px;
+}
+
+.btn {
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 13px;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.btn-primary {
+    background: #2271b1;
+    color: white;
+    border-color: #2271b1;
+}
+
+.btn-primary:hover {
+    background: #135e96;
+    color: white;
+}
+
+.btn-secondary {
+    background: white;
+    color: #2271b1;
+    border-color: #2271b1;
+}
+
+.btn-secondary:hover {
+    background: #f6f7f7;
+    color: #2271b1;
+}
+
+/* ========================================
+   Grid System
+   ======================================== */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    grid-template-rows: auto auto;
+}
+
+/* ========================================
+   Stat Cards
+   ======================================== */
+.stat-card {
+    background: white;
+    padding: 20px;
+    border-radius: 6px;
+    border: 1px solid #dcdcde;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.stat-icon {
+    width: 32px;
+    height: 32px;
+    background: #f0f6fc;
+    color: #2271b1;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 15px;
+}
+
+.stat-value {
+    font-family: 'Lato', sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: #1d2327;
+    line-height: 1;
+    margin-bottom: 5px;
+}
+
+.stat-label {
+    font-size: 13px;
+    color: #646970;
+    font-weight: 500;
+}
+
+.stat-trend {
+    font-size: 11px;
+    color: #00a32a;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 10px;
+    font-weight: 600;
+}
+
+.stat-trend.down {
+    color: #d63638;
+}
+
+/* ========================================
+   Config Card (Main Area)
+   ======================================== */
+.config-card {
+    grid-column: span 3;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #dcdcde;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+}
+
+.card-header {
+    padding: 15px 20px;
+    border-bottom: 1px solid #f0f0f1;
+    background: #fff;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.card-title {
+    font-weight: 600;
+    font-size: 14px;
+    margin: 0;
+    color: #1d2327;
+}
+
+.timeline-view {
+    padding: 20px;
+}
+
+/* Form Styling within Cards */
+.form-grid {
+    display: block;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 8px;
+    font-size: 13px;
+    color: #1d2327;
+}
+
+/* ========================================
+   Activity/Side Card
+   ======================================== */
+.activity-card {
+    grid-column: span 1;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #dcdcde;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.activity-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.activity-item {
+    padding: 15px 20px;
+    border-bottom: 1px solid #f0f0f1;
+    display: flex;
+    gap: 12px;
+}
+
+.activity-item:last-child {
     border-bottom: none;
 }
 
-.schedulely-post-time {
-    font-weight: 600;
-    color: #2271b1;
-    min-width: 140px;
-    font-size: 14px;
+.activity-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-top: 6px;
     flex-shrink: 0;
 }
 
-.schedulely-post-title {
+.activity-content {
+    font-size: 13px;
+    line-height: 1.4;
+    color: #3c434a;
+}
+
+.activity-time {
+    font-size: 11px;
+    color: #8c8f94;
+    display: block;
+    margin-top: 4px;
+}
+
+.dot-blue {
+    background: #2271b1;
+}
+
+.dot-green {
+    background: #00a32a;
+}
+
+.dot-orange {
+    background: #dba617;
+}
+
+/* Quick Settings */
+.quick-settings {
+    padding: 20px;
+    border-top: 1px solid #f0f0f1;
+    background: #fcfcfc;
+}
+
+.setting-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 15px;
+}
+
+/* ========================================
+   Logic & Alert Integrated Styles
+   ======================================== */
+.insight-panel {
+    background: #f0f6fc;
+    border: 1px solid #cce5ff;
+    border-radius: 6px;
+    padding: 15px 20px;
+    margin-bottom: 25px;
+    position: relative;
+}
+
+.insight-title {
     color: #1d2327;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.insight-icon {
+    color: #2271b1;
+}
+
+.insight-content {
+    margin-top: 10px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #2c3338;
+}
+
+.insight-list {
+    margin: 5px 0 0 20px;
+    padding: 0;
+}
+
+.close-insight {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    border: none;
+    background: none;
+    color: #646970;
+    cursor: pointer;
+}
+
+/* Alert Box */
+.alert-box {
+    background: #fcf0f1;
+    border-left: 4px solid #d63638;
+    padding: 15px 20px;
+    margin-bottom: 20px;
+    border-radius: 4px;
+    display: flex;
+    gap: 15px;
+    align-items: start;
+}
+
+.alert-icon {
+    color: #d63638;
+    margin-top: 2px;
+}
+
+.alert-title {
+    font-weight: 700;
+    color: #b32d2e;
+    display: block;
+    margin-bottom: 4px;
     font-size: 14px;
+}
+
+.alert-desc {
+    color: #1d2327;
+    line-height: 1.4;
+}
+
+.capacity-meter {
+    height: 8px;
+    background: #e0e0e0;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 8px;
+    width: 100%;
+}
+
+.capacity-fill {
+    height: 100%;
+    background: #d63638;
+    width: 0%;
+    /* JS will calculate */
+    transition: width 0.5s ease;
+}
+
+/* Suggestions */
+.suggestion-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 20px;
+    border-top: 1px solid #f0f0f1;
+    padding-top: 20px;
+}
+
+.suggestion-card {
+    background: #fff;
+    border: 1px solid #dcdcde;
+    border-radius: 6px;
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s;
+}
+
+.suggestion-card:hover {
+    border-color: #2271b1;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.sugg-content {
     flex: 1;
 }
 
-.schedulely-post-title a {
-    color: #2271b1;
-    text-decoration: none;
+.sugg-title {
+    font-weight: 600;
+    color: #1d2327;
+    font-size: 13px;
+    margin-bottom: 3px;
 }
 
-.schedulely-post-title a:hover {
-    color: #135e96;
-}
-
-/* Status Badges */
-.schedulely-status-badge {
-    display: inline-block;
-    padding: 4px 10px;
-    border-radius: 3px;
+.sugg-desc {
+    color: #646970;
     font-size: 12px;
-    font-weight: 600;
 }
 
-.schedulely-status-badge.complete {
-    background: #d7f0d7;
-    color: #00a32a;
+.sugg-action {
+    margin-left: 20px;
+    flex-shrink: 0;
 }
 
-.schedulely-status-badge.incomplete {
-    background: #fcf0d0;
-    color: #996800;
-}
-
-/* Last Scheduled Date Section */
-.schedulely-last-date {
-    background: #f0f6fc;
-    border: 1px solid #c5d9ed;
-    padding: 16px;
-    margin-bottom: 20px;
+.btn-apply {
+    background: white;
+    color: #2271b1;
+    border: 1px solid #2271b1;
+    padding: 6px 12px;
     border-radius: 4px;
-}
-
-.schedulely-last-date-title {
-    font-size: 14px;
     font-weight: 600;
-    color: #1d2327;
-    margin-bottom: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s;
 }
 
-.schedulely-last-date-info {
-    font-size: 20px;
-    font-weight: 600;
-    color: #2271b1;
+.btn-apply:hover {
+    background: #f0f6fc;
 }
 
-.schedulely-last-date-info p {
-    margin: 8px 0;
-    font-size: 14px;
-    font-weight: 400;
-    color: #1d2327;
-}
+/* ========================================
+   Overrides / Libraries
+   ======================================== */
 
-/* Footer */
-.schedulely-footer {
-    margin-top: 32px;
-    padding-top: 16px;
-    border-top: 1px solid #dcdcde;
-    text-align: center;
-    color: #646970;
-    font-size: 13px;
-}
-
-.schedulely-footer a {
-    color: #2271b1;
-    text-decoration: none;
-}
-
-.schedulely-footer a:hover {
-    color: #135e96;
-}
-
-/* Version Badge */
-.schedulely-version {
-    font-size: 13px;
-    color: #646970;
-    font-weight: 400;
-}
-
-/* Loading Spinner */
-.spin {
-    animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-/* Select2 WordPress Theme Adjustments */
+/* Select2 */
 .select2-container--default .select2-selection--multiple {
     border-color: #8c8f94;
     border-radius: 4px;
-    min-height: 32px;
+    min-height: 38px;
 }
 
 .select2-container--default.select2-container--focus .select2-selection--multiple {
@@ -285,230 +462,207 @@
     box-shadow: 0 0 0 1px #2271b1;
 }
 
-.select2-container--default .select2-selection--multiple .select2-selection__choice {
-    background-color: #2271b1;
-    border-color: #2271b1;
-    color: #fff;
-    padding: 2px 8px;
-    border-radius: 3px;
-}
-
-.select2-container--default .select2-selection--multiple .select2-selection__choice__remove {
-    color: #fff;
-    margin-right: 5px;
-    font-size: 16px;
-}
-
-.select2-container--default .select2-selection--multiple .select2-selection__choice__remove:hover {
-    color: #f0f0f1;
-}
-
-/* Flatpickr WordPress Theme Adjustments */
+/* Flatpickr */
 .flatpickr-calendar {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
     border: 1px solid #c3c4c7;
 }
 
-.flatpickr-time input:hover,
-.flatpickr-time .flatpickr-am-pm:hover,
-.flatpickr-time input:focus,
-.flatpickr-time .flatpickr-am-pm:focus {
-    background: #f6f7f7;
-}
-
-/* WordPress Admin Notice Adjustments */
-.schedulely-wrap .notice {
-    margin: 16px 0;
-}
-
-/* Empty State */
-.schedulely-empty-state {
-    text-align: center;
-    padding: 32px;
-    color: #646970;
-}
-
-.schedulely-empty-state .dashicons {
-    font-size: 48px;
-    width: 48px;
-    height: 48px;
-    color: #c3c4c7;
-    margin-bottom: 16px;
-}
-
-/* Responsive */
-@media (max-width: 782px) {
-    .schedulely-stats-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .schedulely-card {
-        padding: 16px;
-    }
-    
-    .schedulely-post-item {
-        flex-direction: column;
-        gap: 8px;
-    }
-    
-    .schedulely-post-time {
-        min-width: auto;
-    }
-    
-    .schedulely-actions {
-        flex-direction: column;
-    }
-    
-    .schedulely-actions .button {
-        width: 100%;
-        justify-content: center;
-    }
-}
-
-/* Capacity Calculator */
-.schedulely-capacity-section {
-    margin-top: 24px;
-    padding-top: 20px;
-    border-top: 1px solid #dcdcde;
-}
-
-.schedulely-capacity-header {
-    font-size: 16px;
-    font-weight: 600;
-    color: #1d2327;
-    margin-bottom: 12px;
-}
-
-.schedulely-capacity-notice {
-    margin-bottom: 16px;
-}
-
-.schedulely-capacity-loading {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 12px;
-    background: #f6f7f7;
-    border-radius: 4px;
-    color: #646970;
-}
-
-.schedulely-capacity-suggestions {
-    border-top: 1px solid #dcdcde;
-    padding-top: 16px;
-    margin-top: 16px;
-}
-
-.schedulely-capacity-suggestions h3 {
-    font-size: 16px;
-    font-weight: 600;
-    color: #1d2327;
-    margin-bottom: 12px;
-}
-
-#schedulely-suggestions-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.schedulely-suggestion-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px;
-    background: #f6f7f7;
-    border-left: 4px solid #2271b1;
-    border-radius: 4px;
-    gap: 16px;
-}
-
-.schedulely-suggestion-content {
-    flex: 1;
-}
-
-.schedulely-suggestion-content strong {
-    display: block;
-    margin-bottom: 4px;
-    color: #1d2327;
-    font-size: 14px;
-}
-
-.schedulely-suggestion-content span {
-    font-size: 13px;
-    color: #646970;
-}
-
-.schedulely-suggestion-action {
-    flex-shrink: 0;
-}
-
-.schedulely-apply-suggestion {
-    white-space: nowrap;
-    min-width: 70px;
-}
-
-.schedulely-apply-suggestion:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-/* Capacity Notice Styles */
-.schedulely-capacity-notice .notice {
-    margin: 0;
-    padding: 12px 16px;
-}
-
-.schedulely-capacity-notice .notice strong {
-    font-size: 14px;
-}
-
-.schedulely-capacity-notice .notice small {
-    display: block;
-    margin-top: 4px;
-    font-size: 12px;
-    opacity: 0.9;
-}
-
-/* SweetAlert2 WordPress Theme Overrides */
+/* SweetAlert2 */
 .swal2-popup {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
-}
-
-.swal2-title {
-    color: #1d2327;
-    font-size: 24px;
-}
-
-.swal2-html-container {
-    color: #50575e;
-    font-size: 14px;
 }
 
 .swal2-confirm {
     padding: 8px 16px !important;
     font-size: 14px !important;
     border-radius: 3px !important;
+    background-color: #2271b1 !important;
 }
 
-.swal2-cancel {
-    padding: 8px 16px !important;
-    font-size: 14px !important;
-    border-radius: 3px !important;
+/* Responsive */
+@media (max-width: 960px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .config-card,
+    .activity-card {
+        grid-column: span 1;
+    }
 }
 
-/* Responsive Capacity Suggestions */
-@media (max-width: 782px) {
-    .schedulely-suggestion-item {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-    
-    .schedulely-suggestion-action {
-        width: 100%;
-    }
-    
-    .schedulely-apply-suggestion {
-        width: 100%;
-    }
+/* ========================================
+   Form Elements Styling
+   ======================================== */
+
+.form-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.form-group {
+    margin-bottom: 0;
+}
+
+.form-label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 8px;
+    font-size: 13px;
+    color: #1d2327;
+}
+
+/* Input Fields */
+.form-group input[type="text"],
+.form-group input[type="number"],
+.form-group select {
+    padding: 8px 12px;
+    border: 1px solid #8c8f94;
+    border-radius: 4px;
+    font-size: 13px;
+    line-height: 1.4;
+    background: #fff;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.form-group input[type="text"]:focus,
+.form-group input[type="number"]:focus,
+.form-group select:focus {
+    border-color: #2271b1;
+    box-shadow: 0 0 0 1px #2271b1;
+    outline: none;
+}
+
+.form-group select {
+    cursor: pointer;
+    appearance: none;
+    background-image: url('data:image/svg+xml;charset=UTF-8,<svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1.5L6 6.5L11 1.5" stroke="%233c434a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+}
+
+/* Checkboxes */
+.form-group input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    margin: 0 8px 0 0;
+    cursor: pointer;
+    vertical-align: middle;
+}
+
+.day-checkbox {
+    font-weight: 500;
+    font-size: 13px;
+    color: #1d2327;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    user-select: none;
+}
+
+.day-checkbox input[type="checkbox"] {
+    margin-right: 6px;
+}
+
+/* Description text */
+.form-group .description,
+.form-group p.description {
+    margin: 6px 0 0 0;
+    font-size: 12px;
+    color: #646970;
+    line-height: 1.4;
+}
+
+/* ========================================
+   Toggle Switches (Modern CSS-only)
+   ======================================== */
+
+.quick-settings {
+    padding: 20px;
+    border-top: 1px solid #f0f0f1;
+    background: #fcfcfc;
+}
+
+.quick-settings-title {
+    margin: 0 0 15px 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: #1d2327;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.setting-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 15px;
+}
+
+.setting-toggle span {
+    font-size: 13px;
+    font-weight: 500;
+    color: #1d2327;
+}
+
+/* Toggle Switch */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+    cursor: pointer;
+}
+
+.toggle-switch input[type="checkbox"] {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #8c8f94;
+    transition: 0.3s;
+    border-radius: 24px;
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-switch input:checked+.toggle-slider {
+    background-color: #2271b1;
+}
+
+.toggle-switch input:focus+.toggle-slider {
+    box-shadow: 0 0 0 2px rgba(34, 113, 177, 0.2);
+}
+
+.toggle-switch input:checked+.toggle-slider:before {
+    transform: translateX(20px);
+}
+
+/* Disabled state */
+.toggle-switch input:disabled+.toggle-slider {
+    opacity: 0.5;
+    cursor: not-allowed;
 }

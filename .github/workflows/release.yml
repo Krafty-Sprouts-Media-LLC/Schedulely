@@ -1,0 +1,72 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*'    # Triggers on tags like v1.5.8, v1.5.9, etc.
+      - '[0-9]*' # Also triggers on tags like 1.5.8, 1.5.9, etc.
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Extract version from tag
+        id: tag_version
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          # Remove 'v' prefix if present
+          VERSION="${TAG#v}"
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "TAG=$TAG" >> $GITHUB_OUTPUT
+      
+      - name: Extract changelog entry
+        id: changelog
+        run: |
+          VERSION="${{ steps.tag_version.outputs.VERSION }}"
+          # Extract changelog entry for this version
+          CHANGELOG=$(awk "/^## \[$VERSION\]/,/^## \[/" CHANGELOG.md | head -n -1)
+          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      
+      - name: Create plugin zip file
+        id: create_zip
+        run: |
+          VERSION="${{ steps.tag_version.outputs.VERSION }}"
+          ZIP_NAME="schedulely-${VERSION}.zip"
+          
+          # Create zip file excluding git files and other unnecessary files
+          zip -r "${ZIP_NAME}" . \
+            -x "*.git*" \
+            -x "*.github*" \
+            -x "*.DS_Store" \
+            -x "*node_modules*" \
+            -x "*.zip" \
+            -x "*composer.lock" \
+            -x "*package-lock.json" \
+            -x "*yarn.lock"
+          
+          echo "ZIP_NAME=${ZIP_NAME}" >> $GITHUB_OUTPUT
+          echo "ZIP_PATH=${ZIP_NAME}" >> $GITHUB_OUTPUT
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ steps.tag_version.outputs.VERSION }}
+          body: |
+            ## Version ${{ steps.tag_version.outputs.VERSION }}
+            
+            ${{ steps.changelog.outputs.CHANGELOG }}
+          files: ${{ steps.create_zip.outputs.ZIP_PATH }}
+          draft: false
+          prerelease: false
+

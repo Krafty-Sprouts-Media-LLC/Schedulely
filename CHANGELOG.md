@@ -5,6 +5,224 @@ All notable changes to Schedulely will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 19/01/2026
+
+### Added
+- **GitHub Update Integration** - Integrated plugin-update-checker library for automatic updates from GitHub
+- **Automatic Update Notifications** - Users will now receive update notifications when new versions are released on GitHub
+- **GitHub Release Workflow** - Enhanced release workflow to automatically create zip files for plugin updates
+- **One-Click Updates** - Users can update the plugin directly from WordPress admin using the standard WordPress update interface
+
+### Technical Details
+- Integrated plugin-update-checker library in `schedulely.php`:
+  - Library located in `vendor/plugin-update-checker/` folder (organized structure)
+  - Initializes update checker on `plugins_loaded` hook with priority 5
+  - Connects to GitHub repository: `https://github.com/Krafty-Sprouts-Media-LLC/Schedulely`
+  - Enables release assets (zip files) for automatic updates
+  - Uses plugin slug `schedulely` for update identification
+- Updated `.github/workflows/release.yml`:
+  - Added step to create plugin zip file excluding git files and unnecessary files
+  - Zip file is automatically attached to GitHub releases
+  - Zip file naming: `schedulely-{VERSION}.zip`
+  - Excludes: `.git*`, `.github*`, `.DS_Store`, `node_modules`, existing zip files, lock files
+
+### Notes
+- Updates are delivered via GitHub releases
+- The update checker checks for updates every 12 hours
+- Users can manually check for updates by clicking "Check for updates" on the Plugins page
+- Update notifications appear in the WordPress admin dashboard
+
+---
+
+## [1.2.10] - 19/01/2026
+
+### Fixed
+- **Auto Schedule Toggle Not Working** - Fixed auto schedule toggle button not saving state when clicked
+- Toggle now saves immediately via AJAX without requiring form submission
+- Cron job is properly scheduled/unscheduled when toggle is changed
+- Added visual feedback with success toast notification when toggle is changed
+
+### Technical Details
+- Added `ajax_toggle_auto_schedule()` method in `includes/class-settings.php`:
+  - Handles AJAX request to save auto schedule toggle state
+  - Manages WordPress cron job scheduling/unscheduling based on toggle state
+  - Returns success/error messages for user feedback
+- Added `initAutoScheduleToggle()` function in `assets/js/admin.js`:
+  - Handles toggle change event
+  - Sends AJAX request to save state immediately
+  - Shows success toast notification
+  - Reloads page to update status display
+  - Includes error handling with toggle revert on failure
+
+---
+
+## [1.2.9] - 05/01/2026
+
+### Fixed
+- **WordPress admin notices display issue** - Fixed notices being cut off and not displaying at full width
+- Admin notices now properly appear outside the constrained plugin content area
+- Restructured HTML wrapper to separate `.wrap` (full width) from `.schedulely-wrap` (constrained content)
+- Changed from inline notice output to WordPress `add_settings_error()` and `settings_errors()` functions for proper notice handling
+
+### Technical Details
+- Modified `includes/class-settings.php`:
+  - Replaced inline `echo` for success notice with `add_settings_error()` function
+  - Added `settings_errors('schedulely_messages')` call to display notices properly
+  - Separated `.wrap` container from `.schedulely-wrap` container in HTML structure
+  - Added HTML comments for better code clarity
+- Updated `assets/css/admin.css`:
+  - Added `.wrap` styles with full width (margin: 0, padding: 0)
+  - Clarified `.schedulely-wrap` as plugin content wrapper with max-width constraint
+  - Added comments to distinguish between WordPress admin wrapper and plugin content wrapper
+
+---
+
+## [1.2.8] - 05/01/2026
+
+
+### Added
+- **Modern Integrated Dashboard UI** - Complete redesign of settings page with dashboard grid layout
+- **Dashboard Statistics Cards** - Four stat cards showing Drafts Available, Next Scheduled, Last Scheduled Date, and System Health
+- **Insight Panel** - Collapsible informational panel explaining how random scheduling works
+- **Dynamic Capacity Alerts** - Visual alert box with capacity meter showing scheduling capacity in real-time
+- **Resolution Center** - Actionable suggestion cards with "Apply Fix" buttons for capacity issues
+- **Quick Toggles Section** - Modern CSS-only toggle switches for Auto-Schedule and Email Alerts settings
+- **Upcoming Posts Activity Feed** - Side panel showing next 5 scheduled posts with timestamps
+- **Comprehensive Form Styling** - Professional WordPress-admin-style inputs, selects, and checkboxes
+
+### Changed
+- **Header Redesign** - Removed "Pro" badge, updated subtitle to "Intelligent Post Scheduling for WordPress"
+- **Form Layout Optimization** - Active Days now aligned horizontally with Time Window for better space utilization
+- **Toggle Switch Implementation** - Replaced basic checkboxes with animated CSS toggle switches
+- **Select2 Integration** - Updated to properly target all author selection fields (excluded and preserved)
+- **Removed Duplicate Headings** - "Recommended Fixes" heading now added dynamically by JavaScript only when suggestions exist
+
+### Enhanced
+- **Visual Hierarchy** - Improved header styling with proper font weights and sizing
+- **Form Field Styling** - Added focus states, borders, and transitions to all form elements
+- **Checkbox Styling** - Day selection checkboxes now have consistent styling with proper labels
+- **Responsive Design** - All new UI elements adapt properly to different screen sizes
+- **Color Coding** - Stat cards use color indicators (green for success, red for warnings) for quick status recognition
+
+### Technical Details
+- Modified `includes/class-settings.php`:
+  - Completely rewrote `render_settings_page()` method with new HTML structure
+  - Added `render_upcoming_posts_list()` private method for activity feed
+  - Removed legacy `render_dashboard()`, `render_upcoming_posts()`, and `render_last_date_status()` methods
+  - Updated form field structure to match new grid layout
+  - Integrated dynamic stat card data from `get_statistics()` method
+- Updated `assets/css/admin.css`:
+  - Added 175+ lines of new CSS for form elements, toggle switches, and UI components
+  - Added `.form-grid`, `.form-group`, `.form-label` classes for consistent form styling
+  - Added `.toggle-switch`, `.toggle-slider` classes for animated toggle switches
+  - Added `.day-checkbox`, `.quick-settings-title` classes for improved UI elements
+  - Added comprehensive input/select/checkbox styling with focus states
+- Updated `assets/js/admin.js`:
+  - Modified `initAuthorSelect()` to target `.schedulely-author-select` class for both excluded and preserved authors
+  - Fixed Select2 detection to use `$.fn.select2` for proper library checking
+  - Ensured all dynamic UI components (capacity checker, suggestions, insight panel) work with new HTML structure
+
+### UI/UX Improvements
+- Dashboard now provides at-a-glance overview of scheduling status
+- Capacity issues are immediately visible with visual meter and percentage
+- Suggestions are presented as actionable cards instead of plain text
+- Toggle switches provide clear on/off visual feedback
+- Form fields have consistent, professional styling throughout
+- Better visual separation between configuration sections
+
+---
+
+## [1.2.7] - 05/01/2026
+
+### Added
+- **Preserved Authors feature** - New setting to protect specific authors from randomization
+- Posts currently assigned to preserved authors will keep their author when scheduling
+- Only posts NOT assigned to preserved authors will be randomized among all eligible authors
+- Example: If Author A is preserved and has 15 articles, all 15 will remain with Author A when Schedulely runs
+- Posts assigned to non-preserved authors will be randomly assigned to any eligible author (including potentially the same author)
+
+### Technical Details
+- Added `schedulely_preserved_authors` option to store preserved author IDs
+- Added `get_preserved_authors()` and `is_author_preserved()` methods to `Schedulely_Author_Manager` class
+- Modified scheduler to check if post's current author is preserved before randomization
+- If author is preserved, post keeps its current author; otherwise, proceeds with full randomization among all eligible authors
+- Added "Preserved Authors" multi-select field in settings page with clear description
+- Works in conjunction with "Excluded Authors" setting for complete author control
+
+---
+
+## [1.2.6] - 01/12/2025
+
+### Enhanced
+- **Email notifications now include scheduling context** - Added time window and run timestamp to email summary
+- Email summary now displays when the scheduler ran (date and time)
+- Email summary now shows the configured time window (start time - end time) used for scheduling posts
+- Provides complete context about scheduling operations for better tracking and transparency
+
+### Technical Details
+- Modified `build_notification_message()` in `Schedulely_Notifications` class
+- Added `$run_datetime` variable using WordPress `current_time()` function
+- Added `$start_time` and `$end_time` variables from plugin settings
+- Updated email HTML template to display new information in SUMMARY section
+- Format: "Scheduler Ran: Sunday, Dec 1, 2025 at 8:34 AM"
+- Format: "Time Window: 5:00 PM - 11:00 PM"
+
+---
+
+## [1.2.5] - 01/12/2025
+
+### Fixed - CRITICAL
+- **Incomplete first date bug** - Fixed rare edge case where failed post scheduling could leave the first date incomplete
+- When `schedule_post()` failed for a single post, the scheduler would skip it and move to the next post without counting it toward the day's quota
+- This caused dates to end up with fewer posts than the configured "Posts Per Day" setting (e.g., 9/10 instead of 10/10)
+- Most commonly occurred when scheduling future dates where random time generation or WordPress database issues caused a single post to fail
+
+### Root Cause
+- When a post failed to schedule (line 310-312), the code logged an error but did NOT increment `$posts_scheduled_today` counter
+- The scheduler would continue trying to fill the same date, but eventually move to the next day without completing the quota
+- The "complete each date before moving" feature was present but broken due to improper failure handling
+
+### Solution Implemented
+
+#### Retry Logic with Different Times (Lines 310-365)
+- **Before:** Single attempt to schedule each post - if it failed, just log error and continue
+- **After:** Up to 3 attempts per post with different random times on the same date
+  - First attempt fails → Retry with new random time
+  - Second attempt fails → Retry again with different time
+  - Third attempt fails → Count toward quota and move on
+
+#### Proper Quota Counting
+- **Before:** Failed posts didn't count toward `$posts_scheduled_today`, leaving days incomplete
+- **After:** After all retries fail, the post is counted toward the day's quota to ensure scheduler moves to next day properly
+- Prevents the scheduler from getting stuck trying to fill an incomplete date indefinitely
+
+### Impact
+- ✅ Each date now gets its full quota of posts (or maximum retry attempts)
+- ✅ No more incomplete first dates due to random failures
+- ✅ Better resilience against WordPress database hiccups or random time generation issues
+- ✅ Detailed logging when retries succeed for debugging purposes
+- ✅ Scheduler won't get stuck on one date - will move forward even if posts fail
+
+### Technical Details
+- Modified `schedule_posts_from_date()` method in `class-scheduler.php`
+- Added retry loop with up to 2 additional attempts per failed post
+- Each retry generates a new random time using `generate_random_time()`
+- Successful retries are logged to debug.log when WP_DEBUG_LOG is enabled
+- Failed posts (after all retries) increment `$posts_scheduled_today` to maintain quota logic
+- No database changes required
+
+### Example Scenario
+**Before (v1.2.4):**
+- Dec 1: Posts 1-9 succeed, Post 10 fails → Dec 1 ends with 9/10 posts ❌
+- Dec 2-10: All complete with 10/10 posts ✅
+
+**After (v1.2.5):**
+- Dec 1: Posts 1-9 succeed, Post 10 fails → Retry with new time → Success! ✅
+- Dec 1: 10/10 posts complete ✅
+- Dec 2-10: All complete with 10/10 posts ✅
+
+---
+
 ## [1.2.4] - 13/10/2025
 
 ### Fixed

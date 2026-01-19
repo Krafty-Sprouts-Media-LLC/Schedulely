@@ -1,6 +1,10 @@
 <?php
 /**
- * Author Management System
+ * Filename: class-author-manager.php
+ * Author: Krafty Sprouts Media, LLC
+ * Created: 06/10/2025
+ * Last Modified: 05/01/2026
+ * Description: Author Management System - Handles random author assignment with exclusions
  *
  * @package Schedulely
  */
@@ -91,6 +95,38 @@ class Schedulely_Author_Manager {
         $excluded = array_map('intval', $excluded);
         
         return $excluded;
+    }
+    
+    /**
+     * Get preserved author IDs (authors whose posts should not be randomized)
+     * 
+     * @return array Array of user IDs
+     * @since 1.2.7
+     */
+    public function get_preserved_authors() {
+        $preserved = get_option('schedulely_preserved_authors', []);
+        
+        // Ensure it's an array
+        if (!is_array($preserved)) {
+            $preserved = [];
+        }
+        
+        // Ensure all values are integers
+        $preserved = array_map('intval', $preserved);
+        
+        return $preserved;
+    }
+    
+    /**
+     * Check if an author is preserved (their posts should not be randomized)
+     * 
+     * @param int $author_id Author ID to check
+     * @return bool True if author is preserved
+     * @since 1.2.7
+     */
+    public function is_author_preserved($author_id) {
+        $preserved_authors = $this->get_preserved_authors();
+        return in_array((int) $author_id, $preserved_authors, true);
     }
     
     /**

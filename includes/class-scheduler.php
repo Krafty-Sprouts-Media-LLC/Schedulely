@@ -3,8 +3,7 @@
  * Filename: class-scheduler.php
  * Author: Krafty Sprouts Media, LLC
  * Created: 06/10/2025
- * Version: 1.2.3
- * Last Modified: 13/10/2025
+ * Last Modified: 05/01/2026
  * Description: Main Scheduling Engine - Handles all post scheduling logic with last date completion
  *
  * @package Schedulely
@@ -20,28 +19,31 @@ if (!defined('ABSPATH')) {
  * 
  * Handles all post scheduling logic with last date completion.
  */
-class Schedulely_Scheduler {
-    
+class Schedulely_Scheduler
+{
+
     /**
      * Author manager instance
      *
      * @var Schedulely_Author_Manager
      */
     private $author_manager;
-    
+
     /**
      * Constructor
      */
-    public function __construct() {
+    public function __construct()
+    {
         $this->author_manager = new Schedulely_Author_Manager();
     }
-    
+
     /**
      * Run the scheduling process
      * 
      * @return array Results of scheduling operation
      */
-    public function run_schedule() {
+    public function run_schedule()
+    {
         $results = [
             'success' => false,
             'scheduled_count' => 0,
@@ -50,10 +52,10 @@ class Schedulely_Scheduler {
             'errors' => [],
             'scheduled_posts' => []
         ];
-        
+
         $quota = get_option('schedulely_posts_per_day', 8);
         $available_posts = $this->get_available_posts();
-        
+
         if (empty($available_posts)) {
             $results['message'] = sprintf(
                 __('No posts available in %s status to schedule.', 'schedulely'),
@@ -61,24 +63,24 @@ class Schedulely_Scheduler {
             );
             return $results;
         }
-        
+
         // Find the last scheduled date
         $last_scheduled_date = $this->get_last_scheduled_date();
-        
+
         // Determine starting date and completion count
         $start_date = null;
         $complete_count = 0;
-        
+
         if ($last_scheduled_date) {
             // Check if this date is today or future (can still add posts)
             $today = date('Y-m-d', current_time('timestamp'));
             $last_date_timestamp = strtotime($last_scheduled_date);
             $today_timestamp = strtotime($today);
-            
+
             if ($last_date_timestamp >= $today_timestamp) {
                 // Date is today or future - we can add more posts to it
                 $posts_on_last_date = $this->count_posts_on_date($last_scheduled_date);
-                
+
                 if ($posts_on_last_date < $quota) {
                     // Last date is incomplete, complete it first
                     $complete_count = $quota - $posts_on_last_date;
@@ -96,31 +98,32 @@ class Schedulely_Scheduler {
             // No scheduled posts exist, start from today/tomorrow
             $start_date = $this->get_next_scheduling_date();
         }
-        
+
         // Schedule the posts
         $scheduling_results = $this->schedule_posts_from_date($available_posts, $start_date, $complete_count);
-        
+
         // Merge results
         $results['success'] = $scheduling_results['success'];
         $results['scheduled_count'] = $scheduling_results['scheduled_count'];
         $results['scheduled_posts'] = $scheduling_results['scheduled_posts'];
         $results['errors'] = $scheduling_results['errors'];
         $results['message'] = $scheduling_results['message'];
-        
+
         // Clear cache
         schedulely_clear_cache();
-        
+
         return $results;
     }
-    
+
     /**
      * Get available posts based on monitored status
      * 
      * @return array Array of post IDs
      */
-    private function get_available_posts() {
+    private function get_available_posts()
+    {
         $status = get_option('schedulely_post_status', 'draft');
-        
+
         $args = [
             'post_type' => 'post',
             'post_status' => $status,
@@ -132,18 +135,19 @@ class Schedulely_Scheduler {
             'update_post_meta_cache' => false,
             'update_post_term_cache' => false
         ];
-        
+
         return get_posts($args);
     }
-    
+
     /**
      * Get the last/furthest scheduled date
      * 
      * @return string|null Date string (Y-m-d) or null
      */
-    public function get_last_scheduled_date() {
+    public function get_last_scheduled_date()
+    {
         global $wpdb;
-        
+
         $last_date = $wpdb->get_var(
             "SELECT DATE(post_date) as schedule_date 
              FROM {$wpdb->posts} 
@@ -152,19 +156,20 @@ class Schedulely_Scheduler {
              ORDER BY post_date DESC 
              LIMIT 1"
         );
-        
+
         return $last_date; // Returns "2025-10-09" or null
     }
-    
+
     /**
      * Count posts scheduled for a specific date
      * 
      * @param string $date Date string (Y-m-d)
      * @return int Number of posts scheduled on this date
      */
-    public function count_posts_on_date($date) {
+    public function count_posts_on_date($date)
+    {
         global $wpdb;
-        
+
         $count = $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) 
              FROM {$wpdb->posts} 
@@ -173,48 +178,50 @@ class Schedulely_Scheduler {
              AND DATE(post_date) = %s",
             $date
         ));
-        
+
         return (int) $count;
     }
-    
+
     /**
      * Get next scheduling date when no scheduled posts exist
      * 
      * @return string Date string (Y-m-d)
      */
-    private function get_next_scheduling_date() {
+    private function get_next_scheduling_date()
+    {
         $now = current_time('timestamp');
         $end_time = get_option('schedulely_end_time', '11:00 PM');
         $today_date = date('Y-m-d', $now);
         $end_timestamp = strtotime($today_date . ' ' . $end_time);
-        
+
         if ($now > $end_timestamp) {
             // Past today's window, start tomorrow
             return $this->get_next_active_date($today_date);
         }
-        
+
         // Check if today is an active day
         $active_days = get_option('schedulely_active_days', [1, 2, 3, 4, 5, 6, 0]);
         $today_day_of_week = date('w', $now);
-        
+
         if (in_array($today_day_of_week, $active_days)) {
             return $today_date;
         }
-        
+
         return $this->get_next_active_date($today_date);
     }
-    
+
     /**
      * Get next active date after a given date
      * 
      * @param string $current_date Current date (Y-m-d)
      * @return string Next active date (Y-m-d)
      */
-    private function get_next_active_date($current_date) {
+    private function get_next_active_date($current_date)
+    {
         $active_days = get_option('schedulely_active_days', [1, 2, 3, 4, 5, 6, 0]);
         $next_date = date('Y-m-d', strtotime($current_date . ' +1 day'));
         $attempts = 0;
-        
+
         // Find next active day (max 7 attempts)
         while ($attempts < 7) {
             $day_of_week = date('w', strtotime($next_date));
@@ -224,10 +231,10 @@ class Schedulely_Scheduler {
             $next_date = date('Y-m-d', strtotime($next_date . ' +1 day'));
             $attempts++;
         }
-        
+
         return $next_date; // Fallback
     }
-    
+
     /**
      * Schedule posts starting from a specific date
      * 
@@ -236,7 +243,8 @@ class Schedulely_Scheduler {
      * @param int $complete_first Number of posts to complete on start date (if completing last date)
      * @return array Scheduling results
      */
-    private function schedule_posts_from_date($posts, $start_date, $complete_first = 0) {
+    private function schedule_posts_from_date($posts, $start_date, $complete_first = 0)
+    {
         $quota = get_option('schedulely_posts_per_day', 8);
         $current_date = $start_date;
         $posts_scheduled_today = 0;
@@ -244,14 +252,14 @@ class Schedulely_Scheduler {
         $already_scheduled_times = [];
         $scheduled_posts = [];
         $errors = [];
-        
+
         // If completing last date, account for existing posts
         if ($complete_first > 0) {
             $posts_scheduled_today = $quota - $complete_first;
             // Get already scheduled times for this date
             $already_scheduled_times = $this->get_scheduled_times_for_date($current_date);
         }
-        
+
         foreach ($posts as $post_id) {
             // Check if we need to move to next day
             if ($posts_scheduled_today >= $quota) {
@@ -259,39 +267,56 @@ class Schedulely_Scheduler {
                 $posts_scheduled_today = 0;
                 $already_scheduled_times = [];
             }
-            
+
             // Generate random time for this date
             $random_time = $this->generate_random_time($current_date, $already_scheduled_times);
-            
+
             if ($random_time === false) {
                 // Can't fit more posts in this day's window, move to next day
                 $current_date = $this->get_next_active_date($current_date);
                 $posts_scheduled_today = 0;
                 $already_scheduled_times = [];
                 $random_time = $this->generate_random_time($current_date, []);
-                
+
                 if ($random_time === false) {
                     $errors[] = sprintf(__('Failed to generate time slot for post ID %d', 'schedulely'), $post_id);
                     continue;
                 }
             }
-            
+
             // Schedule the post
             $datetime = $current_date . ' ' . $random_time;
-            
-            // Get random author if enabled
+
+            // Get author assignment
+            // If post is assigned to a preserved author, keep that author (don't randomize)
+            // Otherwise, assign random author if enabled
             $author_id = null;
             if ($this->author_manager->is_enabled()) {
-                $author_id = $this->author_manager->get_random_author();
+                $post = get_post($post_id);
+                
+                if ($post && $post->post_author) {
+                    $current_author_id = (int) $post->post_author;
+                    
+                    // Check if current author is preserved - if yes, keep them
+                    if ($this->author_manager->is_author_preserved($current_author_id)) {
+                        $author_id = $current_author_id; // Keep the preserved author
+                    } else {
+                        // Not preserved, randomize among all eligible authors
+                        $author_id = $this->author_manager->get_random_author();
+                    }
+                } else {
+                    // Post has no author, assign random one
+                    $author_id = $this->author_manager->get_random_author();
+                }
             }
-            
+
             $success = $this->schedule_post($post_id, $datetime, $author_id);
-            
+
             if ($success) {
                 $scheduled_count++;
                 $posts_scheduled_today++;
                 $already_scheduled_times[] = $random_time;
-                
+
                 $scheduled_posts[] = [
                     'post_id' => $post_id,
                     'datetime' => $datetime,
@@ -299,10 +324,63 @@ class Schedulely_Scheduler {
                     'date' => $current_date
                 ];
             } else {
-                $errors[] = sprintf(__('Failed to schedule post ID %d', 'schedulely'), $post_id);
+                // RETRY LOGIC: Try up to 2 more times with different times on the same date
+                $max_retries = 2;
+                $retry_count = 0;
+                $retry_success = false;
+
+                while ($retry_count < $max_retries && !$retry_success) {
+                    $retry_count++;
+
+                    // Generate a new random time for this date
+                    $retry_time = $this->generate_random_time($current_date, $already_scheduled_times);
+
+                    if ($retry_time !== false) {
+                        $retry_datetime = $current_date . ' ' . $retry_time;
+                        // Use the same author_id that was determined earlier
+                        $retry_success = $this->schedule_post($post_id, $retry_datetime, $author_id);
+
+                        if ($retry_success) {
+                            // Retry succeeded!
+                            $scheduled_count++;
+                            $posts_scheduled_today++;
+                            $already_scheduled_times[] = $retry_time;
+
+                            $scheduled_posts[] = [
+                                'post_id' => $post_id,
+                                'datetime' => $retry_datetime,
+                                'title' => get_the_title($post_id),
+                                'date' => $current_date
+                            ];
+
+                            // Log successful retry for debugging
+                            if (defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
+                                error_log(sprintf(
+                                    '[Schedulely] Post ID %d scheduled successfully on retry %d at %s',
+                                    $post_id,
+                                    $retry_count,
+                                    $retry_datetime
+                                ));
+                            }
+                        }
+                    } else {
+                        // Can't generate more times for this date, stop retrying
+                        break;
+                    }
+                }
+
+                // If all retries failed, count it toward quota and log error
+                if (!$retry_success) {
+                    $posts_scheduled_today++; // Count failure to ensure we move to next day
+                    $errors[] = sprintf(
+                        __('Failed to schedule post ID %d after %d attempts', 'schedulely'),
+                        $post_id,
+                        $retry_count + 1
+                    );
+                }
             }
         }
-        
+
         return [
             'success' => $scheduled_count > 0,
             'scheduled_count' => $scheduled_count,
@@ -314,16 +392,17 @@ class Schedulely_Scheduler {
             )
         ];
     }
-    
+
     /**
      * Get already scheduled times for a date
      * 
      * @param string $date Date string (Y-m-d)
      * @return array Array of time strings (H:i:s)
      */
-    private function get_scheduled_times_for_date($date) {
+    private function get_scheduled_times_for_date($date)
+    {
         global $wpdb;
-        
+
         $times = $wpdb->get_col($wpdb->prepare(
             "SELECT TIME(post_date) as post_time
              FROM {$wpdb->posts} 
@@ -332,10 +411,10 @@ class Schedulely_Scheduler {
              AND DATE(post_date) = %s",
             $date
         ));
-        
+
         return $times ? $times : [];
     }
-    
+
     /**
      * Schedule a single post to a specific datetime
      * 
@@ -344,13 +423,14 @@ class Schedulely_Scheduler {
      * @param int|null $author_id Optional author ID to assign
      * @return bool Success status
      */
-    private function schedule_post($post_id, $datetime, $author_id = null) {
+    private function schedule_post($post_id, $datetime, $author_id = null)
+    {
         // CRITICAL SAFETY CHECK: Ensure datetime is in the future
         $scheduled_timestamp = strtotime($datetime);
         $now = current_time('timestamp');
         $safety_buffer = 30 * 60; // 30 minutes minimum buffer
         $minimum_future_time = $now + $safety_buffer;
-        
+
         if ($scheduled_timestamp < $minimum_future_time) {
             schedulely_log_error('CRITICAL: Attempted to schedule post too close to present or in the past', [
                 'post_id' => $post_id,
@@ -363,21 +443,21 @@ class Schedulely_Scheduler {
             ]);
             return false; // Refuse to schedule posts less than 30 minutes in the future
         }
-        
+
         $post_data = [
             'ID' => $post_id,
             'post_status' => 'future',
             'post_date' => $datetime,
             'post_date_gmt' => get_gmt_from_date($datetime)
         ];
-        
+
         // Add author if provided
         if ($author_id) {
             $post_data['post_author'] = $author_id;
         }
-        
+
         $result = wp_update_post(wp_slash($post_data), true);
-        
+
         if (is_wp_error($result)) {
             schedulely_log_error('Failed to schedule post', [
                 'post_id' => $post_id,
@@ -386,10 +466,10 @@ class Schedulely_Scheduler {
             ]);
             return false;
         }
-        
+
         return true;
     }
-    
+
     /**
      * Calculate capacity - how many posts can fit in the time window
      * 
@@ -399,14 +479,15 @@ class Schedulely_Scheduler {
      * @param int $desired_quota Desired posts per day
      * @return array Capacity information
      */
-    public function calculate_capacity($start_time, $end_time, $min_interval, $desired_quota) {
+    public function calculate_capacity($start_time, $end_time, $min_interval, $desired_quota)
+    {
         // Use today's date for calculation
         $date = date('Y-m-d');
-        
+
         // Convert times to timestamps
         $start_timestamp = strtotime($date . ' ' . $start_time);
         $end_timestamp = strtotime($date . ' ' . $end_time);
-        
+
         // Validate time window
         if ($start_timestamp === false || $end_timestamp === false || $start_timestamp >= $end_timestamp) {
             return [
@@ -417,18 +498,18 @@ class Schedulely_Scheduler {
                 'error' => __('Invalid time window. End time must be after start time.', 'schedulely')
             ];
         }
-        
+
         // Calculate total minutes in window
         $total_minutes = ($end_timestamp - $start_timestamp) / 60;
-        
+
         // Calculate theoretical maximum capacity (number of intervals that fit)
         // Example: 360 minutes / 35 min interval = 10.28 → 10 posts can fit with perfect spacing
         $theoretical_capacity = floor($total_minutes / $min_interval);
-        
+
         // CRITICAL: Account for random time generation inefficiency
         // Random placement cannot achieve perfect packing like sequential placement
         // Efficiency factor depends on interval size - smaller intervals = harder to pack randomly
-        
+
         // Dynamic efficiency based on interval size:
         // - Large intervals (60+ min): 70% efficiency (easier to find gaps)
         // - Medium intervals (30-59 min): 65% efficiency
@@ -443,16 +524,16 @@ class Schedulely_Scheduler {
         } else {
             $efficiency = 0.50;
         }
-        
+
         $capacity = max(1, floor($theoretical_capacity * $efficiency));
-        
+
         // For very small capacities (1-3 posts), be more conservative
         if ($theoretical_capacity <= 3) {
             $capacity = max(1, $theoretical_capacity - 1);
         }
-        
+
         $meets_quota = $capacity >= $desired_quota;
-        
+
         // Calculate suggestions if doesn't meet quota
         $suggestions = [];
         if (!$meets_quota) {
@@ -479,7 +560,7 @@ class Schedulely_Scheduler {
                     )
                 ];
             }
-            
+
             // Suggestion 2: Reduce quota
             $suggestions[] = [
                 'type' => 'reduce_quota',
@@ -492,25 +573,25 @@ class Schedulely_Scheduler {
                     $capacity
                 )
             ];
-            
+
             // Suggestion 3: Expand time window
             // Account for randomness: need more minutes than theoretical minimum
             $target_theoretical = ceil($desired_quota / $efficiency); // Use current efficiency factor
             $needed_minutes = $target_theoretical * $min_interval;
             $needed_hours = ceil($needed_minutes / 60);
-            
+
             // Calculate how much to add (needed - current)
             $minutes_to_add = $needed_minutes - $total_minutes;
-            
+
             // Hard limit: end time cannot go past 11:59 PM
             $max_end_timestamp = strtotime($date . ' 11:59 PM');
             $minutes_available_at_end = ($max_end_timestamp - $end_timestamp) / 60;
-            
+
             // Decide strategy based on available space at end
             $suggested_start_time = $start_time;
             $suggested_end_time = $end_time;
             $expand_message = '';
-            
+
             if ($minutes_to_add <= $minutes_available_at_end) {
                 // Can expand by just extending the end time
                 $new_end_timestamp = $end_timestamp + ($minutes_to_add * 60);
@@ -551,7 +632,7 @@ class Schedulely_Scheduler {
                     $needed_hours
                 );
             }
-            
+
             $suggestions[] = [
                 'type' => 'expand_window',
                 'label' => __('Expand Time Window', 'schedulely'),
@@ -563,7 +644,7 @@ class Schedulely_Scheduler {
                 'message' => $expand_message
             ];
         }
-        
+
         return [
             'valid' => true,
             'capacity' => $capacity,
@@ -577,7 +658,7 @@ class Schedulely_Scheduler {
             'error' => null
         ];
     }
-    
+
     /**
      * Generate random time within configured window for a given date
      * 
@@ -585,19 +666,20 @@ class Schedulely_Scheduler {
      * @param array $used_times Already used time strings (H:i:s)
      * @return string|false Time string (H:i:s) or false if no slot available
      */
-    private function generate_random_time($date, $used_times = []) {
+    private function generate_random_time($date, $used_times = [])
+    {
         $start_time = get_option('schedulely_start_time', '5:00 PM');
         $end_time = get_option('schedulely_end_time', '11:00 PM');
         $min_interval = get_option('schedulely_min_interval', 40) * 60; // Convert to seconds
-        
+
         // Create datetime strings in 12hr format - WordPress/PHP handles conversion
         $start_datetime = strtotime($date . ' ' . $start_time);
         $end_datetime = strtotime($date . ' ' . $end_time);
-        
+
         if ($start_datetime >= $end_datetime) {
             return false; // Invalid time window
         }
-        
+
         // CRITICAL FIX: Dynamic max_attempts based on scheduling density
         // As more posts are scheduled, collision probability increases exponentially
         // Base attempts: 200 (doubled from 100)
@@ -606,39 +688,39 @@ class Schedulely_Scheduler {
         $base_attempts = 200;
         $additional_attempts_per_post = 50;
         $max_attempts = $base_attempts + (count($used_times) * $additional_attempts_per_post);
-        
+
         $attempt = 0;
-        
+
         while ($attempt < $max_attempts) {
             // Generate random timestamp between start and end
             $random_timestamp = rand($start_datetime, $end_datetime);
             $random_time = date('H:i:s', $random_timestamp);
-            
+
             // Check if this time is already used
             if (in_array($random_time, $used_times)) {
                 $attempt++;
                 continue;
             }
-            
+
             // Check minimum interval with all existing times
             $valid = true;
             foreach ($used_times as $used_time) {
                 $used_timestamp = strtotime($date . ' ' . $used_time);
                 $diff = abs($random_timestamp - $used_timestamp);
-                
+
                 if ($diff < $min_interval) {
                     $valid = false;
                     break;
                 }
             }
-            
+
             if ($valid) {
                 return $random_time;
             }
-            
+
             $attempt++;
         }
-        
+
         return false; // No available slot found
     }
 }
