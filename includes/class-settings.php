@@ -135,7 +135,7 @@ class Schedulely_Settings
         wp_localize_script('schedulely-admin', 'schedulely_admin', [
             'nonce' => wp_create_nonce('schedulely_admin'),
             'ajaxurl' => admin_url('admin-ajax.php'),
-            'scheduled_posts_url' => admin_url('edit.php?post_status=future&post_type=post'),
+            'scheduled_posts_url' => admin_url('edit.php?post_status=future'),
             'strings' => [
                 'confirm_schedule' => __('Schedule available posts now?', 'schedulely'),
                 'scheduling' => __('Scheduling...', 'schedulely'),
@@ -175,6 +175,9 @@ class Schedulely_Settings
         ]);
         register_setting('schedulely_settings', 'schedulely_preserved_authors', [
             'sanitize_callback' => [$this, 'sanitize_preserved_authors']
+        ]);
+        register_setting('schedulely_settings', 'schedulely_post_types', [
+            'sanitize_callback' => [$this, 'sanitize_post_types']
         ]);
         register_setting('schedulely_settings', 'schedulely_auto_schedule', [
             'sanitize_callback' => [$this, 'sanitize_checkbox']
@@ -266,6 +269,30 @@ class Schedulely_Settings
     }
 
     /**
+     * Sanitize post types
+     * Since 1.3.3
+     * @param array $value Input value
+     * @return array Sanitized value
+     */
+    public function sanitize_post_types($value)
+    {
+        if (!is_array($value)) {
+            return ['post']; // Default to post for backward compatibility
+        }
+
+        // Get all registered post types
+        $registered_post_types = get_post_types(['public' => true], 'names');
+        
+        // Filter to only include valid, registered post types
+        $sanitized = array_filter($value, function ($post_type) use ($registered_post_types) {
+            return post_type_exists($post_type) && in_array($post_type, $registered_post_types, true);
+        });
+
+        // If no valid post types, default to 'post'
+        return !empty($sanitized) ? array_values($sanitized) : ['post'];
+    }
+
+    /**
      * Sanitize notification users (array of user IDs)
      * 
      * @param array $value Input value
@@ -318,6 +345,7 @@ class Schedulely_Settings
             update_option('schedulely_randomize_authors', $this->sanitize_checkbox($_POST['schedulely_randomize_authors'] ?? false));
             update_option('schedulely_excluded_authors', $this->sanitize_excluded_authors($_POST['schedulely_excluded_authors'] ?? []));
             update_option('schedulely_preserved_authors', $this->sanitize_preserved_authors($_POST['schedulely_preserved_authors'] ?? []));
+            update_option('schedulely_post_types', $this->sanitize_post_types($_POST['schedulely_post_types'] ?? ['post']));
             update_option('schedulely_auto_schedule', $this->sanitize_checkbox($_POST['schedulely_auto_schedule'] ?? false));
             update_option('schedulely_email_notifications', $this->sanitize_checkbox($_POST['schedulely_email_notifications'] ?? false));
             update_option('schedulely_notification_users', $this->sanitize_notification_users($_POST['schedulely_notification_users'] ?? []));
@@ -481,6 +509,21 @@ class Schedulely_Settings
                                             </div>
 
                                             <div class="form-group" style="flex: 1; min-width: 250px;">
+                                                <label class="form-label"><?php _e('Post Types to Schedule', 'schedulely'); ?></label>
+                                                <select name="schedulely_post_types[]" id="schedulely_post_types" class="schedulely-post-type-select" multiple="multiple" style="width: 100%;">
+                                                    <?php
+                                                    $registered_post_types = get_post_types(['public' => true], 'objects');
+                                                    $current_post_types = get_option('schedulely_post_types', ['post']);
+                                                    foreach ($registered_post_types as $post_type_obj) {
+                                                        $selected = in_array($post_type_obj->name, $current_post_types, true) ? 'selected' : '';
+                                                        echo '<option value="' . esc_attr($post_type_obj->name) . '" ' . $selected . '>' . esc_html($post_type_obj->label) . '</option>';
+                                                    }
+                                                    ?>
+                                                </select>
+                                                <p class="description" style="font-size: 12px;"><?php _e('Select which post types to include in scheduling.', 'schedulely'); ?></p>
+                                            </div>
+
+                                            <div class="form-group" style="flex: 1; min-width: 250px;">
                                                 <label class="form-label"><?php _e('Posts Per Day', 'schedulely'); ?></label>
                                                 <input type="number" name="schedulely_posts_per_day" id="schedulely_posts_per_day" 
                                                        value="<?php echo esc_attr(get_option('schedulely_posts_per_day', 8)); ?>" 
@@ -585,7 +628,11 @@ class Schedulely_Settings
                             <div class="activity-card">
                                 <div class="card-header">
                                     <h3 class="card-title"><?php _e('Upcoming Posts', 'schedulely'); ?></h3>
-                                    <a href="<?php echo esc_url(admin_url('edit.php?post_status=future&post_type=post')); ?>" style="font-size: 11px;">View All</a>
+                                    <?php
+                                    $post_types = get_option('schedulely_post_types', ['post']);
+                                    $post_type_param = count($post_types) === 1 ? $post_types[0] : implode(',', $post_types);
+                                    ?>
+                                    <a href="<?php echo esc_url(admin_url('edit.php?post_status=future&post_type=' . $post_type_param)); ?>" style="font-size: 11px;">View All</a>
                                 </div>
                                 <?php $this->render_upcoming_posts_list(); ?>
                         
@@ -624,8 +671,9 @@ class Schedulely_Settings
      */
     private function render_upcoming_posts_list()
     {
+        $post_types = get_option('schedulely_post_types', ['post']);
         $args = [
-            'post_type' => 'post',
+            'post_type' => $post_types,
             'post_status' => 'future',
             'posts_per_page' => 5,
             'orderby' => 'date',
@@ -825,16 +873,18 @@ class Schedulely_Settings
         $status = get_option('schedulely_post_status', 'draft');
 
         // Available posts
+        $post_types = get_option('schedulely_post_types', ['post']);
         $available_posts = count(get_posts([
-            'post_type' => 'post',
+            'post_type' => $post_types,
             'post_status' => $status,
             'posts_per_page' => -1,
             'fields' => 'ids'
         ]));
 
         // Next scheduled
+        $post_types = get_option('schedulely_post_types', ['post']);
         $next_post = get_posts([
-            'post_type' => 'post',
+            'post_type' => $post_types,
             'post_status' => 'future',
             'posts_per_page' => 1,
             'orderby' => 'date',

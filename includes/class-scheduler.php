@@ -123,9 +123,10 @@ class Schedulely_Scheduler
     private function get_available_posts()
     {
         $status = get_option('schedulely_post_status', 'draft');
+        $post_types = get_option('schedulely_post_types', ['post']);
 
         $args = [
-            'post_type' => 'post',
+            'post_type' => $post_types,
             'post_status' => $status,
             'posts_per_page' => 500, // Limit to 500 posts per run
             'orderby' => 'date',
@@ -148,16 +149,18 @@ class Schedulely_Scheduler
     {
         global $wpdb;
 
+        $post_types = get_option('schedulely_post_types', ['post']);
+        $post_types_placeholders = implode(',', array_fill(0, count($post_types), '%s'));
+
         $last_date = $wpdb->get_var(
             $wpdb->prepare(
                 "SELECT DATE(post_date) as schedule_date 
                  FROM {$wpdb->posts} 
                  WHERE post_status = %s 
-                 AND post_type = %s
+                 AND post_type IN ($post_types_placeholders)
                  ORDER BY post_date DESC 
                  LIMIT 1",
-                'future',
-                'post'
+                array_merge(['future'], $post_types)
             )
         );
 
@@ -174,13 +177,16 @@ class Schedulely_Scheduler
     {
         global $wpdb;
 
+        $post_types = get_option('schedulely_post_types', ['post']);
+        $post_types_placeholders = implode(',', array_fill(0, count($post_types), '%s'));
+
         $count = $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) 
              FROM {$wpdb->posts} 
              WHERE post_status = 'future' 
-             AND post_type = 'post'
+             AND post_type IN ($post_types_placeholders)
              AND DATE(post_date) = %s",
-            $date
+            array_merge($post_types, [$date])
         ));
 
         return (int) $count;
@@ -407,13 +413,16 @@ class Schedulely_Scheduler
     {
         global $wpdb;
 
+        $post_types = get_option('schedulely_post_types', ['post']);
+        $post_types_placeholders = implode(',', array_fill(0, count($post_types), '%s'));
+
         $times = $wpdb->get_col($wpdb->prepare(
             "SELECT TIME(post_date) as post_time
              FROM {$wpdb->posts} 
              WHERE post_status = 'future' 
-             AND post_type = 'post'
+             AND post_type IN ($post_types_placeholders)
              AND DATE(post_date) = %s",
-            $date
+            array_merge($post_types, [$date])
         ));
 
         return $times ? $times : [];

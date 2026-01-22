@@ -309,6 +309,16 @@
                 width: '100%'
             });
         }
+
+        // Initialize Select2 for post types
+        const $postTypeSelect = $('.schedulely-post-type-select');
+        if ($postTypeSelect.length && typeof $.fn.select2 === 'function') {
+            $postTypeSelect.select2({
+                placeholder: 'Select post types',
+                allowClear: false,
+                width: '100%'
+            });
+        }
     }
 
     /**

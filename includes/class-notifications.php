@@ -182,7 +182,10 @@ class Schedulely_Notifications
             $upcoming_posts_html .= "• {$display_time} - \"{$title}\"<br>\n";
         }
 
-        $scheduled_posts_url = admin_url('edit.php?post_status=future&post_type=post');
+        // Build URL with selected post types
+        $post_types = get_option('schedulely_post_types', ['post']);
+        $post_type_param = count($post_types) === 1 ? $post_types[0] : implode(',', $post_types);
+        $scheduled_posts_url = admin_url('edit.php?post_status=future&post_type=' . $post_type_param);
         $settings_url = admin_url('tools.php?page=schedulely');
 
         $message = <<<HTML

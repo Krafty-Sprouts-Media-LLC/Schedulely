@@ -3,7 +3,7 @@
  * Plugin Name: Schedulely
  * Plugin URI: https://kraftysprouts.com
  * Description: Intelligently schedule posts from any status with smart deficit tracking, random author assignment, and customizable time windows.
- * Version: 1.3.2
+ * Version: 1.3.3
  * Author: Krafty Sprouts Media, LLC
  * Author URI: https://kraftysprouts.com
  * License: GPL v2 or later
@@ -23,7 +23,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('SCHEDULELY_VERSION', '1.3.2');
+define('SCHEDULELY_VERSION', '1.3.3');
 define('SCHEDULELY_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('SCHEDULELY_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('SCHEDULELY_PLUGIN_BASENAME', plugin_basename(__FILE__));
@@ -113,6 +113,7 @@ function schedulely_activate()
     add_option('schedulely_randomize_authors', false);
     add_option('schedulely_excluded_authors', []);
     add_option('schedulely_preserved_authors', []); // Authors whose posts should not be randomized
+    add_option('schedulely_post_types', ['post']); // Post types to schedule (default: post for backward compatibility)
     add_option('schedulely_auto_schedule', false); // CRITICAL: Changed to false - prevents auto-run on activation
     add_option('schedulely_email_notifications', true);
     add_option('schedulely_notification_users', []); // Empty array - will default to current user on settings page

@@ -5,6 +5,40 @@ All notable changes to Schedulely will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.3] - 22/01/2026
+
+### Added
+- **Custom Post Type Support** - Plugin now supports scheduling posts from custom post types, not just the default 'post' type
+- **Post Type Selection** - New multi-select field in settings to choose which post types to include in scheduling
+- All registered public post types are now available for selection in the settings page
+
+### Fixed
+- **CRITICAL:** Fixed issue where plugin only queried 'post' post type, ignoring custom post types
+- Plugin now correctly finds and schedules posts from all selected post types
+- Statistics and dashboard now show accurate counts for all selected post types
+- Scheduled posts queries now include all selected post types
+
+### Changed
+- Default post type setting changed from hardcoded 'post' to configurable array (defaults to ['post'] for backward compatibility)
+- All database queries updated to support multiple post types
+- "View All Scheduled Posts" links now dynamically include selected post types
+
+### Technical Details
+- Added `schedulely_post_types` option to store selected post types (array)
+- Added `sanitize_post_types()` method to validate and sanitize post type selections
+- Updated `get_available_posts()`, `get_last_scheduled_date()`, `count_posts_on_date()`, and `get_scheduled_times_for_date()` methods in `Schedulely_Scheduler` class to use selected post types
+- Updated `get_statistics()` and `render_upcoming_posts_list()` methods in `Schedulely_Settings` class
+- Updated notification email links to include selected post types
+- Added Select2 initialization for post type multi-select field
+- All SQL queries now use `IN` clause with prepared statements for multiple post types
+
+### Migration
+- Existing installations default to ['post'] for backward compatibility
+- Users can now select multiple post types from the settings page
+- No data migration required - existing scheduled posts are unaffected
+
+---
+
 ## [1.3.2] - 19/01/2026
 
 ### Changed
