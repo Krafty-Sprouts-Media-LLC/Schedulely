@@ -5,6 +5,22 @@ All notable changes to Schedulely will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.4] - 25/01/2026
+
+### Fixed
+- **Fixed "View All" URL Error** - Resolved "Invalid post type" error when multiple post types are selected by implementing a dropdown menu instead of invalid comma-separated URL parameter
+- Email notification "View All Scheduled Posts" link now works correctly with multiple post types
+
+### Added
+- **Smart "View All" Link** - When multiple post types are selected, "View All" becomes a dropdown menu allowing users to view scheduled posts by specific post type or all types
+
+### Technical Details
+- Added `get_scheduled_posts_url()` helper method in `Schedulely_Settings` class to properly handle single vs multiple post type URLs
+- Updated "View All" link in settings page to show dropdown menu when multiple post types are selected
+- Updated notification email link generation to handle multiple post types correctly
+
+---
+
 ## [1.3.3] - 22/01/2026
 
 ### Added
@@ -21,14 +37,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Default post type setting changed from hardcoded 'post' to configurable array (defaults to ['post'] for backward compatibility)
 - All database queries updated to support multiple post types
-- "View All Scheduled Posts" links now dynamically include selected post types
 
 ### Technical Details
 - Added `schedulely_post_types` option to store selected post types (array)
 - Added `sanitize_post_types()` method to validate and sanitize post type selections
 - Updated `get_available_posts()`, `get_last_scheduled_date()`, `count_posts_on_date()`, and `get_scheduled_times_for_date()` methods in `Schedulely_Scheduler` class to use selected post types
 - Updated `get_statistics()` and `render_upcoming_posts_list()` methods in `Schedulely_Settings` class
-- Updated notification email links to include selected post types
 - Added Select2 initialization for post type multi-select field
 - All SQL queries now use `IN` clause with prepared statements for multiple post types
 

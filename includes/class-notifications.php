@@ -184,8 +184,14 @@ class Schedulely_Notifications
 
         // Build URL with selected post types
         $post_types = get_option('schedulely_post_types', ['post']);
-        $post_type_param = count($post_types) === 1 ? $post_types[0] : implode(',', $post_types);
-        $scheduled_posts_url = admin_url('edit.php?post_status=future&post_type=' . $post_type_param);
+        // If single post type, use it; if multiple, use base URL (WordPress will show all future posts)
+        if (count($post_types) === 1) {
+            $scheduled_posts_url = admin_url('edit.php?post_status=future&post_type=' . esc_attr($post_types[0]));
+        } else {
+            // Multiple post types: link to base future posts page
+            // Note: WordPress defaults to 'post' type, but users can filter by type in the admin
+            $scheduled_posts_url = admin_url('edit.php?post_status=future');
+        }
         $settings_url = admin_url('tools.php?page=schedulely');
 
         $message = <<<HTML

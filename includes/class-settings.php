@@ -630,9 +630,28 @@ class Schedulely_Settings
                                     <h3 class="card-title"><?php _e('Upcoming Posts', 'schedulely'); ?></h3>
                                     <?php
                                     $post_types = get_option('schedulely_post_types', ['post']);
-                                    $post_type_param = count($post_types) === 1 ? $post_types[0] : implode(',', $post_types);
+                                    if (count($post_types) === 1) {
+                                        // Single post type: simple link
+                                        $view_url = $this->get_scheduled_posts_url();
+                                        echo '<a href="' . esc_url($view_url) . '" style="font-size: 11px;">' . __('View All', 'schedulely') . '</a>';
+                                    } else {
+                                        // Multiple post types: dropdown menu
+                                        echo '<div style="position: relative; display: inline-block;">';
+                                        echo '<select id="schedulely-view-posts-type" style="font-size: 11px; padding: 2px 20px 2px 5px; border: 1px solid #ddd; border-radius: 3px; background: white; cursor: pointer;" onchange="if(this.value) window.location.href=this.value;">';
+                                        echo '<option value="">' . __('Select Type...', 'schedulely') . '</option>';
+                                        // Add "All Types" option that links to base future posts page
+                                        $all_types_url = admin_url('edit.php?post_status=future');
+                                        echo '<option value="' . esc_url($all_types_url) . '">' . __('All Types', 'schedulely') . '</option>';
+                                        foreach ($post_types as $pt) {
+                                            $pt_obj = get_post_type_object($pt);
+                                            $pt_label = $pt_obj ? $pt_obj->labels->name : $pt;
+                                            $pt_url = $this->get_scheduled_posts_url($pt);
+                                            echo '<option value="' . esc_url($pt_url) . '">' . esc_html($pt_label) . '</option>';
+                                        }
+                                        echo '</select>';
+                                        echo '</div>';
+                                    }
                                     ?>
-                                    <a href="<?php echo esc_url(admin_url('edit.php?post_status=future&post_type=' . $post_type_param)); ?>" style="font-size: 11px;">View All</a>
                                 </div>
                                 <?php $this->render_upcoming_posts_list(); ?>
                         
@@ -861,6 +880,31 @@ class Schedulely_Settings
                 : __('Auto-schedule disabled. Use "Run Schedule Now" to schedule posts manually.', 'schedulely'),
             'enabled' => $enabled
         ]);
+    }
+
+    /**
+     * Get URL for viewing scheduled posts
+     * @ Since 1.3.4
+     * @param string|null $post_type Optional specific post type to view
+     * @return string URL for viewing scheduled posts
+     */
+    private function get_scheduled_posts_url($post_type = null)
+    {
+        $post_types = get_option('schedulely_post_types', ['post']);
+        
+        // If specific post type requested, use it
+        if ($post_type && in_array($post_type, $post_types, true)) {
+            return admin_url('edit.php?post_status=future&post_type=' . esc_attr($post_type));
+        }
+        
+        // If only one post type selected, use it directly
+        if (count($post_types) === 1) {
+            return admin_url('edit.php?post_status=future&post_type=' . esc_attr($post_types[0]));
+        }
+        
+        // Multiple post types: return base URL without post_type (will show all)
+        // Note: WordPress defaults to 'post' type, but we'll provide a dropdown in the UI
+        return admin_url('edit.php?post_status=future');
     }
 
     /**
