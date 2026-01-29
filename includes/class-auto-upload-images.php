@@ -362,7 +362,7 @@ class Medialytic_Auto_Upload_Images {
 	public function render_settings_page() {
 		$all_post_types = get_post_types( array( 'public' => true ), 'objects' );
 
-		settings_errors( 'medialytic_auto_upload_images' );
+		settings_errors( 'medialytic_auto_upload_images', true );
 		?>
 		<div class="wrap">
 			<h1><?php esc_html_e( 'Medialytic Auto Upload Images', 'medialytic' ); ?></h1>

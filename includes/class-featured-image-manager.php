@@ -104,7 +104,7 @@ class Medialytic_Featured_Image_Manager {
 
 		add_filter( 'the_content_feed', array( $this, 'inject_featured_image_into_feed' ), 10 );
 		add_filter( 'the_excerpt_rss', array( $this, 'inject_featured_image_into_feed' ), 10 );
-		add_filter( 'get_post_metadata', array( $this, 'supply_fallback_thumbnail_meta' ), 10, 4 );
+		add_filter( 'default_post_metadata', array( $this, 'supply_fallback_thumbnail_meta' ), 10, 5 );
 		add_filter( 'post_thumbnail_html', array( $this, 'maybe_render_fallback_thumbnail_html' ), 10, 5 );
 		add_action( 'wp_ajax_medialytic_set_featured_image', array( $this, 'handle_set_featured_image_request' ) );
 		add_action( 'admin_head', array( $this, 'print_admin_column_styles' ) );
@@ -763,7 +763,7 @@ class Medialytic_Featured_Image_Manager {
 	}
 
 	/**
-	 * Supply fallback thumbnail meta when requested.
+	 * Supply fallback thumbnail meta when no `_thumbnail_id` exists.
 	 *
 	 * @param mixed  $value    Existing metadata value.
 	 * @param int    $object_id Object ID.
@@ -771,12 +771,12 @@ class Medialytic_Featured_Image_Manager {
 	 * @param bool   $single   Whether a single value was requested.
 	 * @return mixed
 	 */
-	public function supply_fallback_thumbnail_meta( $value, $object_id, $meta_key, $single ) {
-		if ( '_thumbnail_id' !== $meta_key && ! empty( $meta_key ) ) {
+	public function supply_fallback_thumbnail_meta( $value, $object_id, $meta_key, $single, $meta_type = 'post' ) {
+		if ( 'post' !== $meta_type ) {
 			return $value;
 		}
 
-		if ( ! empty( $value ) ) {
+		if ( '_thumbnail_id' !== $meta_key && ! empty( $meta_key ) ) {
 			return $value;
 		}
 

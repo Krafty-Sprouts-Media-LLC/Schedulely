@@ -5,6 +5,11 @@ All notable changes to Medialytic will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.1] - 2025-11-14
+
+### Fixed
+- Prevent fallback featured images from overriding real thumbnails by moving the `_thumbnail_id` filter to `default_post_metadata`, ensuring placeholders only appear when posts truly lack a featured image.
+
 ## [1.8.0] - 2025-11-14
 
 ### Added

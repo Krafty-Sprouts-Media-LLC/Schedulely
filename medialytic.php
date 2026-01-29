@@ -3,7 +3,7 @@
  * Plugin Name: Medialytic - Media counter and manager
  * Plugin URI: https://kraftysprouts.com/medialytic
  * Description: Media counter and manager for WordPress with comprehensive tracking, analytics, and automated management of images, videos, embeds, and media usage statistics.
- * Version: 1.8.0
+ * Version: 1.8.1
  * Author: Krafty Sprouts Media, LLC
  * Author URI: https://kraftysprouts.com
  * License: GPL v2 or later
@@ -22,7 +22,7 @@
  * Filename: medialytic.php
  * Author: Krafty Sprouts Media, LLC
  * Created: 18/08/2025
- * Version: 1.8.0
+ * Version: 1.8.1
  * Last Modified: 14/11/2025
  * Description: Bootstrap loader for the Medialytic media counter and manager plugin.
  */
@@ -33,7 +33,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Define plugin constants
-define( 'MEDIALYTIC_VERSION', '1.8.0' );
+define( 'MEDIALYTIC_VERSION', '1.8.1' );
 define( 'MEDIALYTIC_PLUGIN_FILE', __FILE__ );
 define( 'MEDIALYTIC_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'MEDIALYTIC_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
