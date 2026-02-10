@@ -5,6 +5,18 @@ All notable changes to Schedulely will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.5] - 10/02/2026
+
+### Improved
+- **Dashboard UI Clarifications** - Renamed "Last Scheduled Date" to "Furthest Scheduled Date" to prevent confusion with execution time.
+- **System Health Status** - Added "Last Run" timestamp to System Health card to show when the scheduler actually last executed.
+
+### Technical Details
+- Updated `class-settings.php` to fetch `schedulely_last_run` option and display it in the System Health Stat card.
+- Changed label for Stat 3 to "Furthest Scheduled Date".
+
+---
+
 ## [1.3.4] - 25/01/2026
 
 ### Fixed

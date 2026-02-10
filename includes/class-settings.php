@@ -441,14 +441,18 @@ class Schedulely_Settings
                                 <div class="stat-value" style="<?php echo !$is_complete ? 'color: #d63638;' : ''; ?>">
                                      <?php echo $last_date ? date('M j', strtotime($last_date)) : 'None'; ?>
                                 </div>
-                                <div class="stat-label"><?php _e('Last Scheduled Date', 'schedulely'); ?></div>
+                                <div class="stat-label"><?php _e('Furthest Scheduled Date', 'schedulely'); ?></div>
                                 <div class="stat-trend <?php echo !$is_complete ? 'down' : ''; ?>">
-                                     <?php echo !$is_complete && $last_date ? __('Action Needed', 'schedulely') : ($last_date ? __('Scheduled', 'schedulely') : __('No Data', 'schedulely')); ?>
+                                     <?php echo !$is_complete && $last_date ? __('Action Needed', 'schedulely') : ($last_date ? __('Scheduled', 'schedulely') : __('No posts scheduled', 'schedulely')); ?>
                                 </div>
                             </div>
 
                             <!-- Stat 4: System Health -->
-                            <?php $auto_schedule = get_option('schedulely_auto_schedule', true); ?>
+                            <?php 
+                            $auto_schedule = get_option('schedulely_auto_schedule', true); 
+                            $last_run = get_option('schedulely_last_run', false);
+                            $last_run_text = $last_run ? sprintf(__('Run %s ago', 'schedulely'), human_time_diff($last_run, current_time('timestamp'))) : __('Never ran', 'schedulely');
+                            ?>
                             <div class="stat-card">
                                 <div class="stat-icon" style="<?php echo $auto_schedule ? 'color: #00a32a; background: #edfaef;' : 'color:#d63638; background: #fcf0f1;'; ?>">
                                     <span class="dashicons dashicons-heart"></span>
@@ -458,7 +462,7 @@ class Schedulely_Settings
                                 </div>
                                 <div class="stat-label"><?php _e('System Health', 'schedulely'); ?></div>
                                 <div class="stat-trend">
-                                     <?php echo $auto_schedule ? __('Cron Running', 'schedulely') : __('Auto-Schedule Off', 'schedulely'); ?>
+                                     <?php echo $auto_schedule ? $last_run_text : __('Auto-Schedule Off', 'schedulely'); ?>
                                 </div>
                             </div>
 

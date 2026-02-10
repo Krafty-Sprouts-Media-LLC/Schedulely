@@ -3,7 +3,7 @@
  * Plugin Name: Schedulely
  * Plugin URI: https://kraftysprouts.com
  * Description: Intelligently schedule posts from any status with smart deficit tracking, random author assignment, and customizable time windows.
- * Version: 1.3.4
+ * Version: 1.3.5
  * Author: Krafty Sprouts Media, LLC
  * Author URI: https://kraftysprouts.com
  * License: GPL v2 or later
@@ -23,7 +23,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('SCHEDULELY_VERSION', '1.3.4');
+define('SCHEDULELY_VERSION', '1.3.5');
 define('SCHEDULELY_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('SCHEDULELY_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('SCHEDULELY_PLUGIN_BASENAME', plugin_basename(__FILE__));
@@ -54,19 +54,19 @@ require_once SCHEDULELY_PLUGIN_DIR . 'includes/class-notifications.php';
  */
 function schedulely_init_update_checker()
 {
-	// Only load update checker if the library exists
-	if (file_exists(SCHEDULELY_PLUGIN_DIR . 'vendor/plugin-update-checker/plugin-update-checker.php')) {
-		require_once SCHEDULELY_PLUGIN_DIR . 'vendor/plugin-update-checker/plugin-update-checker.php';
-		
-		$update_checker = \YahnisElsts\PluginUpdateChecker\v5\PucFactory::buildUpdateChecker(
-			'https://github.com/Krafty-Sprouts-Media-LLC/Schedulely',
-			__FILE__,
-			'schedulely'
-		);
-		
-		// Enable release assets (zip files) for automatic updates
-		$update_checker->getVcsApi()->enableReleaseAssets();
-	}
+    // Only load update checker if the library exists
+    if (file_exists(SCHEDULELY_PLUGIN_DIR . 'vendor/plugin-update-checker/plugin-update-checker.php')) {
+        require_once SCHEDULELY_PLUGIN_DIR . 'vendor/plugin-update-checker/plugin-update-checker.php';
+
+        $update_checker = \YahnisElsts\PluginUpdateChecker\v5\PucFactory::buildUpdateChecker(
+            'https://github.com/Krafty-Sprouts-Media-LLC/Schedulely',
+            __FILE__,
+            'schedulely'
+        );
+
+        // Enable release assets (zip files) for automatic updates
+        $update_checker->getVcsApi()->enableReleaseAssets();
+    }
 }
 add_action('plugins_loaded', 'schedulely_init_update_checker', 5); // Priority 5 to run early
 

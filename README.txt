@@ -4,7 +4,7 @@ Tags: schedule, posts, automation, publishing, cron
 Requires at least: 6.8
 Tested up to: 6.8
 Requires PHP: 8.2
-Stable tag: 1.3.2
+Stable tag: 1.3.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -134,6 +134,11 @@ Note: Current version uses natural random scheduling (70% efficiency) for organi
 5. Deficit status tracking
 
 == Changelog ==
+
+= 1.3.5 - 10/02/2026 =
+* Improved: Renamed "Last Scheduled Date" to "Furthest Scheduled Date" for clarity
+* Improved: Added "Last Run" timestamp to System Health card
+
 
 = 1.0.4 - 07/10/2025 =
 * Added: SweetAlert2 for beautiful modal dialogs (replaces browser confirm)
