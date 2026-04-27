@@ -4,7 +4,7 @@ Tags: schedule, posts, automation, publishing, cron
 Requires at least: 6.8
 Tested up to: 6.8
 Requires PHP: 8.2
-Stable tag: 1.3.5
+Stable tag: 1.3.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -134,6 +134,9 @@ Note: Current version uses natural random scheduling (70% efficiency) for organi
 5. Deficit status tracking
 
 == Changelog ==
+
+= 1.3.6 - 27/04/2026 =
+* Fixed: Polylang integration now fetches posts from all languages during scheduling runs (not only the current/default language context)
 
 = 1.3.5 - 10/02/2026 =
 * Improved: Renamed "Last Scheduled Date" to "Furthest Scheduled Date" for clarity

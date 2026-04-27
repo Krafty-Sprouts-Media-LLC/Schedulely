@@ -137,6 +137,11 @@ class Schedulely_Scheduler
             'update_post_term_cache' => false
         ];
 
+        // Polylang integration: fetch posts across all languages, not only current language context.
+        if (function_exists('pll_languages_list')) {
+            $args['lang'] = '';
+        }
+
         return get_posts($args);
     }
 

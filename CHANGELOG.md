@@ -5,6 +5,16 @@ All notable changes to Schedulely will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.6] - 27/04/2026
+
+### Fixed
+- **Polylang Language Scope in Scheduling Query** - Schedulely now fetches eligible posts across all Polylang languages when collecting posts from the configured status, instead of inheriting only the active/default language context.
+
+### Technical Details
+- Updated `get_available_posts()` in `includes/class-scheduler.php` to set the Polylang query argument `lang` to an empty value when Polylang is available, ensuring all language variants in the selected status are included in one scheduling run.
+
+---
+
 ## [1.3.5] - 10/02/2026
 
 ### Improved
