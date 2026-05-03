@@ -400,7 +400,7 @@ class Schedulely_Settings
             wp_die(esc_html__('You do not have sufficient permissions to perform this action.', 'schedulely'));
         }
 
-        check_admin_referer('schedulely_clear_ai_reorder_log');
+        check_admin_referer('schedulely_clear_ai_reorder_log', 'schedulely_clear_ai_reorder_nonce');
 
         update_option('schedulely_ai_reorder_log', array(), false);
 
@@ -896,11 +896,18 @@ class Schedulely_Settings
                                                             </div>
                                                         <?php endforeach; ?>
                                                     </div>
-                                                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin-top: 10px;">
-                                                        <?php wp_nonce_field('schedulely_clear_ai_reorder_log'); ?>
-                                                        <input type="hidden" name="action" value="schedulely_clear_ai_reorder_log" />
-                                                        <?php submit_button(__('Clear AI reorder log', 'schedulely'), 'secondary', 'schedulely_clear_ai_log', false, array('style' => 'margin-top: 0;')); ?>
-                                                    </form>
+                                                    <?php
+                                                    submit_button(
+                                                        __('Clear AI reorder log', 'schedulely'),
+                                                        'secondary',
+                                                        'schedulely_clear_ai_log',
+                                                        false,
+                                                        array(
+                                                            'style' => 'margin-top: 0;',
+                                                            'form' => 'schedulely-clear-ai-log-form',
+                                                        )
+                                                    );
+                                                    ?>
                                                 <?php endif; ?>
                                             </div>
                                         </div>
@@ -980,6 +987,11 @@ class Schedulely_Settings
                             </div>
 
                         </div>
+                    </form>
+
+                    <form id="schedulely-clear-ai-log-form" method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="display:none;" aria-hidden="true">
+                        <?php wp_nonce_field('schedulely_clear_ai_reorder_log', 'schedulely_clear_ai_reorder_nonce'); ?>
+                        <input type="hidden" name="action" value="schedulely_clear_ai_reorder_log" />
                     </form>
             
                     <?php $this->render_footer(); ?>

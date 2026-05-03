@@ -4,7 +4,7 @@ Tags: schedule, posts, automation, publishing, cron
 Requires at least: 6.8
 Tested up to: 6.8
 Requires PHP: 8.2
-Stable tag: 1.5.5
+Stable tag: 1.5.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -134,6 +134,9 @@ Note: Current version uses natural random scheduling (70% efficiency) for organi
 5. Deficit status tracking
 
 == Changelog ==
+
+= 1.5.6 - 03/05/2026 =
+* Fixed: Save Changes on Tools → Schedulely no longer fails with “The link you followed has expired” (duplicate _wpnonce from nested clear-log form)
 
 = 1.5.5 - 03/05/2026 =
 * Changed: PHPDoc @since tags completed for AI reorder log and reorder API method

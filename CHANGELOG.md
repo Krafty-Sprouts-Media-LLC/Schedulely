@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.5.6] - 03/05/2026
+
+### Fixed
+- **Settings save / “The link you followed has expired”** — The **Clear AI reorder log** control used a second `wp_nonce_field` with the default name `_wpnonce` inside the main settings form. On **Save Changes**, PHP only saw one nonce (the wrong action), so `check_admin_referer` failed. The clear action now uses a **dedicated nonce field** (`schedulely_clear_ai_reorder_nonce`) and a **separate form** referenced via the button’s **`form`** attribute (valid HTML, no nested forms).
+
+---
+
 ## [1.5.5] - 03/05/2026
 
 ### Changed
