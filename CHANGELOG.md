@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.5.2] - 03/05/2026
+
+### Changed
+- **Settings layout** — Configuration card is grouped into **Content & volume** (status, types, posts/day, interval), **When to publish** (time window + active days), **Queue order**, **Author assignment**, then **AI series spacing** (boxed), then notifications. Removes AI from between queue controls and the time window.
+
+---
+
 ## [1.5.1] - 03/05/2026
 
 ### Fixed

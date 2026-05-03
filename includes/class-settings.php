@@ -3,7 +3,7 @@
  * Filename: class-settings.php
  * Author: Krafty Sprouts Media, LLC
  * Created: 06/10/2025
- * Last Modified: 05/05/2026
+ * Last Modified: 03/05/2026
  * Description: Settings and Admin Interface
  *
  * @package Schedulely
@@ -575,7 +575,8 @@ class Schedulely_Settings
 
                                     <!-- Form Grid -->
                                     <div class="form-grid">
-                                
+
+                                        <p class="description" style="margin: 0 0 8px 0; font-weight: 600; color: #1d2327;"><?php esc_html_e('Content & volume', 'schedulely'); ?></p>
                                         <div style="display: flex; gap: 20px; flex-wrap: wrap;">
                                             <div class="form-group" style="flex: 1; min-width: 250px;">
                                                 <label class="form-label"><?php _e('Post Status to Monitor', 'schedulely'); ?></label>
@@ -622,20 +623,98 @@ class Schedulely_Settings
                                                        value="<?php echo esc_attr(get_option('schedulely_min_interval', 40)); ?>" 
                                                        min="1" max="1440" style="width: 100%;">
                                             </div>
+                                        </div>
 
-                                            <div class="form-group" style="flex: 1; min-width: 250px;">
-                                                <label class="form-label"><?php _e('Queue order', 'schedulely'); ?></label>
-                                                <label style="display: block;">
-                                                    <input type="checkbox" name="schedulely_shuffle_queue" id="schedulely_shuffle_queue"
-                                                           value="1" <?php checked(get_option('schedulely_shuffle_queue', true)); ?>>
-                                                    <?php _e('Shuffle posts before assigning dates (breaks strict draft-date order)', 'schedulely'); ?>
-                                                </label>
-                                                <p class="description" style="font-size: 12px;"><?php _e('When enabled, each run randomizes which eligible posts get the next slots instead of always using oldest post date first.', 'schedulely'); ?></p>
+                                        <hr style="border: 0; border-top: 1px solid #f0f0f1; margin: 20px 0;">
+
+                                        <p class="description" style="margin: 0 0 8px 0; font-weight: 600; color: #1d2327;"><?php esc_html_e('When to publish', 'schedulely'); ?></p>
+                                        <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                                             <div class="form-group" style="flex: 2; min-width: 300px;">
+                                                <label class="form-label"><?php _e('Time Window', 'schedulely'); ?></label>
+                                                <div style="display: flex; gap: 10px; align-items: center;">
+                                                    <input type="text" name="schedulely_start_time" id="schedulely_start_time" 
+                                                           value="<?php echo esc_attr(get_option('schedulely_start_time', '5:00 PM')); ?>" 
+                                                           class="regular-text schedulely-timepicker" style="width: 120px;">
+                                                    <span style="color: #646970;">→</span>
+                                                    <input type="text" name="schedulely_end_time" id="schedulely_end_time" 
+                                                           value="<?php echo esc_attr(get_option('schedulely_end_time', '11:00 PM')); ?>" 
+                                                           class="regular-text schedulely-timepicker" style="width: 120px;">
+                                                </div>
+                                                <p class="description" style="margin-top: 8px; max-width: 640px;">
+                                                    <?php esc_html_e('Same calendar day: end time must be after start (e.g. 2:30 PM → 11:59 PM). Overnight: if end is at or before start on the clock, the window runs from start on the anchor day through end on the next calendar morning (e.g. 2:30 PM → 3:00 AM). Posts per day and spacing use that full span.', 'schedulely'); ?>
+                                                </p>
+                                             </div>
+
+                                             <div class="form-group" style="flex: 1; min-width: 300px;">
+                                                <label class="form-label"><?php _e('Active Days', 'schedulely'); ?></label>
+                                                <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                                                    <?php
+                                                    $active_days = get_option('schedulely_active_days', [1, 2, 3, 4, 5, 6, 0]);
+                                                    $days = [1 => 'Mon', 2 => 'Tue', 3 => 'Wed', 4 => 'Thu', 5 => 'Fri', 6 => 'Sat', 0 => 'Sun'];
+                                                    foreach ($days as $day_num => $day_name) {
+                                                        $checked = in_array($day_num, $active_days) ? 'checked' : '';
+                                                        echo '<label class="day-checkbox"><input type="checkbox" name="schedulely_active_days[]" value="' . $day_num . '" ' . $checked . '> ' . $day_name . '</label>';
+                                                    }
+                                                    ?>
+                                                </div>
+                                             </div>
+                                        </div>
+
+                                        <hr style="border: 0; border-top: 1px solid #f0f0f1; margin: 20px 0;">
+
+                                        <p class="description" style="margin: 0 0 8px 0; font-weight: 600; color: #1d2327;"><?php esc_html_e('Queue order', 'schedulely'); ?></p>
+                                        <div class="form-group" style="margin-bottom: 0;">
+                                            <label style="display: block;">
+                                                <input type="checkbox" name="schedulely_shuffle_queue" id="schedulely_shuffle_queue"
+                                                       value="1" <?php checked(get_option('schedulely_shuffle_queue', true)); ?>>
+                                                <?php _e('Shuffle posts before assigning dates (breaks strict draft-date order)', 'schedulely'); ?>
+                                            </label>
+                                            <p class="description" style="font-size: 12px;"><?php _e('When enabled, each run randomizes which eligible posts get the next slots instead of always using oldest post date first.', 'schedulely'); ?></p>
+                                        </div>
+
+                                        <hr style="border: 0; border-top: 1px solid #f0f0f1; margin: 20px 0;">
+
+                                        <div class="form-group">
+                                            <label class="form-label"><?php _e('Author Assignment', 'schedulely'); ?></label>
+                                            <label style="display: block; margin-bottom: 15px;">
+                                                <input type="checkbox" name="schedulely_randomize_authors" id="schedulely_randomize_authors" 
+                                                       value="1" <?php checked(get_option('schedulely_randomize_authors', false)); ?>>
+                                                <?php _e('Randomly assign authors to scheduled posts', 'schedulely'); ?>
+                                            </label>
+                                    
+                                            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                                                <div style="flex: 1; min-width: 300px;">
+                                                    <label class="form-label" style="font-size: 12px;"><?php _e('Excluded Authors', 'schedulely'); ?></label>
+                                                    <select name="schedulely_excluded_authors[]" id="schedulely_excluded_authors" class="schedulely-author-select" multiple="multiple" style="width: 100%;">
+                                                        <?php
+                                                        $users = get_users(['capability' => 'edit_posts']);
+                                                        $excluded = get_option('schedulely_excluded_authors', []);
+                                                        foreach ($users as $user) {
+                                                            $selected = in_array($user->ID, $excluded) ? 'selected' : '';
+                                                            echo '<option value="' . esc_attr($user->ID) . '" ' . $selected . '>' . esc_html($user->display_name) . ' (' . esc_html($user->user_login) . ')</option>';
+                                                        }
+                                                        ?>
+                                                    </select>
+                                                </div>
+                                                <div style="flex: 1; min-width: 300px;">
+                                                    <label class="form-label" style="font-size: 12px;"><?php _e('Preserved Authors', 'schedulely'); ?></label>
+                                                    <select name="schedulely_preserved_authors[]" id="schedulely_preserved_authors" class="schedulely-author-select" multiple="multiple" style="width: 100%;">
+                                                        <?php
+                                                        $preserved = get_option('schedulely_preserved_authors', []);
+                                                        foreach ($users as $user) {
+                                                            $selected = in_array($user->ID, $preserved) ? 'selected' : '';
+                                                            echo '<option value="' . esc_attr($user->ID) . '" ' . $selected . '>' . esc_html($user->display_name) . ' (' . esc_html($user->user_login) . ')</option>';
+                                                        }
+                                                        ?>
+                                                    </select>
+                                                </div>
                                             </div>
                                         </div>
 
-                                        <div class="form-group" style="margin-top: 10px; padding: 16px; border: 1px solid #c3c4c7; border-radius: 4px; background: #fcfcfc;">
-                                            <label class="form-label"><?php _e('AI series spacing (optional)', 'schedulely'); ?></label>
+                                        <hr style="border: 0; border-top: 1px solid #f0f0f1; margin: 20px 0;">
+
+                                        <p class="description" style="margin: 0 0 8px 0; font-weight: 600; color: #1d2327;"><?php esc_html_e('AI series spacing (optional)', 'schedulely'); ?></p>
+                                        <div class="form-group" style="margin-top: 0; padding: 16px; border: 1px solid #c3c4c7; border-radius: 4px; background: #fcfcfc;">
                                             <p class="description" style="margin-top: 0;">
                                                 <?php
                                                 echo wp_kses(
@@ -695,75 +774,8 @@ class Schedulely_Settings
                                                 <?php _e('Remove stored API key on save', 'schedulely'); ?>
                                             </label>
                                         </div>
-                                
-                                        <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-                                             <div class="form-group" style="flex: 2; min-width: 300px;">
-                                                <label class="form-label"><?php _e('Time Window', 'schedulely'); ?></label>
-                                                <div style="display: flex; gap: 10px; align-items: center;">
-                                                    <input type="text" name="schedulely_start_time" id="schedulely_start_time" 
-                                                           value="<?php echo esc_attr(get_option('schedulely_start_time', '5:00 PM')); ?>" 
-                                                           class="regular-text schedulely-timepicker" style="width: 120px;">
-                                                    <span style="color: #646970;">→</span>
-                                                    <input type="text" name="schedulely_end_time" id="schedulely_end_time" 
-                                                           value="<?php echo esc_attr(get_option('schedulely_end_time', '11:00 PM')); ?>" 
-                                                           class="regular-text schedulely-timepicker" style="width: 120px;">
-                                                </div>
-                                                <p class="description" style="margin-top: 8px; max-width: 640px;">
-                                                    <?php esc_html_e('Same calendar day: end time must be after start (e.g. 2:30 PM → 11:59 PM). Overnight: if end is at or before start on the clock, the window runs from start on the anchor day through end on the next calendar morning (e.g. 2:30 PM → 3:00 AM). Posts per day and spacing use that full span.', 'schedulely'); ?>
-                                                </p>
-                                             </div>
-                                     
-                                             <div class="form-group" style="flex: 1; min-width: 300px;">
-                                                <label class="form-label"><?php _e('Active Days', 'schedulely'); ?></label>
-                                                <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-                                                    <?php
-                                                    $active_days = get_option('schedulely_active_days', [1, 2, 3, 4, 5, 6, 0]);
-                                                    $days = [1 => 'Mon', 2 => 'Tue', 3 => 'Wed', 4 => 'Thu', 5 => 'Fri', 6 => 'Sat', 0 => 'Sun'];
-                                                    foreach ($days as $day_num => $day_name) {
-                                                        $checked = in_array($day_num, $active_days) ? 'checked' : '';
-                                                        echo '<label class="day-checkbox"><input type="checkbox" name="schedulely_active_days[]" value="' . $day_num . '" ' . $checked . '> ' . $day_name . '</label>';
-                                                    }
-                                                    ?>
-                                                </div>
-                                             </div>
-                                        </div>
-                                
-                                        <div class="form-group">
-                                            <label class="form-label"><?php _e('Author Assignment', 'schedulely'); ?></label>
-                                            <label style="display: block; margin-bottom: 15px;">
-                                                <input type="checkbox" name="schedulely_randomize_authors" id="schedulely_randomize_authors" 
-                                                       value="1" <?php checked(get_option('schedulely_randomize_authors', false)); ?>>
-                                                <?php _e('Randomly assign authors to scheduled posts', 'schedulely'); ?>
-                                            </label>
-                                    
-                                            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-                                                <div style="flex: 1; min-width: 300px;">
-                                                    <label class="form-label" style="font-size: 12px;"><?php _e('Excluded Authors', 'schedulely'); ?></label>
-                                                    <select name="schedulely_excluded_authors[]" id="schedulely_excluded_authors" class="schedulely-author-select" multiple="multiple" style="width: 100%;">
-                                                        <?php
-                                                        $users = get_users(['capability' => 'edit_posts']);
-                                                        $excluded = get_option('schedulely_excluded_authors', []);
-                                                        foreach ($users as $user) {
-                                                            $selected = in_array($user->ID, $excluded) ? 'selected' : '';
-                                                            echo '<option value="' . esc_attr($user->ID) . '" ' . $selected . '>' . esc_html($user->display_name) . ' (' . esc_html($user->user_login) . ')</option>';
-                                                        }
-                                                        ?>
-                                                    </select>
-                                                </div>
-                                                <div style="flex: 1; min-width: 300px;">
-                                                    <label class="form-label" style="font-size: 12px;"><?php _e('Preserved Authors', 'schedulely'); ?></label>
-                                                    <select name="schedulely_preserved_authors[]" id="schedulely_preserved_authors" class="schedulely-author-select" multiple="multiple" style="width: 100%;">
-                                                        <?php
-                                                        $preserved = get_option('schedulely_preserved_authors', []);
-                                                        foreach ($users as $user) {
-                                                            $selected = in_array($user->ID, $preserved) ? 'selected' : '';
-                                                            echo '<option value="' . esc_attr($user->ID) . '" ' . $selected . '>' . esc_html($user->display_name) . ' (' . esc_html($user->user_login) . ')</option>';
-                                                        }
-                                                        ?>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                        </div>
+
+                                        <hr style="border: 0; border-top: 1px solid #f0f0f1; margin: 20px 0;">
 
                                         <div class="form-group">
                                             <label class="form-label"><?php _e('Notification Recipients', 'schedulely'); ?></label>
