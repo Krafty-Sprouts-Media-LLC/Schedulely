@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.4.4] - 05/05/2026
+
+### Changed
+- **Scheduling email summary** - Completion notifications now include one line under SUMMARY: **AI queue order** — whether AI reordering ran on this pass (`Yes — API reordered…`), fell back (`No — used shuffle…`), or the feature is off in settings. Uses the existing `ai_queue_ordered` flag from the scheduler.
+
+### Technical Details
+- Updated `build_notification_message()` in `includes/class-notifications.php`.
+
+---
+
 ## [1.4.3] - 05/05/2026
 
 ### Added

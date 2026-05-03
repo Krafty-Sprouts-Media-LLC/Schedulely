@@ -3,7 +3,7 @@
  * Filename: class-notifications.php
  * Author: Krafty Sprouts Media, LLC
  * Created: 06/10/2025
- * Last Modified: 12/10/2025
+ * Last Modified: 05/05/2026
  * Description: Email Notification System - Sends email notifications for scheduling events
  *
  * @package Schedulely
@@ -169,6 +169,20 @@ class Schedulely_Notifications
         // Get author randomization status
         $author_randomized = get_option('schedulely_randomize_authors', false) ? __('Yes', 'schedulely') : __('No', 'schedulely');
 
+        // AI queue ordering (optional): did this run apply API reorder?
+        $ai_enabled = (bool) get_option('schedulely_ai_order_enabled', false);
+        $ai_used = !empty($results['ai_queue_ordered']);
+        if ($ai_enabled) {
+            if ($ai_used) {
+                $ai_queue_summary = __('Yes — API reordered the queue for series spacing.', 'schedulely');
+            } else {
+                $ai_queue_summary = __('No — used shuffle or draft-date order (API skipped, failed, or no key).', 'schedulely');
+            }
+        } else {
+            $ai_queue_summary = __('Off (AI ordering disabled in settings).', 'schedulely');
+        }
+        $ai_queue_summary_esc = esc_html($ai_queue_summary);
+
         // Get completed last date status
         $completion_status = $completed_last_date ? __('Yes (filled previous incomplete date)', 'schedulely') : __('No (started fresh dates)', 'schedulely');
 
@@ -217,7 +231,8 @@ class Schedulely_Notifications
         ⏰ Time Window: <strong>{$start_time} - {$end_time}</strong><br>
         📊 Dates Complete: <strong>{$complete_dates}</strong> | Dates Incomplete: <strong>{$incomplete_dates}</strong><br>
         📋 Filled Previous Incomplete: <strong>{$completion_status}</strong><br>
-        🔄 Authors Randomized: <strong>{$author_randomized}</strong>
+        🔄 Authors Randomized: <strong>{$author_randomized}</strong><br>
+        🧠 AI queue order: <strong>{$ai_queue_summary_esc}</strong>
     </div>
     
     <div style="background: #fef3c7; border-left: 4px solid {$overall_status_color}; padding: 15px; margin: 20px 0;">
