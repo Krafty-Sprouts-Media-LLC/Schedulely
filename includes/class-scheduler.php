@@ -3,7 +3,7 @@
  * Filename: class-scheduler.php
  * Author: Krafty Sprouts Media, LLC
  * Created: 06/10/2025
- * Last Modified: 05/01/2026
+ * Last Modified: 04/05/2026
  * Description: Main Scheduling Engine - Handles all post scheduling logic with last date completion
  *
  * @package Schedulely
@@ -21,6 +21,13 @@ if (!defined('ABSPATH')) {
  */
 class Schedulely_Scheduler
 {
+
+    /**
+     * Maximum posts fetched from the monitored status per scheduling run.
+     *
+     * @var int
+     */
+    private const MAX_POSTS_PER_RUN = 1500;
 
     /**
      * Author manager instance
@@ -50,11 +57,20 @@ class Schedulely_Scheduler
             'completed_last_date' => false,
             'message' => '',
             'errors' => [],
-            'scheduled_posts' => []
+            'scheduled_posts' => [],
+            'ai_queue_ordered' => false,
         ];
 
         $quota = get_option('schedulely_posts_per_day', 8);
         $available_posts = $this->get_available_posts();
+        $ai_ordered = false;
+
+        if (!empty($available_posts) && count($available_posts) > 1) {
+            $ai_ordered = $this->maybe_apply_ai_queue_order($available_posts);
+            if (!$ai_ordered && get_option('schedulely_shuffle_queue', true)) {
+                shuffle($available_posts);
+            }
+        }
 
         if (empty($available_posts)) {
             $results['message'] = sprintf(
@@ -108,11 +124,57 @@ class Schedulely_Scheduler
         $results['scheduled_posts'] = $scheduling_results['scheduled_posts'];
         $results['errors'] = $scheduling_results['errors'];
         $results['message'] = $scheduling_results['message'];
+        $results['ai_queue_ordered'] = $ai_ordered;
+
+        if ($ai_ordered && $results['success'] && $results['scheduled_count'] > 0) {
+            $results['message'] .= ' ' . __('AI reordered the queue for better series spacing.', 'schedulely');
+        }
 
         // Clear cache
         schedulely_clear_cache();
 
         return $results;
+    }
+
+    /**
+     * Optionally reorder posts via OpenAI-compatible API (e.g. DeepSeek). Mutates $posts on success.
+     *
+     * @param array $posts Post IDs (by reference).
+     * @return bool True when AI order was applied.
+     */
+    private function maybe_apply_ai_queue_order(array &$posts)
+    {
+        if (count($posts) < 2) {
+            return false;
+        }
+
+        if (!get_option('schedulely_ai_order_enabled', false)) {
+            return false;
+        }
+
+        $key = apply_filters('schedulely_ai_api_key', get_option('schedulely_ai_api_key', ''));
+        if ('' === trim((string) $key)) {
+            return false;
+        }
+
+        $ai = new Schedulely_AI_Order();
+        $reordered = $ai->reorder_post_ids($posts);
+
+        if (is_wp_error($reordered)) {
+            schedulely_log_error(
+                'Schedulely AI queue order failed: ' . $reordered->get_error_message(),
+                [
+                    'code' => $reordered->get_error_code(),
+                    'post_count' => count($posts),
+                ]
+            );
+
+            return false;
+        }
+
+        $posts = $reordered;
+
+        return true;
     }
 
     /**
@@ -128,7 +190,7 @@ class Schedulely_Scheduler
         $args = [
             'post_type' => $post_types,
             'post_status' => $status,
-            'posts_per_page' => 500, // Limit to 500 posts per run
+            'posts_per_page' => self::MAX_POSTS_PER_RUN,
             'orderby' => 'date',
             'order' => 'ASC',
             'fields' => 'ids',

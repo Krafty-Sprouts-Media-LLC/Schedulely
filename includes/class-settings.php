@@ -3,7 +3,7 @@
  * Filename: class-settings.php
  * Author: Krafty Sprouts Media, LLC
  * Created: 06/10/2025
- * Last Modified: 19/01/2026
+ * Last Modified: 04/05/2026
  * Description: Settings and Admin Interface
  *
  * @package Schedulely
@@ -167,6 +167,9 @@ class Schedulely_Settings
         register_setting('schedulely_settings', 'schedulely_min_interval', [
             'sanitize_callback' => 'absint'
         ]);
+        register_setting('schedulely_settings', 'schedulely_shuffle_queue', [
+            'sanitize_callback' => [$this, 'sanitize_checkbox']
+        ]);
         register_setting('schedulely_settings', 'schedulely_randomize_authors', [
             'sanitize_callback' => [$this, 'sanitize_checkbox']
         ]);
@@ -187,6 +190,18 @@ class Schedulely_Settings
         ]);
         register_setting('schedulely_settings', 'schedulely_notification_users', [
             'sanitize_callback' => [$this, 'sanitize_notification_users']
+        ]);
+        register_setting('schedulely_settings', 'schedulely_ai_order_enabled', [
+            'sanitize_callback' => [$this, 'sanitize_checkbox']
+        ]);
+        register_setting('schedulely_settings', 'schedulely_ai_api_key', [
+            'sanitize_callback' => [$this, 'sanitize_ai_api_key']
+        ]);
+        register_setting('schedulely_settings', 'schedulely_ai_base_url', [
+            'sanitize_callback' => [$this, 'sanitize_ai_base_url']
+        ]);
+        register_setting('schedulely_settings', 'schedulely_ai_model', [
+            'sanitize_callback' => [$this, 'sanitize_ai_model']
         ]);
     }
 
@@ -235,6 +250,56 @@ class Schedulely_Settings
     public function sanitize_checkbox($value)
     {
         return !empty($value);
+    }
+
+    /**
+     * Sanitize AI API base URL (HTTPS OpenAI-compatible root).
+     *
+     * @param mixed $value Raw option.
+     * @return string
+     */
+    public function sanitize_ai_base_url($value)
+    {
+        $default = 'https://api.deepseek.com/v1';
+        if (!is_string($value) || '' === trim($value)) {
+            return $default;
+        }
+        $url = esc_url_raw(trim($value));
+        if ('' === $url || 0 !== strpos($url, 'https://')) {
+            return $default;
+        }
+
+        return untrailingslashit($url);
+    }
+
+    /**
+     * Sanitize AI model id.
+     *
+     * @param mixed $value Raw option.
+     * @return string
+     */
+    public function sanitize_ai_model($value)
+    {
+        if (!is_string($value) || '' === trim($value)) {
+            return 'deepseek-v4-flash';
+        }
+
+        return sanitize_text_field(substr(trim($value), 0, 120));
+    }
+
+    /**
+     * Sanitize AI API key (alphanumeric and common token characters).
+     *
+     * @param mixed $value Raw option.
+     * @return string
+     */
+    public function sanitize_ai_api_key($value)
+    {
+        if (!is_string($value)) {
+            return '';
+        }
+
+        return sanitize_text_field(trim(wp_unslash($value)));
     }
 
     /**
@@ -342,6 +407,15 @@ class Schedulely_Settings
             update_option('schedulely_end_time', sanitize_text_field($_POST['schedulely_end_time'] ?? '11:00 PM'));
             update_option('schedulely_active_days', $this->sanitize_active_days($_POST['schedulely_active_days'] ?? []));
             update_option('schedulely_min_interval', absint($_POST['schedulely_min_interval'] ?? 40));
+            update_option('schedulely_shuffle_queue', $this->sanitize_checkbox($_POST['schedulely_shuffle_queue'] ?? false));
+            update_option('schedulely_ai_order_enabled', $this->sanitize_checkbox($_POST['schedulely_ai_order_enabled'] ?? false));
+            update_option('schedulely_ai_base_url', $this->sanitize_ai_base_url($_POST['schedulely_ai_base_url'] ?? ''));
+            update_option('schedulely_ai_model', $this->sanitize_ai_model($_POST['schedulely_ai_model'] ?? ''));
+            if (!empty($_POST['schedulely_ai_clear_api_key'])) {
+                update_option('schedulely_ai_api_key', '');
+            } elseif (isset($_POST['schedulely_ai_api_key']) && '' !== trim(wp_unslash((string) $_POST['schedulely_ai_api_key']))) {
+                update_option('schedulely_ai_api_key', $this->sanitize_ai_api_key($_POST['schedulely_ai_api_key']));
+            }
             update_option('schedulely_randomize_authors', $this->sanitize_checkbox($_POST['schedulely_randomize_authors'] ?? false));
             update_option('schedulely_excluded_authors', $this->sanitize_excluded_authors($_POST['schedulely_excluded_authors'] ?? []));
             update_option('schedulely_preserved_authors', $this->sanitize_preserved_authors($_POST['schedulely_preserved_authors'] ?? []));
@@ -540,6 +614,65 @@ class Schedulely_Settings
                                                        value="<?php echo esc_attr(get_option('schedulely_min_interval', 40)); ?>" 
                                                        min="1" max="1440" style="width: 100%;">
                                             </div>
+
+                                            <div class="form-group" style="flex: 1; min-width: 250px;">
+                                                <label class="form-label"><?php _e('Queue order', 'schedulely'); ?></label>
+                                                <label style="display: block;">
+                                                    <input type="checkbox" name="schedulely_shuffle_queue" id="schedulely_shuffle_queue"
+                                                           value="1" <?php checked(get_option('schedulely_shuffle_queue', true)); ?>>
+                                                    <?php _e('Shuffle posts before assigning dates (breaks strict draft-date order)', 'schedulely'); ?>
+                                                </label>
+                                                <p class="description" style="font-size: 12px;"><?php _e('When enabled, each run randomizes which eligible posts get the next slots instead of always using oldest post date first.', 'schedulely'); ?></p>
+                                            </div>
+                                        </div>
+
+                                        <div class="form-group" style="margin-top: 10px; padding: 16px; border: 1px solid #c3c4c7; border-radius: 4px; background: #fcfcfc;">
+                                            <label class="form-label"><?php _e('AI series spacing (optional)', 'schedulely'); ?></label>
+                                            <p class="description" style="margin-top: 0;">
+                                                <?php
+                                                echo wp_kses(
+                                                    sprintf(
+                                                        /* translators: %s: URL to DeepSeek API guide */
+                                                        __('Uses an OpenAI-compatible Chat Completions API. Defaults target <a href="%s" target="_blank" rel="noopener noreferrer">DeepSeek</a> (e.g. deepseek-v4-flash). The model only reorders post IDs from titles; Schedulely still assigns dates, times, quotas, and intervals.', 'schedulely'),
+                                                        esc_url('https://apidog.com/blog/how-to-use-deepseek-v4-api/')
+                                                    ),
+                                                    [
+                                                        'a' => [
+                                                            'href' => true,
+                                                            'target' => true,
+                                                            'rel' => true,
+                                                        ],
+                                                    ]
+                                                );
+                                                ?>
+                                            </p>
+                                            <label style="display: block; margin-bottom: 12px;">
+                                                <input type="checkbox" name="schedulely_ai_order_enabled" id="schedulely_ai_order_enabled"
+                                                       value="1" <?php checked(get_option('schedulely_ai_order_enabled', false)); ?>>
+                                                <?php _e('Use AI to order the queue before scheduling (skips shuffle when AI succeeds)', 'schedulely'); ?>
+                                            </label>
+                                            <div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 12px;">
+                                                <div style="flex: 1; min-width: 260px;">
+                                                    <label class="form-label" style="font-size: 12px;" for="schedulely_ai_base_url"><?php _e('API base URL', 'schedulely'); ?></label>
+                                                    <input type="url" name="schedulely_ai_base_url" id="schedulely_ai_base_url" class="regular-text" style="width: 100%;"
+                                                           value="<?php echo esc_attr(get_option('schedulely_ai_base_url', 'https://api.deepseek.com/v1')); ?>"
+                                                           placeholder="https://api.deepseek.com/v1" autocomplete="off">
+                                                </div>
+                                                <div style="flex: 1; min-width: 220px;">
+                                                    <label class="form-label" style="font-size: 12px;" for="schedulely_ai_model"><?php _e('Model', 'schedulely'); ?></label>
+                                                    <input type="text" name="schedulely_ai_model" id="schedulely_ai_model" class="regular-text" style="width: 100%;"
+                                                           value="<?php echo esc_attr(get_option('schedulely_ai_model', 'deepseek-v4-flash')); ?>"
+                                                           placeholder="deepseek-v4-flash" autocomplete="off">
+                                                </div>
+                                            </div>
+                                            <div style="margin-bottom: 10px;">
+                                                <label class="form-label" style="font-size: 12px;" for="schedulely_ai_api_key"><?php _e('API key', 'schedulely'); ?></label>
+                                                <input type="password" name="schedulely_ai_api_key" id="schedulely_ai_api_key" class="regular-text" style="width: 100%; max-width: 480px;" value="" autocomplete="new-password" placeholder="<?php esc_attr_e('Leave blank to keep the current key', 'schedulely'); ?>">
+                                            </div>
+                                            <label style="display: block;">
+                                                <input type="checkbox" name="schedulely_ai_clear_api_key" id="schedulely_ai_clear_api_key" value="1">
+                                                <?php _e('Remove stored API key on save', 'schedulely'); ?>
+                                            </label>
                                         </div>
                                 
                                         <div style="display: flex; gap: 20px; flex-wrap: wrap;">

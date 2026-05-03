@@ -4,6 +4,45 @@ All notable changes to Schedulely will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+==========================================================================
+
+
+## [1.4.0] - 04/05/2026
+
+### Added
+- **AI queue ordering (optional)** - When enabled with an API key, Schedulely calls an **OpenAI-compatible** `POST …/chat/completions` endpoint before assigning publish times. The model receives each post’s **ID and title** and returns a JSON `ordered_ids` list that spaces obvious same-series titles when possible. **DeepSeek** is the default (`https://api.deepseek.com/v1`, model `deepseek-v4-flash`); base URL and model are editable for other providers. See the [DeepSeek V4 API guide](https://apidog.com/blog/how-to-use-deepseek-v4-api/) for the compatible request shape.
+- **Settings**: Tools → Schedulely → **AI series spacing** — enable toggle, API base URL, model, API key (leave blank to keep existing key; checkbox to clear), and short documentation link.
+
+### Changed
+- If AI ordering **succeeds**, the shuffle step is **skipped** for that run. If AI is off, fails, or no key is set, behavior falls back to existing shuffle / date order rules.
+
+### Technical Details
+- New `includes/class-ai-order.php` (`Schedulely_AI_Order`) using `wp_remote_post`, JSON mode, and strict permutation validation against the eligible ID list.
+- `Schedulely_Scheduler::run_schedule()` calls AI reorder when `schedulely_ai_order_enabled` is on; results include `ai_queue_ordered` and an extra success message line when applicable.
+- New options: `schedulely_ai_order_enabled`, `schedulely_ai_api_key`, `schedulely_ai_base_url`, `schedulely_ai_model`. Filters: `schedulely_ai_api_key`, `schedulely_ai_chat_completions_body`, `schedulely_ai_request_timeout`, `schedulely_ai_max_output_tokens`.
+
+---
+
+## [1.3.8] - 04/05/2026
+
+### Changed
+- **Larger scheduling pool per run** - Eligible posts query now loads up to **1500** posts per run (was 500), so bigger draft pools are considered in one pass without trimming variety at the old ceiling.
+
+### Technical Details
+- Added `Schedulely_Scheduler::MAX_POSTS_PER_RUN` and wired `get_posts()` `posts_per_page` to that constant in `includes/class-scheduler.php`.
+
+---
+
+## [1.3.7] - 03/05/2026
+
+### Added
+- **Shuffle queue before scheduling** - Optional setting (on by default) randomizes the order of eligible posts each run so publication order is not locked to oldest `post_date` first. Disable under **Queue order** on the settings screen to restore strict draft-date order.
+
+### Technical Details
+- New option `schedulely_shuffle_queue`; `run_schedule()` in `includes/class-scheduler.php` calls `shuffle()` on the post ID list when enabled and more than one post is available.
+- Settings UI and `register_setting` / save handling in `includes/class-settings.php`; default enabled via `schedulely_activate()` and `schedulely_upgrade()` for installs upgrading from before 1.3.7.
+
+---
 
 ## [1.3.6] - 27/04/2026
 

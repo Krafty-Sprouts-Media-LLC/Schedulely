@@ -3,7 +3,7 @@
  * Plugin Name: Schedulely
  * Plugin URI: https://kraftysprouts.com
  * Description: Intelligently schedule posts from any status with smart deficit tracking, random author assignment, and customizable time windows.
- * Version: 1.3.6
+ * Version: 1.4.0
  * Author: Krafty Sprouts Media, LLC
  * Author URI: https://kraftysprouts.com
  * License: GPL v2 or later
@@ -23,7 +23,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('SCHEDULELY_VERSION', '1.3.6');
+define('SCHEDULELY_VERSION', '1.4.0');
 define('SCHEDULELY_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('SCHEDULELY_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('SCHEDULELY_PLUGIN_BASENAME', plugin_basename(__FILE__));
@@ -40,6 +40,7 @@ add_action('plugins_loaded', 'schedulely_load_textdomain');
 /**
  * Load plugin classes
  */
+require_once SCHEDULELY_PLUGIN_DIR . 'includes/class-ai-order.php';
 require_once SCHEDULELY_PLUGIN_DIR . 'includes/class-scheduler.php';
 require_once SCHEDULELY_PLUGIN_DIR . 'includes/class-author-manager.php';
 require_once SCHEDULELY_PLUGIN_DIR . 'includes/class-settings.php';
@@ -110,6 +111,11 @@ function schedulely_activate()
     add_option('schedulely_end_time', '11:00 PM');
     add_option('schedulely_active_days', [1, 2, 3, 4, 5, 6, 0]); // Mon-Sun
     add_option('schedulely_min_interval', 40);
+    add_option('schedulely_shuffle_queue', true);
+    add_option('schedulely_ai_order_enabled', false);
+    add_option('schedulely_ai_api_key', '');
+    add_option('schedulely_ai_base_url', 'https://api.deepseek.com/v1');
+    add_option('schedulely_ai_model', 'deepseek-v4-flash');
     add_option('schedulely_randomize_authors', false);
     add_option('schedulely_excluded_authors', []);
     add_option('schedulely_preserved_authors', []); // Authors whose posts should not be randomized
@@ -247,6 +253,17 @@ function schedulely_upgrade($from_version)
 {
     // Version-specific migrations go here
     // User settings are automatically preserved - we only add/modify as needed
+
+    if (version_compare($from_version, '1.3.7', '<')) {
+        add_option('schedulely_shuffle_queue', true);
+    }
+
+    if (version_compare($from_version, '1.4.0', '<')) {
+        add_option('schedulely_ai_order_enabled', false);
+        add_option('schedulely_ai_api_key', '');
+        add_option('schedulely_ai_base_url', 'https://api.deepseek.com/v1');
+        add_option('schedulely_ai_model', 'deepseek-v4-flash');
+    }
 
     // CRITICAL FIX: Clear old hourly cron and reschedule with twicedaily (v1.0.8+)
     if (version_compare($from_version, '1.0.8', '<')) {
