@@ -763,6 +763,13 @@ class Schedulely_Scheduler
             $efficiency = 0.50;
         }
 
+        // Long windows (e.g. overnight 2 PM–3 AM): random placement has more room, so allow a higher packing factor.
+        if ($total_minutes >= 12 * 60) {
+            $efficiency = min(0.70, $efficiency + 0.10);
+        }
+
+        $efficiency = (float) apply_filters('schedulely_capacity_efficiency', $efficiency, $total_minutes, $min_interval, $desired_quota, $overnight);
+
         $capacity = max(1, floor($theoretical_capacity * $efficiency));
 
         // For very small capacities (1-3 posts), be more conservative

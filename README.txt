@@ -4,7 +4,7 @@ Tags: schedule, posts, automation, publishing, cron
 Requires at least: 6.8
 Tested up to: 6.8
 Requires PHP: 8.2
-Stable tag: 1.5.0
+Stable tag: 1.5.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -134,6 +134,9 @@ Note: Current version uses natural random scheduling (70% efficiency) for organi
 5. Deficit status tracking
 
 == Changelog ==
+
+= 1.5.1 - 03/05/2026 =
+* Fixed: Capacity meter for long (12+ hour) windows uses a less pessimistic packing factor so targets like 25 posts with a 20-minute minimum in an overnight window can show as feasible
 
 = 1.5.0 - 03/05/2026 =
 * Added: Overnight publishing window when end time is at or before start on the clock (e.g. 2:30 PM–3:00 AM); quota and spacing use the full span into the next calendar morning

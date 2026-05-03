@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.5.1] - 03/05/2026
+
+### Fixed
+- **Capacity estimate for long windows** — Windows **12+ hours** (including overnight spans such as 2:00 PM–3:00 AM) use a **higher random-packing efficiency** (capped at 70%) so the admin capacity check matches realistic scheduling density. Filter: `schedulely_capacity_efficiency`.
+
+---
+
 ## [1.5.0] - 03/05/2026
 
 ### Added
