@@ -26,6 +26,7 @@ class Schedulely_AI_Order
     /**
      * Reorder post IDs using the configured LLM, or return WP_Error on failure.
      *
+     * @since 1.4.0
      * @param array $post_ids List of positive post IDs.
      * @return array<int>|WP_Error Ordered IDs (same length as input) or error.
      */
@@ -254,6 +255,7 @@ class Schedulely_AI_Order
     /**
      * Store a queue-reorder log row (Tools → Schedulely + optional WP_DEBUG_LOG).
      *
+     * @since 1.5.4
      * @param array<string, mixed> $entry Log payload.
      */
     private function log_ai_reorder_attempt(array $entry)

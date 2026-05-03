@@ -3,7 +3,7 @@
  * Plugin Name: Schedulely
  * Plugin URI: https://kraftysprouts.com
  * Description: Intelligently schedule posts from any status with smart deficit tracking, random author assignment, and customizable time windows.
- * Version: 1.5.4
+ * Version: 1.5.5
  * Author: Krafty Sprouts Media, LLC
  * Author URI: https://kraftysprouts.com
  * License: GPL v2 or later
@@ -23,7 +23,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('SCHEDULELY_VERSION', '1.5.4');
+define('SCHEDULELY_VERSION', '1.5.5');
 define('SCHEDULELY_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('SCHEDULELY_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('SCHEDULELY_PLUGIN_BASENAME', plugin_basename(__FILE__));
@@ -317,6 +317,7 @@ function schedulely_log_error($message, $data = [])
 /**
  * Shorten text for AI reorder log entries (no HTML).
  *
+ * @since 1.5.4
  * @param string $text    Raw text.
  * @param int    $max_len Max characters before truncation.
  * @return string
@@ -343,6 +344,7 @@ function schedulely_ai_log_sanitize_excerpt($text, $max_len = 1200)
  * Disable with: add_filter( 'schedulely_ai_reorder_logging_enabled', '__return_false' );
  * Cap entries: add_filter( 'schedulely_ai_reorder_log_max_entries', fn() => 40 );
  *
+ * @since 1.5.4
  * @param array<string, mixed> $entry Keys: outcome, model, post_count, http_code, usage_total_tokens,
  *                                    error_code, error_message, assistant_excerpt, raw_excerpt, note.
  */

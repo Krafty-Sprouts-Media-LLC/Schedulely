@@ -391,6 +391,8 @@ class Schedulely_Settings
 
     /**
      * Clear stored AI queue-reorder log (admin action).
+     *
+     * @since 1.5.4
      */
     public function handle_clear_ai_reorder_log()
     {

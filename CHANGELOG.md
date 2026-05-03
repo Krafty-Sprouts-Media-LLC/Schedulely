@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.5.5] - 03/05/2026
+
+### Changed
+- **PHPDoc** — Added missing `@since` tags for AI reorder log helpers (`schedulely_ai_log_sanitize_excerpt`, `schedulely_append_ai_reorder_log`, `Schedulely_AI_Order::log_ai_reorder_attempt`, `Schedulely_Settings::handle_clear_ai_reorder_log`) and `Schedulely_AI_Order::reorder_post_ids` (`1.4.0`).
+
+---
+
 ## [1.5.4] - 03/05/2026
 
 ### Added
