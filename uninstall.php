@@ -24,6 +24,7 @@ delete_option('schedulely_ai_order_enabled');
 delete_option('schedulely_ai_api_key');
 delete_option('schedulely_ai_base_url');
 delete_option('schedulely_ai_model');
+delete_option('schedulely_ai_reorder_log');
 delete_option('schedulely_randomize_authors');
 delete_option('schedulely_excluded_authors');
 delete_option('schedulely_auto_schedule');

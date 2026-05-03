@@ -3,7 +3,7 @@
  * Plugin Name: Schedulely
  * Plugin URI: https://kraftysprouts.com
  * Description: Intelligently schedule posts from any status with smart deficit tracking, random author assignment, and customizable time windows.
- * Version: 1.5.3
+ * Version: 1.5.4
  * Author: Krafty Sprouts Media, LLC
  * Author URI: https://kraftysprouts.com
  * License: GPL v2 or later
@@ -23,7 +23,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('SCHEDULELY_VERSION', '1.5.3');
+define('SCHEDULELY_VERSION', '1.5.4');
 define('SCHEDULELY_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('SCHEDULELY_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('SCHEDULELY_PLUGIN_BASENAME', plugin_basename(__FILE__));
@@ -311,6 +311,74 @@ function schedulely_log_error($message, $data = [])
             $message,
             print_r($data, true)
         ));
+    }
+}
+
+/**
+ * Shorten text for AI reorder log entries (no HTML).
+ *
+ * @param string $text    Raw text.
+ * @param int    $max_len Max characters before truncation.
+ * @return string
+ */
+function schedulely_ai_log_sanitize_excerpt($text, $max_len = 1200)
+{
+    if (!is_string($text)) {
+        return '';
+    }
+
+    $text = wp_strip_all_tags($text);
+    $text = preg_replace('/\s+/u', ' ', $text);
+    $text = trim($text);
+    if (strlen($text) > $max_len) {
+        return substr($text, 0, $max_len) . '…';
+    }
+
+    return $text;
+}
+
+/**
+ * Append one AI queue-reorder attempt to the rolling log (Tools → Schedulely).
+ *
+ * Disable with: add_filter( 'schedulely_ai_reorder_logging_enabled', '__return_false' );
+ * Cap entries: add_filter( 'schedulely_ai_reorder_log_max_entries', fn() => 40 );
+ *
+ * @param array<string, mixed> $entry Keys: outcome, model, post_count, http_code, usage_total_tokens,
+ *                                    error_code, error_message, assistant_excerpt, raw_excerpt, note.
+ */
+function schedulely_append_ai_reorder_log(array $entry)
+{
+    if (!apply_filters('schedulely_ai_reorder_logging_enabled', true)) {
+        return;
+    }
+
+    $entry['at_site'] = wp_date('Y-m-d H:i:s');
+    $entry['at_utc'] = gmdate('Y-m-d H:i:s');
+
+    $entry = apply_filters('schedulely_ai_reorder_log_entry', $entry);
+    if (empty($entry) || !is_array($entry)) {
+        return;
+    }
+
+    $max = (int) apply_filters('schedulely_ai_reorder_log_max_entries', 25);
+    if ($max < 1) {
+        $max = 25;
+    }
+    if ($max > 100) {
+        $max = 100;
+    }
+
+    $list = get_option('schedulely_ai_reorder_log', array());
+    if (!is_array($list)) {
+        $list = array();
+    }
+
+    array_unshift($list, $entry);
+    $list = array_slice($list, 0, $max);
+    update_option('schedulely_ai_reorder_log', $list, false);
+
+    if (defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
+        error_log('[Schedulely AI reorder] ' . wp_json_encode($entry, JSON_UNESCAPED_UNICODE));
     }
 }
 

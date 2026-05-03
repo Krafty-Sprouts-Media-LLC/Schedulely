@@ -176,7 +176,7 @@ class Schedulely_Notifications
             if ($ai_used) {
                 $ai_queue_summary = __('Applied — this run’s queue was reordered by the AI API before publish times were assigned.', 'schedulely');
             } else {
-                $ai_queue_summary = __('Not applied — this run did not use AI to order the queue. Shuffle or oldest-draft-first order was used instead. Your provider may still show token usage if a model reply was returned but not accepted (bad JSON or post IDs).', 'schedulely');
+                $ai_queue_summary = __('Not applied — the queue order was not taken from the model’s reply (shuffle or draft order was used). If the API was called, you were still charged for that completion; open the AI reorder log on the settings page to see error code and response excerpts.', 'schedulely');
             }
         } else {
             $ai_queue_summary = __('Not used — AI ordering is disabled in Schedulely settings, so the queue was never sent to the API for this step.', 'schedulely');
@@ -208,6 +208,15 @@ class Schedulely_Notifications
         }
         $settings_url = admin_url('tools.php?page=schedulely');
 
+        $ai_log_hint_html = '';
+        if ($ai_enabled && !$ai_used) {
+            $ai_log_hint_html = '<div style="font-size: 0.9em; margin-top: 8px; color: #374151;">'
+                . esc_html__('Latest API attempt (excerpts + error code): Tools → Schedulely → “AI queue reorder log”.', 'schedulely')
+                . ' <a href="' . esc_url($settings_url) . '" style="color: #2271b1;">'
+                . esc_html__('Open Schedulely settings', 'schedulely')
+                . '</a></div>';
+        }
+
         $message = <<<HTML
 <!DOCTYPE html>
 <html>
@@ -233,6 +242,7 @@ class Schedulely_Notifications
         📋 Filled Previous Incomplete: <strong>{$completion_status}</strong><br>
         🔄 Authors Randomized: <strong>{$author_randomized}</strong><br>
         🧠 AI ordering (this run): <strong>{$ai_queue_summary_esc}</strong>
+        {$ai_log_hint_html}
     </div>
     
     <div style="background: #fef3c7; border-left: 4px solid {$overall_status_color}; padding: 15px; margin: 20px 0;">

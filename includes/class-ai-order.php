@@ -72,22 +72,46 @@ class Schedulely_AI_Order
 
         $response = wp_remote_post(
             $url,
-            [
+            array(
                 'timeout' => $timeout,
                 'headers' => $this->build_ai_http_headers($api_key),
                 'body' => wp_json_encode($body),
-            ]
+            )
         );
 
         if (is_wp_error($response)) {
+            $this->log_ai_reorder_attempt(
+                array(
+                    'outcome' => 'error',
+                    'model' => $model,
+                    'post_count' => count($post_ids),
+                    'http_code' => null,
+                    'usage_total_tokens' => null,
+                    'error_code' => $response->get_error_code(),
+                    'error_message' => schedulely_ai_log_sanitize_excerpt($response->get_error_message(), 500),
+                    'assistant_excerpt' => '',
+                    'raw_excerpt' => '',
+                    'note' => __('HTTP transport error before a response body was received (no provider tokens for completion).', 'schedulely'),
+                )
+            );
+
             return $response;
         }
 
-        $code = wp_remote_retrieve_response_code($response);
+        $code = (int) wp_remote_retrieve_response_code($response);
         $raw = wp_remote_retrieve_body($response);
+        if (!is_string($raw)) {
+            $raw = '';
+        }
 
-        if (200 !== (int) $code) {
-            return new WP_Error(
+        $decoded = json_decode($raw, true);
+        $usage_tokens = null;
+        if (is_array($decoded) && isset($decoded['usage']['total_tokens'])) {
+            $usage_tokens = (int) $decoded['usage']['total_tokens'];
+        }
+
+        if (200 !== $code) {
+            $err = new WP_Error(
                 'schedulely_ai_http',
                 sprintf(
                     /* translators: 1: HTTP status code, 2: response body excerpt */
@@ -96,37 +120,149 @@ class Schedulely_AI_Order
                     $this->excerpt_error_body($raw)
                 )
             );
+            $this->log_ai_reorder_attempt(
+                array(
+                    'outcome' => 'error',
+                    'model' => $model,
+                    'post_count' => count($post_ids),
+                    'http_code' => $code,
+                    'usage_total_tokens' => $usage_tokens,
+                    'error_code' => 'schedulely_ai_http',
+                    'error_message' => schedulely_ai_log_sanitize_excerpt($err->get_error_message(), 500),
+                    'assistant_excerpt' => '',
+                    'raw_excerpt' => schedulely_ai_log_sanitize_excerpt($raw, 2000),
+                    'note' => __('Non-200 response; provider may or may not report token usage depending on the API.', 'schedulely'),
+                )
+            );
+
+            return $err;
         }
 
-        $decoded = json_decode($raw, true);
         if (!is_array($decoded)) {
-            return new WP_Error(
+            $err = new WP_Error(
                 'schedulely_ai_json',
                 __('AI response was not valid JSON.', 'schedulely')
             );
+            $this->log_ai_reorder_attempt(
+                array(
+                    'outcome' => 'error',
+                    'model' => $model,
+                    'post_count' => count($post_ids),
+                    'http_code' => $code,
+                    'usage_total_tokens' => $usage_tokens,
+                    'error_code' => 'schedulely_ai_json',
+                    'error_message' => schedulely_ai_log_sanitize_excerpt($err->get_error_message(), 500),
+                    'assistant_excerpt' => '',
+                    'raw_excerpt' => schedulely_ai_log_sanitize_excerpt($raw, 2000),
+                    'note' => __('Body was not valid JSON after HTTP 200.', 'schedulely'),
+                )
+            );
+
+            return $err;
         }
 
         $content = $this->extract_assistant_text_from_completion($decoded);
         if ('' === $content) {
-            return new WP_Error(
+            $err = new WP_Error(
                 'schedulely_ai_empty',
                 __('AI returned an empty message.', 'schedulely')
             );
+            $this->log_ai_reorder_attempt(
+                array(
+                    'outcome' => 'error',
+                    'model' => $model,
+                    'post_count' => count($post_ids),
+                    'http_code' => $code,
+                    'usage_total_tokens' => $usage_tokens,
+                    'error_code' => 'schedulely_ai_empty',
+                    'error_message' => schedulely_ai_log_sanitize_excerpt($err->get_error_message(), 500),
+                    'assistant_excerpt' => '',
+                    'raw_excerpt' => schedulely_ai_log_sanitize_excerpt($raw, 2000),
+                    'note' => __('Provider may still report tokens if the model ran but no assistant text was parsed.', 'schedulely'),
+                )
+            );
+
+            return $err;
         }
 
         $ordered = $this->parse_ordered_ids_from_content($content);
         if (is_wp_error($ordered)) {
+            $this->log_ai_reorder_attempt(
+                array(
+                    'outcome' => 'error',
+                    'model' => $model,
+                    'post_count' => count($post_ids),
+                    'http_code' => $code,
+                    'usage_total_tokens' => $usage_tokens,
+                    'error_code' => $ordered->get_error_code(),
+                    'error_message' => schedulely_ai_log_sanitize_excerpt($ordered->get_error_message(), 500),
+                    'assistant_excerpt' => schedulely_ai_log_sanitize_excerpt($content, 2000),
+                    'raw_excerpt' => schedulely_ai_log_sanitize_excerpt($raw, 1200),
+                    'note' => __('Assistant text could not be parsed into ordered_ids JSON.', 'schedulely'),
+                )
+            );
+
             return $ordered;
         }
 
         if (!$this->is_valid_permutation($post_ids, $ordered)) {
-            return new WP_Error(
+            $err = new WP_Error(
                 'schedulely_ai_perm',
                 __('AI response did not contain the same post IDs as the input list.', 'schedulely')
             );
+            $this->log_ai_reorder_attempt(
+                array(
+                    'outcome' => 'error',
+                    'model' => $model,
+                    'post_count' => count($post_ids),
+                    'http_code' => $code,
+                    'usage_total_tokens' => $usage_tokens,
+                    'error_code' => 'schedulely_ai_perm',
+                    'error_message' => schedulely_ai_log_sanitize_excerpt($err->get_error_message(), 500),
+                    'assistant_excerpt' => schedulely_ai_log_sanitize_excerpt($content, 2000),
+                    'raw_excerpt' => schedulely_ai_log_sanitize_excerpt($raw, 800),
+                    'note' => sprintf(
+                        /* translators: 1: number of IDs returned, 2: number of input posts */
+                        __('Parsed %1$d IDs in ordered_ids; multiset does not match %2$d input IDs.', 'schedulely'),
+                        count($ordered),
+                        count($post_ids)
+                    ),
+                )
+            );
+
+            return $err;
         }
 
+        $this->log_ai_reorder_attempt(
+            array(
+                'outcome' => 'success',
+                'model' => $model,
+                'post_count' => count($post_ids),
+                'http_code' => $code,
+                'usage_total_tokens' => $usage_tokens,
+                'error_code' => '',
+                'error_message' => '',
+                'assistant_excerpt' => schedulely_ai_log_sanitize_excerpt($content, 1200),
+                'raw_excerpt' => '',
+                'note' => __('Queue order was applied.', 'schedulely'),
+            )
+        );
+
         return $ordered;
+    }
+
+    /**
+     * Store a queue-reorder log row (Tools → Schedulely + optional WP_DEBUG_LOG).
+     *
+     * @param array<string, mixed> $entry Log payload.
+     */
+    private function log_ai_reorder_attempt(array $entry)
+    {
+        if (!function_exists('schedulely_append_ai_reorder_log')) {
+            return;
+        }
+
+        schedulely_append_ai_reorder_log($entry);
     }
 
     /**

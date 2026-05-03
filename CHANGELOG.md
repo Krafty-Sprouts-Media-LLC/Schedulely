@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.5.4] - 03/05/2026
+
+### Added
+- **AI queue reorder log** — Tools → Schedulely stores the last several **reorder API** attempts: outcome (success/error), model, post count, HTTP status, `usage.total_tokens` when present, error code/message, and **excerpts** of assistant text and raw body. **Clear log** button; optional `WP_DEBUG_LOG` mirror. Filters: `schedulely_ai_reorder_logging_enabled`, `schedulely_ai_reorder_log_max_entries`, `schedulely_ai_reorder_log_entry`.
+
+### Changed
+- **Completion email (AI line)** — Clarifies that **Not applied** means the queue order was not taken from the model’s reply; if the API ran, usage can still appear on the provider. Points to the **AI queue reorder log** on the settings page.
+
+---
+
 ## [1.5.3] - 03/05/2026
 
 ### Fixed

@@ -4,7 +4,7 @@ Tags: schedule, posts, automation, publishing, cron
 Requires at least: 6.8
 Tested up to: 6.8
 Requires PHP: 8.2
-Stable tag: 1.5.3
+Stable tag: 1.5.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -134,6 +134,10 @@ Note: Current version uses natural random scheduling (70% efficiency) for organi
 5. Deficit status tracking
 
 == Changelog ==
+
+= 1.5.4 - 03/05/2026 =
+* Added: AI queue reorder log on Tools → Schedulely (response excerpts, error codes, token usage when reported) plus optional WP_DEBUG_LOG mirror
+* Changed: Email “AI ordering” line and link to settings when reorder was not applied
 
 = 1.5.3 - 03/05/2026 =
 * Fixed: Overnight and same-day windows use the WordPress site timezone for bounds and random times (avoids slots after the configured end or skewed afternoon starts when PHP’s default timezone differs)

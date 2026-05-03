@@ -35,6 +35,7 @@ class Schedulely_Settings
         add_action('wp_ajax_schedulely_dismiss_notice', [$this, 'ajax_dismiss_notice']);
         add_action('wp_ajax_schedulely_toggle_auto_schedule', [$this, 'ajax_toggle_auto_schedule']);
         add_action('wp_ajax_schedulely_test_ai_connection', [$this, 'ajax_test_ai_connection']);
+        add_action('admin_post_schedulely_clear_ai_reorder_log', [$this, 'handle_clear_ai_reorder_log']);
     }
 
     /**
@@ -389,12 +390,46 @@ class Schedulely_Settings
     }
 
     /**
+     * Clear stored AI queue-reorder log (admin action).
+     */
+    public function handle_clear_ai_reorder_log()
+    {
+        if (!current_user_can('manage_options')) {
+            wp_die(esc_html__('You do not have sufficient permissions to perform this action.', 'schedulely'));
+        }
+
+        check_admin_referer('schedulely_clear_ai_reorder_log');
+
+        update_option('schedulely_ai_reorder_log', array(), false);
+
+        wp_safe_redirect(
+            add_query_arg(
+                array(
+                    'page' => 'schedulely',
+                    'schedulely_ai_log_cleared' => '1',
+                ),
+                admin_url('tools.php')
+            )
+        );
+        exit;
+    }
+
+    /**
      * Render settings page
      */
     public function render_settings_page()
     {
         if (!current_user_can('manage_options')) {
             wp_die(__('You do not have sufficient permissions to access this page.', 'schedulely'));
+        }
+
+        if (isset($_GET['schedulely_ai_log_cleared']) && '1' === $_GET['schedulely_ai_log_cleared']) {
+            add_settings_error(
+                'schedulely_messages',
+                'schedulely_ai_log_cleared',
+                __('AI reorder log cleared.', 'schedulely'),
+                'success'
+            );
         }
 
         // Handle form submission
@@ -441,6 +476,10 @@ class Schedulely_Settings
         $stats = $this->get_statistics();
         $stored_ai_key_raw = get_option('schedulely_ai_api_key', '');
         $stored_ai_key_len = (is_string($stored_ai_key_raw) && '' !== trim($stored_ai_key_raw)) ? strlen($stored_ai_key_raw) : 0;
+        $ai_reorder_log = get_option('schedulely_ai_reorder_log', array());
+        if (!is_array($ai_reorder_log)) {
+            $ai_reorder_log = array();
+        }
 
         ?>
                 <div class="wrap">
@@ -773,6 +812,95 @@ class Schedulely_Settings
                                                 <input type="checkbox" name="schedulely_ai_clear_api_key" id="schedulely_ai_clear_api_key" value="1">
                                                 <?php _e('Remove stored API key on save', 'schedulely'); ?>
                                             </label>
+
+                                            <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid #dcdcde;">
+                                                <p class="description" style="margin: 0 0 8px 0; font-weight: 600;">
+                                                    <?php esc_html_e('AI queue reorder log', 'schedulely'); ?>
+                                                </p>
+                                                <p class="description" style="margin: 0 0 10px 0;">
+                                                    <?php esc_html_e('Each scheduling run that calls the reorder API records outcome, HTTP status, reported token usage (when present), error code, and excerpts of the assistant text or raw body. Use this when the email says “Not applied” but your provider shows usage.', 'schedulely'); ?>
+                                                </p>
+                                                <p class="description" style="margin: 0 0 8px 0;">
+                                                    <?php
+                                                    echo esc_html(
+                                                        sprintf(
+                                                            /* translators: %s: wp-config.php constant */
+                                                            __('Also mirrored to the PHP error log when %s is true.', 'schedulely'),
+                                                            'WP_DEBUG_LOG'
+                                                        )
+                                                    );
+                                                    ?>
+                                                </p>
+                                                <p class="description" style="margin: 0 0 8px 0;">
+                                                    <?php
+                                                    esc_html_e(
+                                                        'Disable logging: add_filter( \'schedulely_ai_reorder_logging_enabled\', \'__return_false\', 10, 0 );',
+                                                        'schedulely'
+                                                    );
+                                                    ?>
+                                                </p>
+                                                <?php if (empty($ai_reorder_log)) : ?>
+                                                    <p class="description" style="margin: 0;"><?php esc_html_e('No reorder API attempts logged yet.', 'schedulely'); ?></p>
+                                                <?php else : ?>
+                                                    <div style="max-height: 320px; overflow: auto; border: 1px solid #c3c4c7; border-radius: 4px; background: #fff; padding: 8px; font-size: 12px; font-family: Consolas, Monaco, monospace;">
+                                                        <?php foreach ($ai_reorder_log as $row) : ?>
+                                                            <?php
+                                                            if (!is_array($row)) {
+                                                                continue;
+                                                            }
+                                                            $outcome = isset($row['outcome']) ? (string) $row['outcome'] : '';
+                                                            $at = isset($row['at_site']) ? (string) $row['at_site'] : '';
+                                                            $badge_bg = ('success' === $outcome) ? '#d1fae5' : '#fee2e2';
+                                                            $badge_fg = ('success' === $outcome) ? '#065f46' : '#991b1b';
+                                                            ?>
+                                                            <div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #f0f0f1;">
+                                                                <div style="margin-bottom: 4px;">
+                                                                    <span style="display: inline-block; padding: 2px 8px; border-radius: 3px; background: <?php echo esc_attr($badge_bg); ?>; color: <?php echo esc_attr($badge_fg); ?>; font-weight: 600;">
+                                                                        <?php echo esc_html(strtoupper($outcome !== '' ? $outcome : '?')); ?>
+                                                                    </span>
+                                                                    <span style="color: #50575e;"><?php echo esc_html($at); ?></span>
+                                                                </div>
+                                                                <?php
+                                                                $lines_out = array();
+                                                                if (!empty($row['model'])) {
+                                                                    $lines_out[] = 'model: ' . $row['model'];
+                                                                }
+                                                                if (isset($row['post_count'])) {
+                                                                    $lines_out[] = 'posts: ' . (string) (int) $row['post_count'];
+                                                                }
+                                                                if (isset($row['http_code']) && null !== $row['http_code'] && '' !== $row['http_code']) {
+                                                                    $lines_out[] = 'http: ' . (string) (int) $row['http_code'];
+                                                                }
+                                                                if (isset($row['usage_total_tokens']) && null !== $row['usage_total_tokens']) {
+                                                                    $lines_out[] = 'tokens (usage.total_tokens): ' . (string) (int) $row['usage_total_tokens'];
+                                                                }
+                                                                if (!empty($row['error_code'])) {
+                                                                    $lines_out[] = 'error_code: ' . $row['error_code'];
+                                                                }
+                                                                if (!empty($row['error_message'])) {
+                                                                    $lines_out[] = 'error_message: ' . $row['error_message'];
+                                                                }
+                                                                if (!empty($row['note'])) {
+                                                                    $lines_out[] = 'note: ' . $row['note'];
+                                                                }
+                                                                echo '<div style="color: #1d2327; margin: 4px 0;">' . esc_html(implode(' | ', $lines_out)) . '</div>';
+                                                                if (!empty($row['assistant_excerpt'])) {
+                                                                    echo '<div style="margin-top: 6px;"><strong>assistant_excerpt</strong><pre style="margin: 4px 0 0; white-space: pre-wrap; word-break: break-word;">' . esc_html($row['assistant_excerpt']) . '</pre></div>';
+                                                                }
+                                                                if (!empty($row['raw_excerpt'])) {
+                                                                    echo '<div style="margin-top: 6px;"><strong>raw_excerpt</strong><pre style="margin: 4px 0 0; white-space: pre-wrap; word-break: break-word;">' . esc_html($row['raw_excerpt']) . '</pre></div>';
+                                                                }
+                                                                ?>
+                                                            </div>
+                                                        <?php endforeach; ?>
+                                                    </div>
+                                                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" style="margin-top: 10px;">
+                                                        <?php wp_nonce_field('schedulely_clear_ai_reorder_log'); ?>
+                                                        <input type="hidden" name="action" value="schedulely_clear_ai_reorder_log" />
+                                                        <?php submit_button(__('Clear AI reorder log', 'schedulely'), 'secondary', 'schedulely_clear_ai_log', false, array('style' => 'margin-top: 0;')); ?>
+                                                    </form>
+                                                <?php endif; ?>
+                                            </div>
                                         </div>
 
                                         <hr style="border: 0; border-top: 1px solid #f0f0f1; margin: 20px 0;">
