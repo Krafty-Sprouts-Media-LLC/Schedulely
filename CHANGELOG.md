@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.5.7] - 03/05/2026
+
+### Fixed
+- **AI queue reorder timeouts on large pools** — Default HTTP timeout was fixed at **120s**, which is too short for hundreds of posts (huge prompt + long JSON). Timeout now **scales with post count** (about **0.45s per post**, between **120s and 540s** before filters). Upper cap raised to **600s** (override with filter `schedulely_ai_request_timeout_max`, max **900**).
+
+### Changed
+- **Filter `schedulely_ai_request_timeout`** — Receives a second argument: **`$post_ids`** (the queue being reordered).
+
+---
+
 ## [1.5.6] - 03/05/2026
 
 ### Fixed

@@ -63,12 +63,22 @@ class Schedulely_AI_Order
         $body = $this->build_request_body($model, $lines, count($post_ids));
         $body = apply_filters('schedulely_ai_chat_completions_body', $body, $post_ids);
 
-        $timeout = (int) apply_filters('schedulely_ai_request_timeout', 120);
+        $post_count = count($post_ids);
+        // Large queues need longer completions; default scales ~0.45s per post, 120–540s before filter.
+        $default_timeout = max(120, min(540, 60 + (int) round($post_count * 0.45)));
+        $timeout = (int) apply_filters('schedulely_ai_request_timeout', $default_timeout, $post_ids);
         if ($timeout < 30) {
             $timeout = 30;
         }
-        if ($timeout > 300) {
-            $timeout = 300;
+        $max_timeout = (int) apply_filters('schedulely_ai_request_timeout_max', 600);
+        if ($max_timeout < 120) {
+            $max_timeout = 120;
+        }
+        if ($max_timeout > 900) {
+            $max_timeout = 900;
+        }
+        if ($timeout > $max_timeout) {
+            $timeout = $max_timeout;
         }
 
         $response = wp_remote_post(
