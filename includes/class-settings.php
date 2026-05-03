@@ -775,7 +775,7 @@ class Schedulely_Settings
                                                 ?>
                                             </p>
                                             <p class="description" style="margin: 0 0 12px 0;">
-                                                <?php esc_html_e('Large draft pools: the reorder API request waits longer when there are many posts (HTTP timeout scales with count, up to several minutes). If it still times out, use filter schedulely_ai_request_timeout or raise the cap with schedulely_ai_request_timeout_max.', 'schedulely'); ?>
+                                                <?php esc_html_e('Large draft pools: the reorder API request waits longer when there are many posts (HTTP timeout scales with count, up to 20 minutes / 1200 seconds). If it still times out, use filter schedulely_ai_request_timeout or lower schedulely_ai_request_timeout_max on strict hosts.', 'schedulely'); ?>
                                             </p>
                                             <label style="display: block; margin-bottom: 12px;">
                                                 <input type="checkbox" name="schedulely_ai_order_enabled" id="schedulely_ai_order_enabled"
