@@ -216,6 +216,13 @@ class Schedulely_AI_Order
             return $ordered;
         }
 
+        $parsed_raw = $ordered;
+        $strict_ok = $this->is_valid_permutation($post_ids, $ordered);
+
+        if (!$strict_ok && apply_filters('schedulely_ai_reconcile_invalid_ordered_ids', true)) {
+            $ordered = $this->reconcile_ordered_ids_with_input($post_ids, $parsed_raw);
+        }
+
         if (!$this->is_valid_permutation($post_ids, $ordered)) {
             $err = new WP_Error(
                 'schedulely_ai_perm',
@@ -234,8 +241,8 @@ class Schedulely_AI_Order
                     'raw_excerpt' => schedulely_ai_log_sanitize_excerpt($raw, 800),
                     'note' => sprintf(
                         /* translators: 1: number of IDs returned, 2: number of input posts */
-                        __('Parsed %1$d IDs in ordered_ids; multiset does not match %2$d input IDs.', 'schedulely'),
-                        count($ordered),
+                        __('Parsed %1$d IDs in ordered_ids; multiset does not match %2$d input IDs (reconciliation disabled or failed).', 'schedulely'),
+                        count($parsed_raw),
                         count($post_ids)
                     ),
                 )
@@ -243,6 +250,15 @@ class Schedulely_AI_Order
 
             return $err;
         }
+
+        $success_note = $strict_ok
+            ? __('Queue order was applied.', 'schedulely')
+            : sprintf(
+                /* translators: 1: IDs from model before fix, 2: expected count */
+                __('Queue order applied after reconciliation (model returned %1$d IDs for %2$d posts; extras/duplicates dropped, missing appended).', 'schedulely'),
+                count($parsed_raw),
+                count($post_ids)
+            );
 
         $this->log_ai_reorder_attempt(
             array(
@@ -255,7 +271,7 @@ class Schedulely_AI_Order
                 'error_message' => '',
                 'assistant_excerpt' => schedulely_ai_log_sanitize_excerpt($content, 1200),
                 'raw_excerpt' => '',
-                'note' => __('Queue order was applied.', 'schedulely'),
+                'note' => $success_note,
             )
         );
 
@@ -488,7 +504,8 @@ class Schedulely_AI_Order
             . 'Do not place similar or same-series posts close together. Maintain a minimum spacing of at least 3 to 5 other posts between similar titles whenever the mix allows. '
             . 'If perfect spacing is not possible, distribute similar posts as evenly as you can across the entire list. '
             . 'Prioritize diversity of topics over original order. '
-            . 'Return a JSON object with a single key "ordered_ids" whose value is an array of integers: every input post ID exactly once. '
+            . 'Return a JSON object with a single key "ordered_ids" whose value is an array of integers. '
+            . 'It MUST list every input post ID exactly once: same length as the input list, no duplicates, no made-up IDs, no omissions. '
             . 'Output only valid JSON, no markdown fences, no commentary.';
 
         $user = sprintf(
@@ -569,6 +586,41 @@ class Schedulely_AI_Order
         sort($b);
 
         return $a === $b;
+    }
+
+    /**
+     * Turn model ordered_ids into a valid multiset permutation of $input_ids.
+     *
+     * Walks the model list first (keeps relative order for valid IDs); drops IDs not in the
+     * input or repeated past multiset counts; appends any still-needed IDs in original input order.
+     *
+     * @since 1.5.9
+     * @param array<int> $input_ids   Expected post IDs (from Schedulely).
+     * @param array<int> $model_order Parsed ordered_ids from the API.
+     * @return array<int>
+     */
+    private function reconcile_ordered_ids_with_input(array $input_ids, array $model_order)
+    {
+        $input_ids = array_map('intval', array_values($input_ids));
+        $need = array_count_values($input_ids);
+        $result = array();
+
+        foreach ($model_order as $raw_id) {
+            $id = (int) $raw_id;
+            if (isset($need[$id]) && $need[$id] > 0) {
+                $result[] = $id;
+                $need[$id]--;
+            }
+        }
+
+        foreach ($input_ids as $id) {
+            while (isset($need[$id]) && $need[$id] > 0) {
+                $result[] = $id;
+                $need[$id]--;
+            }
+        }
+
+        return $result;
     }
 
     /**

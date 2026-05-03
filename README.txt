@@ -4,7 +4,7 @@ Tags: schedule, posts, automation, publishing, cron
 Requires at least: 6.8
 Tested up to: 6.8
 Requires PHP: 8.2
-Stable tag: 1.5.8
+Stable tag: 1.5.9
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -134,6 +134,9 @@ Note: Current version uses natural random scheduling (70% efficiency) for organi
 5. Deficit status tracking
 
 == Changelog ==
+
+= 1.5.9 - 03/05/2026 =
+* Fixed: AI queue reorder reconciles model ordered_ids when the API returns extras/duplicates or wrong length (optional strict mode via schedulely_ai_reconcile_invalid_ordered_ids)
 
 = 1.5.8 - 03/05/2026 =
 * Changed: AI reorder HTTP timeout scaled default and max cap raised to 1200 seconds (20 minutes)

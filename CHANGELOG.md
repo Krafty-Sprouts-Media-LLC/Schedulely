@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.5.9] - 03/05/2026
+
+### Fixed
+- **AI reorder when the model returns extra or duplicate IDs** — Large completions sometimes include **wrong counts** (e.g. 901 IDs for 881 posts). Schedulely now **reconciles** the model list: keeps valid IDs in model order, drops unknown/excess duplicates, then appends any still-missing IDs in original input order. Success log notes when reconciliation ran. Filter **`schedulely_ai_reconcile_invalid_ordered_ids`** (`true` default) restores the previous strict failure when set to `false`.
+
+### Changed
+- **AI system prompt** — Explicitly requires `ordered_ids` to match the input multiset (exactly once each, no invented IDs).
+
+---
+
 ## [1.5.8] - 03/05/2026
 
 ### Changed
