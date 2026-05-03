@@ -3,8 +3,8 @@
  * Filename: class-scheduler.php
  * Author: Krafty Sprouts Media, LLC
  * Created: 06/10/2025
- * Last Modified: 04/05/2026
- * Description: Main Scheduling Engine - Handles all post scheduling logic with last date completion
+ * Last Modified: 03/05/2026
+ * Description: Main Scheduling Engine - Handles all post scheduling logic with last date completion and optional overnight time windows.
  *
  * @package Schedulely
  */
@@ -88,27 +88,18 @@ class Schedulely_Scheduler
         $complete_count = 0;
 
         if ($last_scheduled_date) {
-            // Check if this date is today or future (can still add posts)
-            $today = date('Y-m-d', current_time('timestamp'));
-            $last_date_timestamp = strtotime($last_scheduled_date);
-            $today_timestamp = strtotime($today);
+            $posts_on_last_date = $this->count_posts_on_date($last_scheduled_date);
+            list($last_win_start, $last_win_end) = $this->logical_window_bounds_ts($last_scheduled_date);
+            $now_ts = current_time('timestamp');
 
-            if ($last_date_timestamp >= $today_timestamp) {
-                // Date is today or future - we can add more posts to it
-                $posts_on_last_date = $this->count_posts_on_date($last_scheduled_date);
-
-                if ($posts_on_last_date < $quota) {
-                    // Last date is incomplete, complete it first
-                    $complete_count = $quota - $posts_on_last_date;
-                    $start_date = $last_scheduled_date;
-                    $results['completed_last_date'] = true;
-                } else {
-                    // Last date is complete, start from next day
-                    $start_date = date('Y-m-d', strtotime($last_scheduled_date . ' +1 day'));
-                }
-            } else {
-                // Last scheduled date is in the past, start from today/tomorrow
+            if ($posts_on_last_date < $quota && $last_win_end >= $now_ts) {
+                $complete_count = $quota - $posts_on_last_date;
+                $start_date = $last_scheduled_date;
+                $results['completed_last_date'] = true;
+            } elseif ($posts_on_last_date < $quota && $last_win_end < $now_ts) {
                 $start_date = $this->get_next_scheduling_date();
+            } elseif ($posts_on_last_date >= $quota) {
+                $start_date = $this->get_next_active_date($last_scheduled_date);
             }
         } else {
             // No scheduled posts exist, start from today/tomorrow
@@ -208,6 +199,130 @@ class Schedulely_Scheduler
     }
 
     /**
+     * Whether the configured start/end times cross midnight (end is at or before start on the same calendar day).
+     *
+     * @param string|null $start_time Start time string or null to read option.
+     * @param string|null $end_time   End time string or null to read option.
+     * @return bool
+     */
+    private function is_overnight_window($start_time = null, $end_time = null)
+    {
+        if (null === $start_time) {
+            $start_time = get_option('schedulely_start_time', '5:00 PM');
+        }
+        if (null === $end_time) {
+            $end_time = get_option('schedulely_end_time', '11:00 PM');
+        }
+
+        $ref = '2000-01-01';
+        $start_ts = strtotime($ref . ' ' . $start_time);
+        $end_ts = strtotime($ref . ' ' . $end_time);
+
+        if (false === $start_ts || false === $end_ts) {
+            return false;
+        }
+
+        return $end_ts <= $start_ts;
+    }
+
+    /**
+     * Start/end timestamps (inclusive) for the logical publishing window anchored on $anchor_date (Y-m-d).
+     *
+     * @param string $anchor_date Anchor date Y-m-d.
+     * @return array{0: int, 1: int} [start_ts, end_ts].
+     */
+    private function logical_window_bounds_ts($anchor_date)
+    {
+        $start_time = get_option('schedulely_start_time', '5:00 PM');
+        $end_time = get_option('schedulely_end_time', '11:00 PM');
+
+        $start_ts = strtotime($anchor_date . ' ' . $start_time);
+
+        if ($this->is_overnight_window($start_time, $end_time)) {
+            $end_day = date('Y-m-d', strtotime($anchor_date . ' +1 day'));
+            $end_ts = strtotime($end_day . ' ' . $end_time);
+        } else {
+            $end_ts = strtotime($anchor_date . ' ' . $end_time);
+        }
+
+        return [$start_ts, $end_ts];
+    }
+
+    /**
+     * MySQL local datetime strings for the logical window (for SQL BETWEEN).
+     *
+     * @param string $anchor_date Y-m-d.
+     * @return array{0: string, 1: string}
+     */
+    private function logical_window_bounds_mysql($anchor_date)
+    {
+        list($start_ts, $end_ts) = $this->logical_window_bounds_ts($anchor_date);
+
+        return [
+            wp_date('Y-m-d H:i:s', $start_ts),
+            wp_date('Y-m-d H:i:s', $end_ts),
+        ];
+    }
+
+    /**
+     * Logical anchor date (Y-m-d) for a scheduled post timestamp.
+     *
+     * @param int $ts Unix timestamp (site-local semantics via strtotime/wp_date).
+     * @return string Y-m-d anchor.
+     */
+    private function logical_anchor_from_timestamp($ts)
+    {
+        if (!$this->is_overnight_window()) {
+            return wp_date('Y-m-d', $ts);
+        }
+
+        $post_day = wp_date('Y-m-d', $ts);
+        list($ws, $we) = $this->logical_window_bounds_ts($post_day);
+
+        if ($ts >= $ws && $ts <= $we) {
+            return $post_day;
+        }
+
+        $prev = date('Y-m-d', strtotime($post_day . ' -1 day'));
+        list($ws2, $we2) = $this->logical_window_bounds_ts($prev);
+
+        if ($ts >= $ws2 && $ts <= $we2) {
+            return $prev;
+        }
+
+        return $post_day;
+    }
+
+    /**
+     * Whether a timestamp falls inside the logical window for an anchor day.
+     *
+     * @param int    $ts          Unix timestamp.
+     * @param string $anchor_date Y-m-d.
+     * @return bool
+     */
+    private function is_timestamp_in_logical_window($ts, $anchor_date)
+    {
+        list($ws, $we) = $this->logical_window_bounds_ts($anchor_date);
+
+        return ($ts >= $ws && $ts <= $we);
+    }
+
+    /**
+     * Whether the anchor calendar day is an active weekday per settings.
+     *
+     * @param string $anchor_date Y-m-d.
+     * @return bool
+     */
+    private function is_anchor_active_day($anchor_date)
+    {
+        $active_days = get_option('schedulely_active_days', [1, 2, 3, 4, 5, 6, 0]);
+        $anchor_ts = strtotime($anchor_date . ' 12:00:00');
+        $dow = (int) wp_date('w', $anchor_ts);
+
+        return in_array($dow, $active_days, true);
+    }
+
+    /**
      * Get the last/furthest scheduled date
      * 
      * @return string|null Date string (Y-m-d) or null
@@ -219,72 +334,101 @@ class Schedulely_Scheduler
         $post_types = get_option('schedulely_post_types', ['post']);
         $post_types_placeholders = implode(',', array_fill(0, count($post_types), '%s'));
 
-        $last_date = $wpdb->get_var(
+        $last_post_date = $wpdb->get_var(
             $wpdb->prepare(
-                "SELECT DATE(post_date) as schedule_date 
-                 FROM {$wpdb->posts} 
-                 WHERE post_status = %s 
+                "SELECT post_date
+                 FROM {$wpdb->posts}
+                 WHERE post_status = %s
                  AND post_type IN ($post_types_placeholders)
-                 ORDER BY post_date DESC 
+                 ORDER BY post_date DESC
                  LIMIT 1",
                 array_merge(['future'], $post_types)
             )
         );
 
-        return $last_date; // Returns "2025-10-09" or null
+        if (empty($last_post_date)) {
+            return null;
+        }
+
+        $ts = strtotime($last_post_date);
+        if (false === $ts) {
+            return null;
+        }
+
+        return $this->logical_anchor_from_timestamp($ts);
     }
 
     /**
-     * Count posts scheduled for a specific date
-     * 
-     * @param string $date Date string (Y-m-d)
-     * @return int Number of posts scheduled on this date
+     * Count future posts in the logical publishing window for an anchor date (includes next calendar morning when overnight).
+     *
+     * @param string $anchor_date Logical anchor Y-m-d.
+     * @return int Post count in the window.
      */
-    public function count_posts_on_date($date)
+    public function count_posts_on_date($anchor_date)
     {
         global $wpdb;
 
         $post_types = get_option('schedulely_post_types', ['post']);
         $post_types_placeholders = implode(',', array_fill(0, count($post_types), '%s'));
+        list($start_mysql, $end_mysql) = $this->logical_window_bounds_mysql($anchor_date);
 
-        $count = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) 
-             FROM {$wpdb->posts} 
-             WHERE post_status = 'future' 
-             AND post_type IN ($post_types_placeholders)
-             AND DATE(post_date) = %s",
-            array_merge($post_types, [$date])
-        ));
+        $count = $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT COUNT(*)
+                 FROM {$wpdb->posts}
+                 WHERE post_status = 'future'
+                 AND post_type IN ($post_types_placeholders)
+                 AND post_date >= %s
+                 AND post_date <= %s",
+                array_merge($post_types, [$start_mysql, $end_mysql])
+            )
+        );
 
         return (int) $count;
     }
 
     /**
-     * Get next scheduling date when no scheduled posts exist
-     * 
+     * Get next scheduling anchor date when no scheduled posts exist (logical day; supports overnight windows).
+     *
      * @return string Date string (Y-m-d)
      */
     private function get_next_scheduling_date()
     {
-        $now = current_time('timestamp');
-        $end_time = get_option('schedulely_end_time', '11:00 PM');
-        $today_date = date('Y-m-d', $now);
-        $end_timestamp = strtotime($today_date . ' ' . $end_time);
+        $now_ts = current_time('timestamp');
+        $today = wp_date('Y-m-d', $now_ts);
 
-        if ($now > $end_timestamp) {
-            // Past today's window, start tomorrow
-            return $this->get_next_active_date($today_date);
+        $candidates = [
+            date('Y-m-d', strtotime($today . ' -1 day')),
+            $today,
+        ];
+
+        foreach ($candidates as $anchor) {
+            if (!$this->is_anchor_active_day($anchor)) {
+                continue;
+            }
+            if ($this->is_timestamp_in_logical_window($now_ts, $anchor)) {
+                return $anchor;
+            }
         }
 
-        // Check if today is an active day
-        $active_days = get_option('schedulely_active_days', [1, 2, 3, 4, 5, 6, 0]);
-        $today_day_of_week = date('w', $now);
+        $d = $today;
+        for ($i = 0; $i < 21; $i++) {
+            if (!$this->is_anchor_active_day($d)) {
+                $d = $this->get_next_active_date($d);
+                continue;
+            }
 
-        if (in_array($today_day_of_week, $active_days)) {
-            return $today_date;
+            list($ws, $we) = $this->logical_window_bounds_ts($d);
+
+            if ($we < $now_ts) {
+                $d = $this->get_next_active_date($d);
+                continue;
+            }
+
+            return $d;
         }
 
-        return $this->get_next_active_date($today_date);
+        return $today;
     }
 
     /**
@@ -334,7 +478,7 @@ class Schedulely_Scheduler
         if ($complete_first > 0) {
             $posts_scheduled_today = $quota - $complete_first;
             // Get already scheduled times for this date
-            $already_scheduled_times = $this->get_scheduled_times_for_date($current_date);
+            $already_scheduled_times = $this->get_scheduled_timestamps_for_anchor($current_date);
         }
 
         foreach ($posts as $post_id) {
@@ -345,24 +489,19 @@ class Schedulely_Scheduler
                 $already_scheduled_times = [];
             }
 
-            // Generate random time for this date
-            $random_time = $this->generate_random_time($current_date, $already_scheduled_times);
+            $datetime = $this->generate_random_datetime($current_date, $already_scheduled_times);
 
-            if ($random_time === false) {
-                // Can't fit more posts in this day's window, move to next day
+            if (false === $datetime) {
                 $current_date = $this->get_next_active_date($current_date);
                 $posts_scheduled_today = 0;
                 $already_scheduled_times = [];
-                $random_time = $this->generate_random_time($current_date, []);
+                $datetime = $this->generate_random_datetime($current_date, []);
 
-                if ($random_time === false) {
+                if (false === $datetime) {
                     $errors[] = sprintf(__('Failed to generate time slot for post ID %d', 'schedulely'), $post_id);
                     continue;
                 }
             }
-
-            // Schedule the post
-            $datetime = $current_date . ' ' . $random_time;
 
             // Get author assignment
             // If post is assigned to a preserved author, keep that author (don't randomize)
@@ -392,7 +531,7 @@ class Schedulely_Scheduler
             if ($success) {
                 $scheduled_count++;
                 $posts_scheduled_today++;
-                $already_scheduled_times[] = $random_time;
+                $already_scheduled_times[] = strtotime($datetime);
 
                 $scheduled_posts[] = [
                     'post_id' => $post_id,
@@ -409,11 +548,9 @@ class Schedulely_Scheduler
                 while ($retry_count < $max_retries && !$retry_success) {
                     $retry_count++;
 
-                    // Generate a new random time for this date
-                    $retry_time = $this->generate_random_time($current_date, $already_scheduled_times);
+                    $retry_datetime = $this->generate_random_datetime($current_date, $already_scheduled_times);
 
-                    if ($retry_time !== false) {
-                        $retry_datetime = $current_date . ' ' . $retry_time;
+                    if (false !== $retry_datetime) {
                         // Use the same author_id that was determined earlier
                         $retry_success = $this->schedule_post($post_id, $retry_datetime, $author_id);
 
@@ -421,7 +558,7 @@ class Schedulely_Scheduler
                             // Retry succeeded!
                             $scheduled_count++;
                             $posts_scheduled_today++;
-                            $already_scheduled_times[] = $retry_time;
+                            $already_scheduled_times[] = strtotime($retry_datetime);
 
                             $scheduled_posts[] = [
                                 'post_id' => $post_id,
@@ -471,28 +608,44 @@ class Schedulely_Scheduler
     }
 
     /**
-     * Get already scheduled times for a date
-     * 
-     * @param string $date Date string (Y-m-d)
-     * @return array Array of time strings (H:i:s)
+     * Unix timestamps of future posts in the logical window for an anchor date (for min-interval collision checks).
+     *
+     * @param string $anchor_date Y-m-d anchor.
+     * @return array<int> Timestamps.
      */
-    private function get_scheduled_times_for_date($date)
+    private function get_scheduled_timestamps_for_anchor($anchor_date)
     {
         global $wpdb;
 
         $post_types = get_option('schedulely_post_types', ['post']);
         $post_types_placeholders = implode(',', array_fill(0, count($post_types), '%s'));
+        list($start_mysql, $end_mysql) = $this->logical_window_bounds_mysql($anchor_date);
 
-        $times = $wpdb->get_col($wpdb->prepare(
-            "SELECT TIME(post_date) as post_time
-             FROM {$wpdb->posts} 
-             WHERE post_status = 'future' 
-             AND post_type IN ($post_types_placeholders)
-             AND DATE(post_date) = %s",
-            array_merge($post_types, [$date])
-        ));
+        $rows = $wpdb->get_col(
+            $wpdb->prepare(
+                "SELECT post_date
+                 FROM {$wpdb->posts}
+                 WHERE post_status = 'future'
+                 AND post_type IN ($post_types_placeholders)
+                 AND post_date >= %s
+                 AND post_date <= %s",
+                array_merge($post_types, [$start_mysql, $end_mysql])
+            )
+        );
 
-        return $times ? $times : [];
+        if (empty($rows)) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($rows as $mysql) {
+            $t = strtotime($mysql);
+            if (false !== $t) {
+                $out[] = $t;
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -561,25 +714,30 @@ class Schedulely_Scheduler
      */
     public function calculate_capacity($start_time, $end_time, $min_interval, $desired_quota)
     {
-        // Use today's date for calculation
         $date = date('Y-m-d');
+        $overnight = $this->is_overnight_window($start_time, $end_time);
 
-        // Convert times to timestamps
         $start_timestamp = strtotime($date . ' ' . $start_time);
-        $end_timestamp = strtotime($date . ' ' . $end_time);
 
-        // Validate time window
-        if ($start_timestamp === false || $end_timestamp === false || $start_timestamp >= $end_timestamp) {
+        if ($overnight) {
+            $end_day = date('Y-m-d', strtotime($date . ' +1 day'));
+            $end_timestamp = strtotime($end_day . ' ' . $end_time);
+        } else {
+            $end_timestamp = strtotime($date . ' ' . $end_time);
+        }
+
+        if (false === $start_timestamp || false === $end_timestamp || $start_timestamp >= $end_timestamp) {
             return [
                 'valid' => false,
                 'capacity' => 0,
                 'desired_quota' => $desired_quota,
                 'meets_quota' => false,
-                'error' => __('Invalid time window. End time must be after start time.', 'schedulely')
+                'error' => $overnight
+                    ? __('Invalid overnight window. End time on the next morning must be after the start time on the first day.', 'schedulely')
+                    : __('Invalid time window. End time must be after start time on the same day.', 'schedulely'),
             ];
         }
 
-        // Calculate total minutes in window
         $total_minutes = ($end_timestamp - $start_timestamp) / 60;
 
         // Calculate theoretical maximum capacity (number of intervals that fit)
@@ -654,75 +812,83 @@ class Schedulely_Scheduler
                 )
             ];
 
-            // Suggestion 3: Expand time window
-            // Account for randomness: need more minutes than theoretical minimum
-            $target_theoretical = ceil($desired_quota / $efficiency); // Use current efficiency factor
+            // Suggestion 3: Expand time window (same-day only; overnight uses a generic hint).
+            $target_theoretical = ceil($desired_quota / $efficiency);
             $needed_minutes = $target_theoretical * $min_interval;
             $needed_hours = ceil($needed_minutes / 60);
-
-            // Calculate how much to add (needed - current)
             $minutes_to_add = $needed_minutes - $total_minutes;
 
-            // Hard limit: end time cannot go past 11:59 PM
-            $max_end_timestamp = strtotime($date . ' 11:59 PM');
-            $minutes_available_at_end = ($max_end_timestamp - $end_timestamp) / 60;
-
-            // Decide strategy based on available space at end
-            $suggested_start_time = $start_time;
-            $suggested_end_time = $end_time;
-            $expand_message = '';
-
-            if ($minutes_to_add <= $minutes_available_at_end) {
-                // Can expand by just extending the end time
-                $new_end_timestamp = $end_timestamp + ($minutes_to_add * 60);
-                $suggested_end_time = date('g:i A', $new_end_timestamp);
-                $expand_message = sprintf(
-                    __('Extend end time from %s-%s to %s-%s (~%d hours needed)', 'schedulely'),
-                    $start_time,
-                    $end_time,
-                    $start_time,
-                    $suggested_end_time,
-                    $needed_hours
-                );
-            } elseif ($minutes_available_at_end > 0 && $minutes_to_add > $minutes_available_at_end) {
-                // Need to extend to 11:59 PM AND start earlier
-                $suggested_end_time = '11:59 PM';
-                $remaining_minutes_needed = $minutes_to_add - $minutes_available_at_end;
-                $new_start_timestamp = $start_timestamp - ($remaining_minutes_needed * 60);
-                $suggested_start_time = date('g:i A', $new_start_timestamp);
-                $expand_message = sprintf(
-                    __('Extend from %s-%s to %s-%s (start earlier + extend to 11:59 PM, ~%d hours needed)', 'schedulely'),
-                    $start_time,
-                    $end_time,
-                    $suggested_start_time,
-                    $suggested_end_time,
-                    $needed_hours
-                );
+            if ($overnight) {
+                $suggestions[] = [
+                    'type' => 'expand_window',
+                    'label' => __('Expand Time Window', 'schedulely'),
+                    'current_start' => $start_time,
+                    'current_end' => $end_time,
+                    'suggested_start' => $start_time,
+                    'suggested_end' => $end_time,
+                    'needed_hours' => $needed_hours,
+                    'message' => sprintf(
+                        /* translators: %d: approximate hours of window needed */
+                        __('Overnight window: widen by starting earlier on the first day or ending later the next morning (~%d hours of span helps).', 'schedulely'),
+                        $needed_hours
+                    ),
+                ];
             } else {
-                // End time already at or near limit, must start earlier
-                $new_start_timestamp = $start_timestamp - ($minutes_to_add * 60);
-                $suggested_start_time = date('g:i A', $new_start_timestamp);
+                $max_end_timestamp = strtotime($date . ' 11:59 PM');
+                $minutes_available_at_end = ($max_end_timestamp - $end_timestamp) / 60;
+                $suggested_start_time = $start_time;
                 $suggested_end_time = $end_time;
-                $expand_message = sprintf(
-                    __('Start earlier from %s-%s to %s-%s (end time cannot extend past 11:59 PM, ~%d hours needed)', 'schedulely'),
-                    $start_time,
-                    $end_time,
-                    $suggested_start_time,
-                    $suggested_end_time,
-                    $needed_hours
-                );
-            }
+                $expand_message = '';
 
-            $suggestions[] = [
-                'type' => 'expand_window',
-                'label' => __('Expand Time Window', 'schedulely'),
-                'current_start' => $start_time,
-                'current_end' => $end_time,
-                'suggested_start' => $suggested_start_time,
-                'suggested_end' => $suggested_end_time,
-                'needed_hours' => $needed_hours,
-                'message' => $expand_message
-            ];
+                if ($minutes_to_add <= $minutes_available_at_end) {
+                    $new_end_timestamp = $end_timestamp + ($minutes_to_add * 60);
+                    $suggested_end_time = date('g:i A', $new_end_timestamp);
+                    $expand_message = sprintf(
+                        __('Extend end time from %s-%s to %s-%s (~%d hours needed)', 'schedulely'),
+                        $start_time,
+                        $end_time,
+                        $start_time,
+                        $suggested_end_time,
+                        $needed_hours
+                    );
+                } elseif ($minutes_available_at_end > 0 && $minutes_to_add > $minutes_available_at_end) {
+                    $suggested_end_time = '11:59 PM';
+                    $remaining_minutes_needed = $minutes_to_add - $minutes_available_at_end;
+                    $new_start_timestamp = $start_timestamp - ($remaining_minutes_needed * 60);
+                    $suggested_start_time = date('g:i A', $new_start_timestamp);
+                    $expand_message = sprintf(
+                        __('Extend from %s-%s to %s-%s (start earlier + extend to 11:59 PM, ~%d hours needed)', 'schedulely'),
+                        $start_time,
+                        $end_time,
+                        $suggested_start_time,
+                        $suggested_end_time,
+                        $needed_hours
+                    );
+                } else {
+                    $new_start_timestamp = $start_timestamp - ($minutes_to_add * 60);
+                    $suggested_start_time = date('g:i A', $new_start_timestamp);
+                    $suggested_end_time = $end_time;
+                    $expand_message = sprintf(
+                        __('Start earlier from %s-%s to %s-%s (end time cannot extend past 11:59 PM, ~%d hours needed)', 'schedulely'),
+                        $start_time,
+                        $end_time,
+                        $suggested_start_time,
+                        $suggested_end_time,
+                        $needed_hours
+                    );
+                }
+
+                $suggestions[] = [
+                    'type' => 'expand_window',
+                    'label' => __('Expand Time Window', 'schedulely'),
+                    'current_start' => $start_time,
+                    'current_end' => $end_time,
+                    'suggested_start' => $suggested_start_time,
+                    'suggested_end' => $suggested_end_time,
+                    'needed_hours' => $needed_hours,
+                    'message' => $expand_message,
+                ];
+            }
         }
 
         return [
@@ -740,67 +906,57 @@ class Schedulely_Scheduler
     }
 
     /**
-     * Generate random time within configured window for a given date
-     * 
-     * @param string $date Date string (Y-m-d)
-     * @param array $used_times Already used time strings (H:i:s)
-     * @return string|false Time string (H:i:s) or false if no slot available
+     * Random local datetime within the logical window for anchor date (supports overnight). Respects min interval vs used timestamps.
+     *
+     * @param string       $anchor_date Logical anchor Y-m-d.
+     * @param array<int>   $used_ts     Unix timestamps already taken this run (and existing future posts in window).
+     * @return string|false MySQL datetime Y-m-d H:i:s or false.
      */
-    private function generate_random_time($date, $used_times = [])
+    private function generate_random_datetime($anchor_date, array $used_ts = [])
     {
-        $start_time = get_option('schedulely_start_time', '5:00 PM');
-        $end_time = get_option('schedulely_end_time', '11:00 PM');
-        $min_interval = get_option('schedulely_min_interval', 40) * 60; // Convert to seconds
+        list($start_ts, $end_ts) = $this->logical_window_bounds_ts($anchor_date);
 
-        // Create datetime strings in 12hr format - WordPress/PHP handles conversion
-        $start_datetime = strtotime($date . ' ' . $start_time);
-        $end_datetime = strtotime($date . ' ' . $end_time);
-
-        if ($start_datetime >= $end_datetime) {
-            return false; // Invalid time window
+        if ($start_ts >= $end_ts) {
+            return false;
         }
 
-        // CRITICAL FIX: Dynamic max_attempts based on scheduling density
-        // As more posts are scheduled, collision probability increases exponentially
-        // Base attempts: 200 (doubled from 100)
-        // Additional attempts: 50 per already-scheduled post to account for increasing difficulty
-        // Example: 0 posts = 200 attempts, 8 posts = 200 + (8 * 50) = 600 attempts, 15 posts = 950 attempts
+        $min_interval = (int) get_option('schedulely_min_interval', 40) * 60;
+        $now_ts = current_time('timestamp');
+        $safety_buffer = 30 * 60;
+        $floor_ts = max($start_ts, $now_ts + $safety_buffer);
+
+        if ($floor_ts > $end_ts) {
+            return false;
+        }
+
         $base_attempts = 200;
         $additional_attempts_per_post = 50;
-        $max_attempts = $base_attempts + (count($used_times) * $additional_attempts_per_post);
-
+        $max_attempts = $base_attempts + (count($used_ts) * $additional_attempts_per_post);
         $attempt = 0;
 
         while ($attempt < $max_attempts) {
-            // Generate random timestamp between start and end
-            $random_timestamp = rand($start_datetime, $end_datetime);
-            $random_time = date('H:i:s', $random_timestamp);
+            $random_ts = rand((int) $floor_ts, (int) $end_ts);
 
-            // Check if this time is already used
-            if (in_array($random_time, $used_times)) {
+            if (in_array($random_ts, $used_ts, true)) {
                 $attempt++;
                 continue;
             }
 
-            // Check minimum interval with all existing times
             $valid = true;
-            foreach ($used_times as $used_time) {
-                $used_timestamp = strtotime($date . ' ' . $used_time);
-                $diff = abs($random_timestamp - $used_timestamp);
-
-                if ($diff < $min_interval) {
+            foreach ($used_ts as $used_stamp) {
+                if (abs($random_ts - (int) $used_stamp) < $min_interval) {
                     $valid = false;
                     break;
                 }
             }
 
             if ($valid) {
-                return $random_time;
+                return wp_date('Y-m-d H:i:s', $random_ts);
             }
 
             $attempt++;
         }
 
-        return false; // No available slot found
+        return false;
     }
 }

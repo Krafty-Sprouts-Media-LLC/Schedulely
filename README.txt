@@ -4,7 +4,7 @@ Tags: schedule, posts, automation, publishing, cron
 Requires at least: 6.8
 Tested up to: 6.8
 Requires PHP: 8.2
-Stable tag: 1.4.8
+Stable tag: 1.5.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -134,6 +134,10 @@ Note: Current version uses natural random scheduling (70% efficiency) for organi
 5. Deficit status tracking
 
 == Changelog ==
+
+= 1.5.0 - 03/05/2026 =
+* Added: Overnight publishing window when end time is at or before start on the clock (e.g. 2:30 PM–3:00 AM); quota and spacing use the full span into the next calendar morning
+* Changed: Time window help text on settings screen; capacity handling for overnight spans
 
 = 1.4.8 - 03/05/2026 =
 * Changed: Email SUMMARY uses “AI ordering (this run)” with clear Applied / Not applied / Not used wording

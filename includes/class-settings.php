@@ -708,6 +708,9 @@ class Schedulely_Settings
                                                            value="<?php echo esc_attr(get_option('schedulely_end_time', '11:00 PM')); ?>" 
                                                            class="regular-text schedulely-timepicker" style="width: 120px;">
                                                 </div>
+                                                <p class="description" style="margin-top: 8px; max-width: 640px;">
+                                                    <?php esc_html_e('Same calendar day: end time must be after start (e.g. 2:30 PM → 11:59 PM). Overnight: if end is at or before start on the clock, the window runs from start on the anchor day through end on the next calendar morning (e.g. 2:30 PM → 3:00 AM). Posts per day and spacing use that full span.', 'schedulely'); ?>
+                                                </p>
                                              </div>
                                      
                                              <div class="form-group" style="flex: 1; min-width: 300px;">

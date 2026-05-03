@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.5.0] - 03/05/2026
+
+### Added
+- **Overnight time windows** — If **end time is at or before start time** on the clock (e.g. **2:30 PM → 3:00 AM**), Schedulely treats the window as **start on anchor day through end on the next calendar morning**. Random slots and **posts-per-day** quotas use that **full span** (including `post_date` on the next date after midnight). Same-day windows unchanged (end must be after start on the same day).
+
+### Changed
+- **Settings** — Short help text under the time window fields explains same-day vs overnight behavior.
+- **Capacity tool** — Computes span for overnight windows; expand-window suggestions for overnight are descriptive (same-day numeric suggestions unchanged).
+
+### Technical Details
+- `Schedulely_Scheduler`: `logical_window_bounds_*`, `logical_anchor_from_timestamp`, `generate_random_datetime`, `get_scheduled_timestamps_for_anchor`; `count_posts_on_date`, `get_last_scheduled_date`, `get_next_scheduling_date`, and `run_schedule` deficit logic use **logical anchor days** when overnight is enabled.
+
+---
+
 ## [1.4.8] - 03/05/2026
 
 ### Changed
