@@ -174,12 +174,12 @@ class Schedulely_Notifications
         $ai_used = !empty($results['ai_queue_ordered']);
         if ($ai_enabled) {
             if ($ai_used) {
-                $ai_queue_summary = __('Yes — API reordered the queue for series spacing.', 'schedulely');
+                $ai_queue_summary = __('Applied — this run’s queue was reordered by the AI API before publish times were assigned.', 'schedulely');
             } else {
-                $ai_queue_summary = __('No — not AI-reordered (shuffle or draft-date was used). Token usage on your provider can still appear when a reply was generated but rejected here (empty or non-string content, invalid JSON, or post IDs not an exact match).', 'schedulely');
+                $ai_queue_summary = __('Not applied — this run did not use AI to order the queue. Shuffle or oldest-draft-first order was used instead. Your provider may still show token usage if a model reply was returned but not accepted (bad JSON or post IDs).', 'schedulely');
             }
         } else {
-            $ai_queue_summary = __('Off (AI ordering disabled in settings).', 'schedulely');
+            $ai_queue_summary = __('Not used — AI ordering is disabled in Schedulely settings, so the queue was never sent to the API for this step.', 'schedulely');
         }
         $ai_queue_summary_esc = esc_html($ai_queue_summary);
 
@@ -232,7 +232,7 @@ class Schedulely_Notifications
         📊 Dates Complete: <strong>{$complete_dates}</strong> | Dates Incomplete: <strong>{$incomplete_dates}</strong><br>
         📋 Filled Previous Incomplete: <strong>{$completion_status}</strong><br>
         🔄 Authors Randomized: <strong>{$author_randomized}</strong><br>
-        🧠 AI queue order: <strong>{$ai_queue_summary_esc}</strong>
+        🧠 AI ordering (this run): <strong>{$ai_queue_summary_esc}</strong>
     </div>
     
     <div style="background: #fef3c7; border-left: 4px solid {$overall_status_color}; padding: 15px; margin: 20px 0;">

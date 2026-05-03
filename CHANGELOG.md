@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.4.8] - 03/05/2026
+
+### Changed
+- **Completion email** - SUMMARY line renamed to **AI ordering (this run)** with explicit statuses: **Applied** (API reorder was used), **Not applied** (AI enabled but this run used shuffle or draft-date; short note on provider tokens), **Not used** (feature off in settings).
+
+---
+
 ## [1.4.7] - 03/05/2026
 
 ### Fixed
