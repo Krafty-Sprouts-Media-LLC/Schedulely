@@ -681,7 +681,7 @@
     });
 
     /**
-     * Load full stored AI API key into read-only field (admin-only AJAX).
+     * Test AI API connection from settings (shows loading state on the button).
      */
     function initAiTestConnection() {
         const $btn = $('#schedulely-test-ai-connection');
@@ -694,13 +694,28 @@
             if (typeof schedulely_admin === 'undefined' || !schedulely_admin.ajaxurl || !schedulely_admin.nonce) {
                 return;
             }
+
+            const origHtml = $btn.html();
+            const contacting = (schedulely_admin.strings && schedulely_admin.strings.test_ai_contacting)
+                ? schedulely_admin.strings.test_ai_contacting
+                : (schedulely_admin.strings && schedulely_admin.strings.test_ai_running)
+                    ? schedulely_admin.strings.test_ai_running
+                    : '…';
+
+            $btn.prop('disabled', true).addClass('schedulely-ai-test-busy');
+            $btn.html(
+                '<span class="spinner is-active" style="float: none; margin: 0 6px 0 0; vertical-align: middle;"></span>'
+                    + '<span class="schedulely-ai-test-btn-label">' + contacting + '</span>'
+            );
+
             if ($out.length) {
                 $out
                     .removeClass('schedulely-test-error schedulely-test-ok')
                     .css({ color: '#646970' })
-                    .text(schedulely_admin.strings.test_ai_running || '…')
+                    .text(contacting)
                     .show();
             }
+
             const params = new URLSearchParams({
                 action: 'schedulely_test_ai_connection',
                 nonce: schedulely_admin.nonce
@@ -741,6 +756,9 @@
                             .text(schedulely_admin.strings.test_ai_fail || 'Error')
                             .show();
                     }
+                })
+                .finally(() => {
+                    $btn.prop('disabled', false).removeClass('schedulely-ai-test-busy').html(origHtml);
                 });
         });
     }

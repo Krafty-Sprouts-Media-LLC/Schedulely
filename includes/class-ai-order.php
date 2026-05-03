@@ -3,7 +3,7 @@
  * Filename: class-ai-order.php
  * Author: Krafty Sprouts Media, LLC
  * Created: 04/05/2026
- * Last Modified: 05/05/2026
+ * Last Modified: 03/05/2026
  * Description: OpenAI-compatible chat API client to reorder post IDs for series spacing.
  *
  * @package Schedulely
@@ -74,10 +74,7 @@ class Schedulely_AI_Order
             $url,
             [
                 'timeout' => $timeout,
-                'headers' => [
-                    'Authorization' => 'Bearer ' . $api_key,
-                    'Content-Type' => 'application/json',
-                ],
+                'headers' => $this->build_ai_http_headers($api_key),
                 'body' => wp_json_encode($body),
             ]
         );
@@ -135,7 +132,8 @@ class Schedulely_AI_Order
     /**
      * Send a minimal Chat Completions request to verify URL, model, and API key.
      *
-     * @return true|WP_Error
+     * @since 1.4.3
+     * @return array<string,string>|WP_Error On success: array with key 'message' for the admin UI.
      */
     public function test_api_connection()
     {
@@ -159,7 +157,7 @@ class Schedulely_AI_Order
                     'content' => 'Reply with the single word: ok',
                 ],
             ],
-            'max_tokens' => 8,
+            'max_tokens' => 32,
             'temperature' => 0.2,
         ];
         $body = apply_filters('schedulely_ai_test_connection_body', $body);
@@ -176,10 +174,7 @@ class Schedulely_AI_Order
             $url,
             [
                 'timeout' => $timeout,
-                'headers' => [
-                    'Authorization' => 'Bearer ' . $api_key,
-                    'Content-Type' => 'application/json',
-                ],
+                'headers' => $this->build_ai_http_headers($api_key),
                 'body' => wp_json_encode($body),
             ]
         );
@@ -204,14 +199,111 @@ class Schedulely_AI_Order
         }
 
         $decoded = json_decode($raw, true);
-        if (!is_array($decoded) || empty($decoded['choices'][0]['message']['content'])) {
+        if (!is_array($decoded)) {
             return new WP_Error(
-                'schedulely_ai_test_shape',
-                __('Connection test succeeded with HTTP 200 but the response had no assistant message.', 'schedulely')
+                'schedulely_ai_test_json',
+                sprintf(
+                    /* translators: %s: response excerpt */
+                    __('HTTP 200 but the body was not JSON. Excerpt: %s', 'schedulely'),
+                    $this->excerpt_error_body($raw)
+                )
             );
         }
 
-        return true;
+        if (isset($decoded['error'])) {
+            $err_msg = '';
+            if (is_array($decoded['error'])) {
+                $err_msg = isset($decoded['error']['message']) ? (string) $decoded['error']['message'] : wp_json_encode($decoded['error']);
+            } else {
+                $err_msg = (string) $decoded['error'];
+            }
+
+            return new WP_Error(
+                'schedulely_ai_api_error',
+                sprintf(
+                    /* translators: %s: API error message */
+                    __('API returned an error object: %s', 'schedulely'),
+                    $err_msg
+                )
+            );
+        }
+
+        $summary = $this->parse_completion_test_summary($decoded);
+
+        if ('' !== $summary['text']) {
+            return [
+                'message' => __('Connection OK — the API returned an assistant message.', 'schedulely'),
+            ];
+        }
+
+        if ($summary['has_usage']) {
+            return [
+                'message' => sprintf(
+                    /* translators: %d: total tokens reported by the API */
+                    __('Connection OK — the API accepted the request (reported %d total tokens). The reply text field was empty, which can happen with some models or modes.', 'schedulely'),
+                    (int) $summary['total_tokens']
+                ),
+            ];
+        }
+
+        if (defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
+            schedulely_log_error('Schedulely AI test: unexpected 200 response shape', [
+                'excerpt' => $this->excerpt_error_body($raw),
+            ]);
+        }
+
+        return new WP_Error(
+            'schedulely_ai_test_shape',
+            sprintf(
+                /* translators: %s: short excerpt of the raw response body */
+                __('HTTP 200 but no assistant text or usage data was found. Check the Base URL (must match your provider’s Chat Completions endpoint) and model id. Response excerpt: %s', 'schedulely'),
+                $this->excerpt_error_body($raw)
+            )
+        );
+    }
+
+    /**
+     * Extract assistant-visible text and usage from a chat completion JSON body.
+     * @since 1.4.6
+     * @param array<string,mixed> $decoded Decoded JSON.
+     * @return array{text: string, has_usage: bool, total_tokens: int}
+     */
+    private function parse_completion_test_summary(array $decoded)
+    {
+        $text = '';
+        $total_tokens = isset($decoded['usage']['total_tokens']) ? (int) $decoded['usage']['total_tokens'] : 0;
+        $has_usage = $total_tokens > 0;
+
+        if (!empty($decoded['choices'][0]) && is_array($decoded['choices'][0])) {
+            $choice = $decoded['choices'][0];
+            if (isset($choice['text']) && is_string($choice['text']) && '' !== trim($choice['text'])) {
+                $text = trim($choice['text']);
+            }
+            $msg = isset($choice['message']) && is_array($choice['message']) ? $choice['message'] : null;
+            if (null !== $msg) {
+                $content = $msg['content'] ?? null;
+                if (is_string($content) && '' !== trim($content)) {
+                    $text = trim($content);
+                } elseif (is_array($content)) {
+                    $parts = [];
+                    foreach ($content as $part) {
+                        if (is_array($part) && isset($part['text'])) {
+                            $parts[] = (string) $part['text'];
+                        }
+                    }
+                    $text = trim(implode('', $parts));
+                }
+                if ('' === $text && isset($msg['reasoning_content']) && is_string($msg['reasoning_content']) && '' !== trim($msg['reasoning_content'])) {
+                    $text = trim($msg['reasoning_content']);
+                }
+            }
+        }
+
+        return [
+            'text' => $text,
+            'has_usage' => $has_usage,
+            'total_tokens' => $total_tokens,
+        ];
     }
 
     /**
@@ -366,6 +458,27 @@ class Schedulely_AI_Order
         }
 
         return sanitize_text_field(substr(trim($model), 0, 120));
+    }
+
+    /**
+     * HTTP headers for Chat Completions requests.
+     *
+     * @param string $api_key Bearer token (not logged).
+     * @return array<string, string>
+     */
+    private function build_ai_http_headers($api_key)
+    {
+        $ver = defined('SCHEDULELY_VERSION') ? SCHEDULELY_VERSION : '1.0';
+
+        return [
+            'Authorization' => 'Bearer ' . $api_key,
+            'Content-Type' => 'application/json',
+            'Accept' => 'application/json',
+            'User-Agent' => (string) apply_filters(
+                'schedulely_ai_http_user_agent',
+                'Schedulely/' . $ver . '; ' . home_url('/')
+            ),
+        ];
     }
 
     /**

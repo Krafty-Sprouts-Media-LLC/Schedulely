@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.4.6] - 05/05/2026
+
+### Fixed
+- **AI connection test** - Treats HTTP 200 as success when the API returns **usage/token counts** but an empty `message.content` (some providers or modes). Parses `content` as string or multimodal parts, legacy `text`, and `reasoning_content`. Surfaces JSON `error` objects, non-JSON bodies, and includes a **response excerpt** in the failure message. Slightly higher `max_tokens` for the probe request. Sends `User-Agent` and `Accept` headers (filterable via `schedulely_ai_http_user_agent`).
+- **AI reorder** - Chat Completions reorder requests now use the same **Accept** and **User-Agent** headers as the connection test (shared builder, same `schedulely_ai_http_user_agent` filter) so provider dashboards and logs stay consistent.
+
+### Changed
+- **Test connection UI** - Button shows a **spinner** and “Contacting the API…” text while the request runs; status line updates in parallel.
+
+---
+
 ## [1.4.5] - 05/05/2026
 
 ### Changed

@@ -144,6 +144,7 @@ class Schedulely_Settings
                 'test_ai_ok' => __('Connection OK — the API accepted your key and returned a reply.', 'schedulely'),
                 'test_ai_fail' => __('Connection test failed.', 'schedulely'),
                 'test_ai_running' => __('Testing connection…', 'schedulely'),
+                'test_ai_contacting' => __('Contacting the API — this can take a few seconds…', 'schedulely'),
             ]
         ]);
     }
@@ -1040,9 +1041,6 @@ class Schedulely_Settings
     }
 
     /**
-     * AJAX: return stored AI API key to administrators (Tools page only uses this).
-     */
-    /**
      * AJAX: minimal Chat Completions call to verify API settings (DeepSeek-compatible).
      */
     public function ajax_test_ai_connection()
@@ -1060,8 +1058,13 @@ class Schedulely_Settings
             wp_send_json_error(['message' => $result->get_error_message()]);
         }
 
+        $message = __('Connection OK — the API accepted your key and returned a reply.', 'schedulely');
+        if (is_array($result) && !empty($result['message'])) {
+            $message = $result['message'];
+        }
+
         wp_send_json_success([
-            'message' => __('Connection OK — the API accepted your key and returned a reply.', 'schedulely'),
+            'message' => $message,
         ]);
     }
 
