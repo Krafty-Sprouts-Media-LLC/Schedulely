@@ -4,7 +4,7 @@ Tags: schedule, posts, automation, publishing, cron
 Requires at least: 6.8
 Tested up to: 6.8
 Requires PHP: 8.2
-Stable tag: 1.4.4
+Stable tag: 1.4.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -135,6 +135,9 @@ Note: Current version uses natural random scheduling (70% efficiency) for organi
 
 == Changelog ==
 
+= 1.4.5 - 05/05/2026 =
+* Changed: Saved API key always visible in read-only field; replace field + placeholder clarified; removed reveal AJAX
+
 = 1.4.4 - 05/05/2026 =
 * Changed: Email notification summary includes AI queue order status for the run
 
@@ -151,7 +154,7 @@ Note: Current version uses natural random scheduling (70% efficiency) for organi
 
 = 1.4.0 - 04/05/2026 =
 * Added: Optional AI queue ordering via OpenAI-compatible Chat Completions (DeepSeek-oriented defaults) using post titles; plugin still assigns all publish times and rules
-* Settings: API base URL, model, API key, enable toggle, optional connection test and key reveal
+* Settings: API base URL, model, API key (shown read-only when saved), enable toggle, optional connection test
 
 = 1.3.8 - 04/05/2026 =
 * Changed: Scheduling run can load up to 1500 eligible posts per query (was 500) for larger draft pools

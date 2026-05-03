@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.4.5] - 05/05/2026
+
+### Changed
+- **API key on settings screen** - When a key is saved, it is shown in a **read-only** text field (no `name`, not submitted with the form) so you always see the current key. The password field below is labeled **Replace API key (optional)** with a placeholder that refers to keeping the key above. Removed the separate “Show full key” button and the `schedulely_reveal_ai_api_key` AJAX action.
+
+---
+
 ## [1.4.4] - 05/05/2026
 
 ### Changed

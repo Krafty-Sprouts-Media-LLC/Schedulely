@@ -34,7 +34,6 @@ class Schedulely_Settings
         add_action('admin_notices', [$this, 'show_welcome_notice']);
         add_action('wp_ajax_schedulely_dismiss_notice', [$this, 'ajax_dismiss_notice']);
         add_action('wp_ajax_schedulely_toggle_auto_schedule', [$this, 'ajax_toggle_auto_schedule']);
-        add_action('wp_ajax_schedulely_reveal_ai_api_key', [$this, 'ajax_reveal_ai_api_key']);
         add_action('wp_ajax_schedulely_test_ai_connection', [$this, 'ajax_test_ai_connection']);
     }
 
@@ -134,19 +133,14 @@ class Schedulely_Settings
         );
 
         // Localize script
-        $stored_ai = get_option('schedulely_ai_api_key', '');
-        $has_stored_ai_key = is_string($stored_ai) && '' !== trim($stored_ai);
-
         wp_localize_script('schedulely-admin', 'schedulely_admin', [
             'nonce' => wp_create_nonce('schedulely_admin'),
             'ajaxurl' => admin_url('admin-ajax.php'),
             'scheduled_posts_url' => admin_url('edit.php?post_status=future'),
-            'hasStoredAiKey' => $has_stored_ai_key,
             'strings' => [
                 'confirm_schedule' => __('Schedule available posts now?', 'schedulely'),
                 'scheduling' => __('Scheduling...', 'schedulely'),
                 'schedule_now' => __('Schedule Now', 'schedulely'),
-                'reveal_ai_key_fail' => __('Could not load the stored API key.', 'schedulely'),
                 'test_ai_ok' => __('Connection OK — the API accepted your key and returned a reply.', 'schedulely'),
                 'test_ai_fail' => __('Connection test failed.', 'schedulely'),
                 'test_ai_running' => __('Testing connection…', 'schedulely'),
@@ -679,30 +673,21 @@ class Schedulely_Settings
                                                 </div>
                                             </div>
                                             <div style="margin-bottom: 10px;">
-                                                <label class="form-label" style="font-size: 12px;" for="schedulely_ai_api_key"><?php _e('API key', 'schedulely'); ?></label>
                                                 <?php if ($stored_ai_key_len > 0) : ?>
-                                                    <p class="description" id="schedulely-ai-key-status" style="margin-bottom: 8px;">
-                                                        <?php
-                                                        printf(
-                                                            /* translators: %d: character count of stored API key */
-                                                            esc_html__('A key is saved on this site (%d characters). Use the button below to view it.', 'schedulely'),
-                                                            (int) $stored_ai_key_len
-                                                        );
-                                                        ?>
-                                                    </p>
+                                                    <label class="form-label" style="font-size: 12px;" for="schedulely_ai_api_key_current"><?php esc_html_e('Current API key', 'schedulely'); ?></label>
+                                                    <input type="text" readonly id="schedulely_ai_api_key_current" class="regular-text" style="width: 100%; max-width: 480px; font-family: monospace; margin-bottom: 12px;"
+                                                           value="<?php echo esc_attr((string) apply_filters('schedulely_ai_api_key', $stored_ai_key_raw)); ?>" autocomplete="off">
+                                                    <label class="form-label" style="font-size: 12px;" for="schedulely_ai_api_key"><?php esc_html_e('Replace API key (optional)', 'schedulely'); ?></label>
+                                                <?php else : ?>
+                                                    <label class="form-label" style="font-size: 12px;" for="schedulely_ai_api_key"><?php esc_html_e('API key', 'schedulely'); ?></label>
                                                 <?php endif; ?>
                                                 <p style="margin-bottom: 8px;">
-                                                    <?php if ($stored_ai_key_len > 0) : ?>
-                                                        <button type="button" class="button button-secondary" id="schedulely-reveal-ai-key"><?php esc_html_e('Show full key', 'schedulely'); ?></button>
-                                                    <?php endif; ?>
-                                                    <button type="button" class="button button-secondary" id="schedulely-test-ai-connection" <?php echo $stored_ai_key_len > 0 ? ' style="margin-left: 8px;"' : ''; ?>><?php esc_html_e('Test connection', 'schedulely'); ?></button>
+                                                    <button type="button" class="button button-secondary" id="schedulely-test-ai-connection"><?php esc_html_e('Test connection', 'schedulely'); ?></button>
                                                 </p>
-                                                <?php if ($stored_ai_key_len > 0) : ?>
-                                                    <input type="text" readonly id="schedulely_ai_api_key_display" class="regular-text" style="width: 100%; max-width: 480px; display: none;" value="" autocomplete="off">
-                                                <?php endif; ?>
                                                 <p class="description" id="schedulely-ai-test-result" style="display: none; margin-top: 8px;" aria-live="polite"></p>
                                                 <p class="description" style="font-size: 12px; margin-top: 4px;"><?php esc_html_e('Test connection uses the saved base URL, model, and API key. Save settings after changing the key, then test.', 'schedulely'); ?></p>
-                                                <input type="password" name="schedulely_ai_api_key" id="schedulely_ai_api_key" class="regular-text" style="width: 100%; max-width: 480px;" value="" autocomplete="new-password" placeholder="<?php esc_attr_e('Enter a new key, or leave blank to keep the current key', 'schedulely'); ?>">
+                                                <input type="password" name="schedulely_ai_api_key" id="schedulely_ai_api_key" class="regular-text" style="width: 100%; max-width: 480px;" value="" autocomplete="new-password"
+                                                    placeholder="<?php echo $stored_ai_key_len > 0 ? esc_attr__('Leave blank to keep the key above, or type a new key to replace it', 'schedulely') : esc_attr__('Enter your API key', 'schedulely'); ?>">
                                             </div>
                                             <label style="display: block;">
                                                 <input type="checkbox" name="schedulely_ai_clear_api_key" id="schedulely_ai_clear_api_key" value="1">
@@ -1057,24 +1042,6 @@ class Schedulely_Settings
     /**
      * AJAX: return stored AI API key to administrators (Tools page only uses this).
      */
-    public function ajax_reveal_ai_api_key()
-    {
-        check_ajax_referer('schedulely_admin', 'nonce');
-
-        if (!current_user_can('manage_options')) {
-            wp_send_json_error(['message' => __('Insufficient permissions', 'schedulely')]);
-        }
-
-        $key = apply_filters('schedulely_ai_api_key', get_option('schedulely_ai_api_key', ''));
-        if (!is_string($key) || '' === trim($key)) {
-            wp_send_json_error(['message' => __('No API key is stored.', 'schedulely')]);
-        }
-
-        wp_send_json_success([
-            'key' => $key,
-        ]);
-    }
-
     /**
      * AJAX: minimal Chat Completions call to verify API settings (DeepSeek-compatible).
      */
