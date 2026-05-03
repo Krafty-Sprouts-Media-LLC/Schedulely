@@ -4,7 +4,7 @@ Tags: schedule, posts, automation, publishing, cron
 Requires at least: 6.8
 Tested up to: 6.8
 Requires PHP: 8.2
-Stable tag: 1.5.2
+Stable tag: 1.5.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -134,6 +134,10 @@ Note: Current version uses natural random scheduling (70% efficiency) for organi
 5. Deficit status tracking
 
 == Changelog ==
+
+= 1.5.3 - 03/05/2026 =
+* Fixed: Overnight and same-day windows use the WordPress site timezone for bounds and random times (avoids slots after the configured end or skewed afternoon starts when PHP’s default timezone differs)
+* Added: Filter schedulely_schedule_safety_buffer_seconds (default 30 minutes) to allow earlier first slots after the window opens
 
 = 1.5.2 - 03/05/2026 =
 * Changed: Tools → Schedulely settings — clearer sections; AI series spacing moved below authors so time window and active days stay together

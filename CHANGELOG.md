@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.5.3] - 03/05/2026
+
+### Fixed
+- **Overnight windows and site timezone** — Window bounds, random slot generation, and related date math now use the **WordPress site timezone** (`wp_timezone()` / `DateTimeImmutable`) instead of PHP’s default timezone via `strtotime()`. Stops slots from drifting **past the configured end** (e.g. after 3:00 AM) or mis-aligning afternoon starts when the server TZ differs from **Settings → General → Timezone**.
+- **“Now” vs window floor** — Random scheduling uses **`time()`** with the existing safety buffer so the earliest slot lines up with real UTC “now” while bounds stay site-local.
+
+### Added
+- **Filter `schedulely_schedule_safety_buffer_seconds`** — Default **1800** (30 minutes). Lower it (e.g. `0` or `300`) if you need the first posts closer to the window start when the scheduler runs shortly after the window opens.
+
+---
+
 ## [1.5.2] - 03/05/2026
 
 ### Changed

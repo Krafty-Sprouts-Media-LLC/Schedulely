@@ -90,7 +90,7 @@ class Schedulely_Scheduler
         if ($last_scheduled_date) {
             $posts_on_last_date = $this->count_posts_on_date($last_scheduled_date);
             list($last_win_start, $last_win_end) = $this->logical_window_bounds_ts($last_scheduled_date);
-            $now_ts = current_time('timestamp');
+            $now_ts = time();
 
             if ($posts_on_last_date < $quota && $last_win_end >= $now_ts) {
                 $complete_count = $quota - $posts_on_last_date;
@@ -215,14 +215,82 @@ class Schedulely_Scheduler
         }
 
         $ref = '2000-01-01';
-        $start_ts = strtotime($ref . ' ' . $start_time);
-        $end_ts = strtotime($ref . ' ' . $end_time);
+        $start_ts = $this->site_local_string_to_timestamp($ref, $start_time);
+        $end_ts = $this->site_local_string_to_timestamp($ref, $end_time);
 
         if (false === $start_ts || false === $end_ts) {
             return false;
         }
 
         return $end_ts <= $start_ts;
+    }
+
+    /**
+     * Interpret Y-m-d plus time string in the site timezone (not PHP default timezone).
+     *
+     * @param string $date_ymd Y-m-d.
+     * @param string $time_str  Time from settings (e.g. "3:00 PM").
+     * @return int|false Unix timestamp, or false on parse failure.
+     */
+    private function site_local_string_to_timestamp($date_ymd, $time_str)
+    {
+        $time_str = trim((string) $time_str);
+        if ('' === $time_str || !is_string($date_ymd) || '' === $date_ymd) {
+            return false;
+        }
+
+        try {
+            $tz = wp_timezone();
+            $dt = new DateTimeImmutable($date_ymd . ' ' . $time_str, $tz);
+
+            return $dt->getTimestamp();
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Parse post_date-style local datetime (blog-local storage).
+     *
+     * @param string $mysql Y-m-d H:i:s.
+     * @return int|false
+     */
+    private function site_local_mysql_to_timestamp($mysql)
+    {
+        if (!is_string($mysql) || '' === $mysql) {
+            return false;
+        }
+
+        try {
+            $tz = wp_timezone();
+            $dt = date_create_from_format('Y-m-d H:i:s', $mysql, $tz);
+            if (false === $dt) {
+                $dt = date_create_from_format('Y-m-d G:i:s', $mysql, $tz);
+            }
+
+            return $dt ? $dt->getTimestamp() : false;
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Add calendar days in site timezone (DST-safe).
+     *
+     * @param string $date_ymd Y-m-d.
+     * @param int    $days     Delta (e.g. 1 or -1).
+     * @return string|false
+     */
+    private function site_add_calendar_days($date_ymd, $days)
+    {
+        try {
+            $tz = wp_timezone();
+            $dt = new DateTimeImmutable($date_ymd . ' 12:00:00', $tz);
+
+            return $dt->modify(((int) $days) . ' days')->format('Y-m-d');
+        } catch (\Exception $e) {
+            return false;
+        }
     }
 
     /**
@@ -236,13 +304,23 @@ class Schedulely_Scheduler
         $start_time = get_option('schedulely_start_time', '5:00 PM');
         $end_time = get_option('schedulely_end_time', '11:00 PM');
 
-        $start_ts = strtotime($anchor_date . ' ' . $start_time);
+        $start_ts = $this->site_local_string_to_timestamp($anchor_date, $start_time);
+        if (false === $start_ts) {
+            return [0, 0];
+        }
 
         if ($this->is_overnight_window($start_time, $end_time)) {
-            $end_day = date('Y-m-d', strtotime($anchor_date . ' +1 day'));
-            $end_ts = strtotime($end_day . ' ' . $end_time);
+            $end_day = $this->site_add_calendar_days($anchor_date, 1);
+            if (false === $end_day) {
+                return [0, 0];
+            }
+            $end_ts = $this->site_local_string_to_timestamp($end_day, $end_time);
         } else {
-            $end_ts = strtotime($anchor_date . ' ' . $end_time);
+            $end_ts = $this->site_local_string_to_timestamp($anchor_date, $end_time);
+        }
+
+        if (false === $end_ts) {
+            return [0, 0];
         }
 
         return [$start_ts, $end_ts];
@@ -283,7 +361,10 @@ class Schedulely_Scheduler
             return $post_day;
         }
 
-        $prev = date('Y-m-d', strtotime($post_day . ' -1 day'));
+        $prev = $this->site_add_calendar_days($post_day, -1);
+        if (false === $prev) {
+            return $post_day;
+        }
         list($ws2, $we2) = $this->logical_window_bounds_ts($prev);
 
         if ($ts >= $ws2 && $ts <= $we2) {
@@ -316,7 +397,10 @@ class Schedulely_Scheduler
     private function is_anchor_active_day($anchor_date)
     {
         $active_days = get_option('schedulely_active_days', [1, 2, 3, 4, 5, 6, 0]);
-        $anchor_ts = strtotime($anchor_date . ' 12:00:00');
+        $anchor_ts = $this->site_local_string_to_timestamp($anchor_date, '12:00:00');
+        if (false === $anchor_ts) {
+            return false;
+        }
         $dow = (int) wp_date('w', $anchor_ts);
 
         return in_array($dow, $active_days, true);
@@ -350,7 +434,7 @@ class Schedulely_Scheduler
             return null;
         }
 
-        $ts = strtotime($last_post_date);
+        $ts = $this->site_local_mysql_to_timestamp($last_post_date);
         if (false === $ts) {
             return null;
         }
@@ -394,13 +478,10 @@ class Schedulely_Scheduler
      */
     private function get_next_scheduling_date()
     {
-        $now_ts = current_time('timestamp');
+        $now_ts = time();
         $today = wp_date('Y-m-d', $now_ts);
-
-        $candidates = [
-            date('Y-m-d', strtotime($today . ' -1 day')),
-            $today,
-        ];
+        $yesterday = $this->site_add_calendar_days($today, -1);
+        $candidates = (false !== $yesterday) ? [$yesterday, $today] : [$today];
 
         foreach ($candidates as $anchor) {
             if (!$this->is_anchor_active_day($anchor)) {
@@ -440,16 +521,23 @@ class Schedulely_Scheduler
     private function get_next_active_date($current_date)
     {
         $active_days = get_option('schedulely_active_days', [1, 2, 3, 4, 5, 6, 0]);
-        $next_date = date('Y-m-d', strtotime($current_date . ' +1 day'));
+        $next_date = $this->site_add_calendar_days($current_date, 1);
+        if (false === $next_date) {
+            return $current_date;
+        }
         $attempts = 0;
 
         // Find next active day (max 7 attempts)
         while ($attempts < 7) {
-            $day_of_week = date('w', strtotime($next_date));
+            $noon_ts = $this->site_local_string_to_timestamp($next_date, '12:00:00');
+            $day_of_week = false !== $noon_ts ? (int) wp_date('w', $noon_ts) : 0;
             if (in_array($day_of_week, $active_days)) {
                 return $next_date;
             }
-            $next_date = date('Y-m-d', strtotime($next_date . ' +1 day'));
+            $next_date = $this->site_add_calendar_days($next_date, 1);
+            if (false === $next_date) {
+                break;
+            }
             $attempts++;
         }
 
@@ -531,7 +619,10 @@ class Schedulely_Scheduler
             if ($success) {
                 $scheduled_count++;
                 $posts_scheduled_today++;
-                $already_scheduled_times[] = strtotime($datetime);
+                $ts_slot = $this->site_local_mysql_to_timestamp($datetime);
+                if (false !== $ts_slot) {
+                    $already_scheduled_times[] = $ts_slot;
+                }
 
                 $scheduled_posts[] = [
                     'post_id' => $post_id,
@@ -558,7 +649,10 @@ class Schedulely_Scheduler
                             // Retry succeeded!
                             $scheduled_count++;
                             $posts_scheduled_today++;
-                            $already_scheduled_times[] = strtotime($retry_datetime);
+                            $retry_ts = $this->site_local_mysql_to_timestamp($retry_datetime);
+                            if (false !== $retry_ts) {
+                                $already_scheduled_times[] = $retry_ts;
+                            }
 
                             $scheduled_posts[] = [
                                 'post_id' => $post_id,
@@ -639,7 +733,7 @@ class Schedulely_Scheduler
 
         $out = [];
         foreach ($rows as $mysql) {
-            $t = strtotime($mysql);
+            $t = $this->site_local_mysql_to_timestamp($mysql);
             if (false !== $t) {
                 $out[] = $t;
             }
@@ -658,10 +752,21 @@ class Schedulely_Scheduler
      */
     private function schedule_post($post_id, $datetime, $author_id = null)
     {
-        // CRITICAL SAFETY CHECK: Ensure datetime is in the future
-        $scheduled_timestamp = strtotime($datetime);
-        $now = current_time('timestamp');
-        $safety_buffer = 30 * 60; // 30 minutes minimum buffer
+        // CRITICAL SAFETY CHECK: Ensure datetime is in the future (site-local string vs real Unix time).
+        $scheduled_timestamp = $this->site_local_mysql_to_timestamp($datetime);
+        if (false === $scheduled_timestamp) {
+            schedulely_log_error('CRITICAL: Unparseable schedule datetime', [
+                'post_id' => $post_id,
+                'datetime' => $datetime,
+            ]);
+            return false;
+        }
+
+        $now = time();
+        $safety_buffer = (int) apply_filters('schedulely_schedule_safety_buffer_seconds', 30 * 60, $post_id, $datetime);
+        if ($safety_buffer < 0) {
+            $safety_buffer = 0;
+        }
         $minimum_future_time = $now + $safety_buffer;
 
         if ($scheduled_timestamp < $minimum_future_time) {
@@ -672,7 +777,7 @@ class Schedulely_Scheduler
                 'current_timestamp' => $now,
                 'minimum_required' => $minimum_future_time,
                 'difference_minutes' => ($scheduled_timestamp - $now) / 60,
-                'buffer_minutes' => 30
+                'buffer_seconds' => $safety_buffer,
             ]);
             return false; // Refuse to schedule posts less than 30 minutes in the future
         }
@@ -714,16 +819,16 @@ class Schedulely_Scheduler
      */
     public function calculate_capacity($start_time, $end_time, $min_interval, $desired_quota)
     {
-        $date = date('Y-m-d');
+        $date = wp_date('Y-m-d', time());
         $overnight = $this->is_overnight_window($start_time, $end_time);
 
-        $start_timestamp = strtotime($date . ' ' . $start_time);
+        $start_timestamp = $this->site_local_string_to_timestamp($date, $start_time);
 
         if ($overnight) {
-            $end_day = date('Y-m-d', strtotime($date . ' +1 day'));
-            $end_timestamp = strtotime($end_day . ' ' . $end_time);
+            $end_day = $this->site_add_calendar_days($date, 1);
+            $end_timestamp = false !== $end_day ? $this->site_local_string_to_timestamp($end_day, $end_time) : false;
         } else {
-            $end_timestamp = strtotime($date . ' ' . $end_time);
+            $end_timestamp = $this->site_local_string_to_timestamp($date, $end_time);
         }
 
         if (false === $start_timestamp || false === $end_timestamp || $start_timestamp >= $end_timestamp) {
@@ -841,7 +946,10 @@ class Schedulely_Scheduler
                     ),
                 ];
             } else {
-                $max_end_timestamp = strtotime($date . ' 11:59 PM');
+                $max_end_timestamp = $this->site_local_string_to_timestamp($date, '11:59 PM');
+                if (false === $max_end_timestamp) {
+                    $max_end_timestamp = $end_timestamp;
+                }
                 $minutes_available_at_end = ($max_end_timestamp - $end_timestamp) / 60;
                 $suggested_start_time = $start_time;
                 $suggested_end_time = $end_time;
@@ -849,7 +957,7 @@ class Schedulely_Scheduler
 
                 if ($minutes_to_add <= $minutes_available_at_end) {
                     $new_end_timestamp = $end_timestamp + ($minutes_to_add * 60);
-                    $suggested_end_time = date('g:i A', $new_end_timestamp);
+                    $suggested_end_time = wp_date('g:i A', $new_end_timestamp);
                     $expand_message = sprintf(
                         __('Extend end time from %s-%s to %s-%s (~%d hours needed)', 'schedulely'),
                         $start_time,
@@ -862,7 +970,7 @@ class Schedulely_Scheduler
                     $suggested_end_time = '11:59 PM';
                     $remaining_minutes_needed = $minutes_to_add - $minutes_available_at_end;
                     $new_start_timestamp = $start_timestamp - ($remaining_minutes_needed * 60);
-                    $suggested_start_time = date('g:i A', $new_start_timestamp);
+                    $suggested_start_time = wp_date('g:i A', $new_start_timestamp);
                     $expand_message = sprintf(
                         __('Extend from %s-%s to %s-%s (start earlier + extend to 11:59 PM, ~%d hours needed)', 'schedulely'),
                         $start_time,
@@ -873,7 +981,7 @@ class Schedulely_Scheduler
                     );
                 } else {
                     $new_start_timestamp = $start_timestamp - ($minutes_to_add * 60);
-                    $suggested_start_time = date('g:i A', $new_start_timestamp);
+                    $suggested_start_time = wp_date('g:i A', $new_start_timestamp);
                     $suggested_end_time = $end_time;
                     $expand_message = sprintf(
                         __('Start earlier from %s-%s to %s-%s (end time cannot extend past 11:59 PM, ~%d hours needed)', 'schedulely'),
@@ -928,8 +1036,11 @@ class Schedulely_Scheduler
         }
 
         $min_interval = (int) get_option('schedulely_min_interval', 40) * 60;
-        $now_ts = current_time('timestamp');
-        $safety_buffer = 30 * 60;
+        $now_ts = time();
+        $safety_buffer = (int) apply_filters('schedulely_schedule_safety_buffer_seconds', 30 * 60, 0, $anchor_date);
+        if ($safety_buffer < 0) {
+            $safety_buffer = 0;
+        }
         $floor_ts = max($start_ts, $now_ts + $safety_buffer);
 
         if ($floor_ts > $end_ts) {
@@ -958,6 +1069,8 @@ class Schedulely_Scheduler
             }
 
             if ($valid) {
+                $random_ts = min((int) $end_ts, max((int) $start_ts, (int) $random_ts));
+
                 return wp_date('Y-m-d H:i:s', $random_ts);
             }
 
