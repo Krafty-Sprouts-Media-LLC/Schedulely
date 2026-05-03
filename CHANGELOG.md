@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.4.7] - 03/05/2026
+
+### Fixed
+- **AI queue reorder** - Reads assistant text the same way as the connection test: legacy `choices[0].text`, string or multimodal `message.content`, and `reasoning_content` when content is empty. Avoids treating a billable non-string `content` shape as “empty” and falling back to shuffle while the provider still reports tokens.
+
+### Changed
+- **Completion email (AI line)** - Clarifies that “No” means the plugin did not apply an AI-ordered queue; the API may still show token usage when a model reply was rejected (format or ID validation).
+
+---
+
 ## [1.4.6] - 05/05/2026
 
 ### Fixed

@@ -106,7 +106,7 @@ class Schedulely_AI_Order
             );
         }
 
-        $content = $this->extract_message_content($decoded);
+        $content = $this->extract_assistant_text_from_completion($decoded);
         if ('' === $content) {
             return new WP_Error(
                 'schedulely_ai_empty',
@@ -263,41 +263,58 @@ class Schedulely_AI_Order
     }
 
     /**
+     * Best-effort assistant text from a Chat Completions JSON body (legacy `text`, string or multimodal `message.content`, `reasoning_content`).
+     *
+     * @since 1.4.7
+     * @param array<string,mixed> $decoded Decoded JSON.
+     * @return string Trimmed text, or empty string.
+     */
+    private function extract_assistant_text_from_completion(array $decoded)
+    {
+        $text = '';
+        if (empty($decoded['choices'][0]) || !is_array($decoded['choices'][0])) {
+            return '';
+        }
+
+        $choice = $decoded['choices'][0];
+        if (isset($choice['text']) && is_string($choice['text']) && '' !== trim($choice['text'])) {
+            $text = trim($choice['text']);
+        }
+
+        $msg = isset($choice['message']) && is_array($choice['message']) ? $choice['message'] : null;
+        if (null !== $msg) {
+            $content = $msg['content'] ?? null;
+            if (is_string($content) && '' !== trim($content)) {
+                $text = trim($content);
+            } elseif (is_array($content)) {
+                $parts = [];
+                foreach ($content as $part) {
+                    if (is_array($part) && isset($part['text'])) {
+                        $parts[] = (string) $part['text'];
+                    }
+                }
+                $text = trim(implode('', $parts));
+            }
+            if ('' === $text && isset($msg['reasoning_content']) && is_string($msg['reasoning_content']) && '' !== trim($msg['reasoning_content'])) {
+                $text = trim($msg['reasoning_content']);
+            }
+        }
+
+        return $text;
+    }
+
+    /**
      * Extract assistant-visible text and usage from a chat completion JSON body.
+     *
      * @since 1.4.6
      * @param array<string,mixed> $decoded Decoded JSON.
      * @return array{text: string, has_usage: bool, total_tokens: int}
      */
     private function parse_completion_test_summary(array $decoded)
     {
-        $text = '';
+        $text = $this->extract_assistant_text_from_completion($decoded);
         $total_tokens = isset($decoded['usage']['total_tokens']) ? (int) $decoded['usage']['total_tokens'] : 0;
         $has_usage = $total_tokens > 0;
-
-        if (!empty($decoded['choices'][0]) && is_array($decoded['choices'][0])) {
-            $choice = $decoded['choices'][0];
-            if (isset($choice['text']) && is_string($choice['text']) && '' !== trim($choice['text'])) {
-                $text = trim($choice['text']);
-            }
-            $msg = isset($choice['message']) && is_array($choice['message']) ? $choice['message'] : null;
-            if (null !== $msg) {
-                $content = $msg['content'] ?? null;
-                if (is_string($content) && '' !== trim($content)) {
-                    $text = trim($content);
-                } elseif (is_array($content)) {
-                    $parts = [];
-                    foreach ($content as $part) {
-                        if (is_array($part) && isset($part['text'])) {
-                            $parts[] = (string) $part['text'];
-                        }
-                    }
-                    $text = trim(implode('', $parts));
-                }
-                if ('' === $text && isset($msg['reasoning_content']) && is_string($msg['reasoning_content']) && '' !== trim($msg['reasoning_content'])) {
-                    $text = trim($msg['reasoning_content']);
-                }
-            }
-        }
 
         return [
             'text' => $text,
@@ -354,21 +371,6 @@ class Schedulely_AI_Order
         ];
 
         return $body;
-    }
-
-    /**
-     * Extract assistant text from OpenAI-shaped response.
-     *
-     * @param array<string,mixed> $decoded Decoded JSON.
-     * @return string
-     */
-    private function extract_message_content(array $decoded)
-    {
-        if (!isset($decoded['choices'][0]['message']['content'])) {
-            return '';
-        }
-        $content = $decoded['choices'][0]['message']['content'];
-        return is_string($content) ? $content : '';
     }
 
     /**

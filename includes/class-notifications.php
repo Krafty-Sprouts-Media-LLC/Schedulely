@@ -3,7 +3,7 @@
  * Filename: class-notifications.php
  * Author: Krafty Sprouts Media, LLC
  * Created: 06/10/2025
- * Last Modified: 05/05/2026
+ * Last Modified: 03/05/2026
  * Description: Email Notification System - Sends email notifications for scheduling events
  *
  * @package Schedulely
@@ -176,7 +176,7 @@ class Schedulely_Notifications
             if ($ai_used) {
                 $ai_queue_summary = __('Yes — API reordered the queue for series spacing.', 'schedulely');
             } else {
-                $ai_queue_summary = __('No — used shuffle or draft-date order (API skipped, failed, or no key).', 'schedulely');
+                $ai_queue_summary = __('No — not AI-reordered (shuffle or draft-date was used). Token usage on your provider can still appear when a reply was generated but rejected here (empty or non-string content, invalid JSON, or post IDs not an exact match).', 'schedulely');
             }
         } else {
             $ai_queue_summary = __('Off (AI ordering disabled in settings).', 'schedulely');
