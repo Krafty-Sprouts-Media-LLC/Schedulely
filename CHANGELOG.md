@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.4.2] - 05/05/2026
+
+### Added
+- **Stored API key visibility** - When a key exists, the settings screen shows its **character count**, a **Show full key** button (loads the key over AJAX for administrators only), and a read-only field for verification. Entering a new value in the password field still replaces the key on save; leave blank to keep.
+
+### Changed
+- **Vendor-neutral AI settings UI** - Removed provider-specific branding and doc links from the admin screen. **API base URL** and **model** fields default empty in the database for new installs; when left empty, the plugin uses built-in defaults via the `schedulely_ai_default_base_url` and `schedulely_ai_default_model` filters (same technical defaults as before, overridable without exposing names in the UI).
+
+### Technical Details
+- `sanitize_ai_base_url()` / `sanitize_ai_model()` may save empty strings; `Schedulely_AI_Order` resolves URL/model through those filters when unset or invalid.
+- New AJAX action `schedulely_reveal_ai_api_key` (nonce `schedulely_admin`, capability `manage_options`).
+- `wp_localize_script` passes `hasStoredAiKey` for the admin script.
+
+---
+
 ## [1.4.1] - 05/05/2026
 
 ### Changed

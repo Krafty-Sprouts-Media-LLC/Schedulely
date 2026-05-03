@@ -3,7 +3,7 @@
  * Filename: class-settings.php
  * Author: Krafty Sprouts Media, LLC
  * Created: 06/10/2025
- * Last Modified: 04/05/2026
+ * Last Modified: 05/05/2026
  * Description: Settings and Admin Interface
  *
  * @package Schedulely
@@ -34,6 +34,7 @@ class Schedulely_Settings
         add_action('admin_notices', [$this, 'show_welcome_notice']);
         add_action('wp_ajax_schedulely_dismiss_notice', [$this, 'ajax_dismiss_notice']);
         add_action('wp_ajax_schedulely_toggle_auto_schedule', [$this, 'ajax_toggle_auto_schedule']);
+        add_action('wp_ajax_schedulely_reveal_ai_api_key', [$this, 'ajax_reveal_ai_api_key']);
     }
 
     /**
@@ -132,14 +133,19 @@ class Schedulely_Settings
         );
 
         // Localize script
+        $stored_ai = get_option('schedulely_ai_api_key', '');
+        $has_stored_ai_key = is_string($stored_ai) && '' !== trim($stored_ai);
+
         wp_localize_script('schedulely-admin', 'schedulely_admin', [
             'nonce' => wp_create_nonce('schedulely_admin'),
             'ajaxurl' => admin_url('admin-ajax.php'),
             'scheduled_posts_url' => admin_url('edit.php?post_status=future'),
+            'hasStoredAiKey' => $has_stored_ai_key,
             'strings' => [
                 'confirm_schedule' => __('Schedule available posts now?', 'schedulely'),
                 'scheduling' => __('Scheduling...', 'schedulely'),
                 'schedule_now' => __('Schedule Now', 'schedulely'),
+                'reveal_ai_key_fail' => __('Could not load the stored API key.', 'schedulely'),
             ]
         ]);
     }
@@ -260,13 +266,12 @@ class Schedulely_Settings
      */
     public function sanitize_ai_base_url($value)
     {
-        $default = 'https://api.deepseek.com/v1';
         if (!is_string($value) || '' === trim($value)) {
-            return $default;
+            return '';
         }
         $url = esc_url_raw(trim($value));
         if ('' === $url || 0 !== strpos($url, 'https://')) {
-            return $default;
+            return '';
         }
 
         return untrailingslashit($url);
@@ -281,7 +286,7 @@ class Schedulely_Settings
     public function sanitize_ai_model($value)
     {
         if (!is_string($value) || '' === trim($value)) {
-            return 'deepseek-v4-flash';
+            return '';
         }
 
         return sanitize_text_field(substr(trim($value), 0, 120));
@@ -433,6 +438,8 @@ class Schedulely_Settings
         }
 
         $stats = $this->get_statistics();
+        $stored_ai_key_raw = get_option('schedulely_ai_api_key', '');
+        $stored_ai_key_len = (is_string($stored_ai_key_raw) && '' !== trim($stored_ai_key_raw)) ? strlen($stored_ai_key_raw) : 0;
 
         ?>
                 <div class="wrap">
@@ -629,22 +636,7 @@ class Schedulely_Settings
                                         <div class="form-group" style="margin-top: 10px; padding: 16px; border: 1px solid #c3c4c7; border-radius: 4px; background: #fcfcfc;">
                                             <label class="form-label"><?php _e('AI series spacing (optional)', 'schedulely'); ?></label>
                                             <p class="description" style="margin-top: 0;">
-                                                <?php
-                                                echo wp_kses(
-                                                    sprintf(
-                                                        /* translators: %s: URL to DeepSeek API guide */
-                                                        __('Uses an OpenAI-compatible Chat Completions API. Defaults target <a href="%s" target="_blank" rel="noopener noreferrer">DeepSeek</a> (e.g. deepseek-v4-flash). The model only reorders post IDs from titles; Schedulely still assigns dates, times, quotas, and intervals.', 'schedulely'),
-                                                        esc_url('https://apidog.com/blog/how-to-use-deepseek-v4-api/')
-                                                    ),
-                                                    [
-                                                        'a' => [
-                                                            'href' => true,
-                                                            'target' => true,
-                                                            'rel' => true,
-                                                        ],
-                                                    ]
-                                                );
-                                                ?>
+                                                <?php _e('Uses an OpenAI-compatible Chat Completions API over HTTPS. The model only reorders post IDs using each post title; Schedulely still assigns dates, times, quotas, and intervals. Leave API URL and model empty to use the plugin’s built-in defaults (overridable in code via filters).', 'schedulely'); ?>
                                             </p>
                                             <label style="display: block; margin-bottom: 12px;">
                                                 <input type="checkbox" name="schedulely_ai_order_enabled" id="schedulely_ai_order_enabled"
@@ -655,19 +647,34 @@ class Schedulely_Settings
                                                 <div style="flex: 1; min-width: 260px;">
                                                     <label class="form-label" style="font-size: 12px;" for="schedulely_ai_base_url"><?php _e('API base URL', 'schedulely'); ?></label>
                                                     <input type="url" name="schedulely_ai_base_url" id="schedulely_ai_base_url" class="regular-text" style="width: 100%;"
-                                                           value="<?php echo esc_attr(get_option('schedulely_ai_base_url', 'https://api.deepseek.com/v1')); ?>"
-                                                           placeholder="https://api.deepseek.com/v1" autocomplete="off">
+                                                           value="<?php echo esc_attr(get_option('schedulely_ai_base_url', '')); ?>"
+                                                           placeholder="https://api.example.com/v1" autocomplete="off">
                                                 </div>
                                                 <div style="flex: 1; min-width: 220px;">
                                                     <label class="form-label" style="font-size: 12px;" for="schedulely_ai_model"><?php _e('Model', 'schedulely'); ?></label>
                                                     <input type="text" name="schedulely_ai_model" id="schedulely_ai_model" class="regular-text" style="width: 100%;"
-                                                           value="<?php echo esc_attr(get_option('schedulely_ai_model', 'deepseek-v4-flash')); ?>"
-                                                           placeholder="deepseek-v4-flash" autocomplete="off">
+                                                           value="<?php echo esc_attr(get_option('schedulely_ai_model', '')); ?>"
+                                                           placeholder="<?php esc_attr_e('provider-model-id', 'schedulely'); ?>" autocomplete="off">
                                                 </div>
                                             </div>
                                             <div style="margin-bottom: 10px;">
                                                 <label class="form-label" style="font-size: 12px;" for="schedulely_ai_api_key"><?php _e('API key', 'schedulely'); ?></label>
-                                                <input type="password" name="schedulely_ai_api_key" id="schedulely_ai_api_key" class="regular-text" style="width: 100%; max-width: 480px;" value="" autocomplete="new-password" placeholder="<?php esc_attr_e('Leave blank to keep the current key', 'schedulely'); ?>">
+                                                <?php if ($stored_ai_key_len > 0) : ?>
+                                                    <p class="description" id="schedulely-ai-key-status" style="margin-bottom: 8px;">
+                                                        <?php
+                                                        printf(
+                                                            /* translators: %d: character count of stored API key */
+                                                            esc_html__('A key is saved on this site (%d characters). Use the button below to view it.', 'schedulely'),
+                                                            (int) $stored_ai_key_len
+                                                        );
+                                                        ?>
+                                                    </p>
+                                                    <p style="margin-bottom: 8px;">
+                                                        <button type="button" class="button button-secondary" id="schedulely-reveal-ai-key"><?php esc_html_e('Show full key', 'schedulely'); ?></button>
+                                                    </p>
+                                                    <input type="text" readonly id="schedulely_ai_api_key_display" class="regular-text" style="width: 100%; max-width: 480px; display: none;" value="" autocomplete="off">
+                                                <?php endif; ?>
+                                                <input type="password" name="schedulely_ai_api_key" id="schedulely_ai_api_key" class="regular-text" style="width: 100%; max-width: 480px;" value="" autocomplete="new-password" placeholder="<?php esc_attr_e('Enter a new key, or leave blank to keep the current key', 'schedulely'); ?>">
                                             </div>
                                             <label style="display: block;">
                                                 <input type="checkbox" name="schedulely_ai_clear_api_key" id="schedulely_ai_clear_api_key" value="1">
@@ -1016,6 +1023,27 @@ class Schedulely_Settings
                 ? __('Auto-schedule enabled. Posts will be scheduled automatically twice daily.', 'schedulely')
                 : __('Auto-schedule disabled. Use "Run Schedule Now" to schedule posts manually.', 'schedulely'),
             'enabled' => $enabled
+        ]);
+    }
+
+    /**
+     * AJAX: return stored AI API key to administrators (Tools page only uses this).
+     */
+    public function ajax_reveal_ai_api_key()
+    {
+        check_ajax_referer('schedulely_admin', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => __('Insufficient permissions', 'schedulely')]);
+        }
+
+        $key = apply_filters('schedulely_ai_api_key', get_option('schedulely_ai_api_key', ''));
+        if (!is_string($key) || '' === trim($key)) {
+            wp_send_json_error(['message' => __('No API key is stored.', 'schedulely')]);
+        }
+
+        wp_send_json_success([
+            'key' => $key,
         ]);
     }
 

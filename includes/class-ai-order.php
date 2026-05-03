@@ -4,7 +4,7 @@
  * Author: Krafty Sprouts Media, LLC
  * Created: 04/05/2026
  * Last Modified: 05/05/2026
- * Description: OpenAI-compatible chat API client to reorder post IDs for series spacing (DeepSeek default).
+ * Description: OpenAI-compatible chat API client to reorder post IDs for series spacing.
  *
  * @package Schedulely
  */
@@ -17,11 +17,8 @@ if (!defined('ABSPATH')) {
 /**
  * Class Schedulely_AI_Order
  *
- * Calls an OpenAI-compatible Chat Completions endpoint (e.g. DeepSeek V4) to return a
- * permutation of post IDs that spaces similar titles when possible. Publish times
- * are still assigned by Schedulely_Scheduler.
- *
- * @see https://apidog.com/blog/how-to-use-deepseek-v4-api/
+ * Calls an OpenAI-compatible Chat Completions endpoint to return a permutation of post IDs
+ * that spaces similar titles when possible. Publish times are still assigned by Schedulely_Scheduler.
  */
 class Schedulely_AI_Order
 {
@@ -257,14 +254,15 @@ class Schedulely_AI_Order
      */
     private function get_api_base_url()
     {
-        $default = 'https://api.deepseek.com/v1';
-        $url = get_option('schedulely_ai_base_url', $default);
-        if (!is_string($url) || '' === trim($url)) {
-            $url = $default;
+        $fallback = (string) apply_filters('schedulely_ai_default_base_url', 'https://api.deepseek.com/v1');
+        $stored = get_option('schedulely_ai_base_url', '');
+        $url = is_string($stored) ? trim($stored) : '';
+        if ('' === $url) {
+            return untrailingslashit($fallback);
         }
         $url = esc_url_raw($url);
         if ('' === $url || 0 !== strpos($url, 'https://')) {
-            $url = $default;
+            return untrailingslashit($fallback);
         }
 
         return untrailingslashit($url);
@@ -277,9 +275,10 @@ class Schedulely_AI_Order
      */
     private function get_model()
     {
-        $model = get_option('schedulely_ai_model', 'deepseek-v4-flash');
+        $fallback = (string) apply_filters('schedulely_ai_default_model', 'deepseek-v4-flash');
+        $model = get_option('schedulely_ai_model', '');
         if (!is_string($model) || '' === trim($model)) {
-            return 'deepseek-v4-flash';
+            return $fallback;
         }
 
         return sanitize_text_field(substr(trim($model), 0, 120));

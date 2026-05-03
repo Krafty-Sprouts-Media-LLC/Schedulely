@@ -17,6 +17,7 @@
         initTimePickers();
         initCapacityChecker();
         initAutoScheduleToggle();
+        initAiApiKeyReveal();
 
         // Insight Panel Toggle
         $('.close-insight').on('click', function (e) {
@@ -678,5 +679,52 @@
 
         return true;
     });
+
+    /**
+     * Load full stored AI API key into read-only field (admin-only AJAX).
+     */
+    function initAiApiKeyReveal() {
+        const $btn = $('#schedulely-reveal-ai-key');
+        if (!$btn.length) {
+            return;
+        }
+        $btn.on('click', function (e) {
+            e.preventDefault();
+            if (typeof schedulely_admin === 'undefined' || !schedulely_admin.ajaxurl || !schedulely_admin.nonce) {
+                return;
+            }
+            const params = new URLSearchParams({
+                action: 'schedulely_reveal_ai_api_key',
+                nonce: schedulely_admin.nonce
+            });
+            fetch(schedulely_admin.ajaxurl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: params
+            })
+                .then((r) => r.json())
+                .then((json) => {
+                    if (json.success && json.data && json.data.key) {
+                        const $disp = $('#schedulely_ai_api_key_display');
+                        $disp.val(json.data.key).show();
+                    } else {
+                        const msg = (json.data && json.data.message)
+                            ? json.data.message
+                            : (schedulely_admin.strings && schedulely_admin.strings.reveal_ai_key_fail
+                                ? schedulely_admin.strings.reveal_ai_key_fail
+                                : 'Error');
+                        window.alert(msg);
+                    }
+                })
+                .catch(() => {
+                    const msg = (schedulely_admin.strings && schedulely_admin.strings.reveal_ai_key_fail)
+                        ? schedulely_admin.strings.reveal_ai_key_fail
+                        : 'Error';
+                    window.alert(msg);
+                });
+        });
+    }
 
 })(jQuery);
