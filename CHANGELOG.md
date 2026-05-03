@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.4.3] - 05/05/2026
+
+### Added
+- **Test connection** - Tools → Schedulely includes a **Test connection** button that runs a tiny Chat Completions request against the **saved** base URL, model, and API key (save after editing, then test). AJAX action `schedulely_test_ai_connection`; logic in `Schedulely_AI_Order::test_api_connection()`. Optional filters: `schedulely_ai_test_connection_body`, `schedulely_ai_test_request_timeout`.
+
+### Changed
+- **DeepSeek defaults and UI restored** - Explicit default base URL and model again in settings, activation, and sanitizers when fields are cleared. Admin description again names **DeepSeek** and links to the [API overview](https://apidog.com/blog/how-to-use-deepseek-v4-api/). Upgrade repopulates empty URL/model options left from 1.4.2 installs. **Show full key** behavior from 1.4.2 is unchanged.
+
+---
+
 ## [1.4.2] - 05/05/2026
 
 ### Added

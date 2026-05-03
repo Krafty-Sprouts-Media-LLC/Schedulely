@@ -18,6 +18,7 @@
         initCapacityChecker();
         initAutoScheduleToggle();
         initAiApiKeyReveal();
+        initAiTestConnection();
 
         // Insight Panel Toggle
         $('.close-insight').on('click', function (e) {
@@ -683,6 +684,68 @@
     /**
      * Load full stored AI API key into read-only field (admin-only AJAX).
      */
+    function initAiTestConnection() {
+        const $btn = $('#schedulely-test-ai-connection');
+        if (!$btn.length) {
+            return;
+        }
+        $btn.on('click', function (e) {
+            e.preventDefault();
+            const $out = $('#schedulely-ai-test-result');
+            if (typeof schedulely_admin === 'undefined' || !schedulely_admin.ajaxurl || !schedulely_admin.nonce) {
+                return;
+            }
+            if ($out.length) {
+                $out
+                    .removeClass('schedulely-test-error schedulely-test-ok')
+                    .css({ color: '#646970' })
+                    .text(schedulely_admin.strings.test_ai_running || '…')
+                    .show();
+            }
+            const params = new URLSearchParams({
+                action: 'schedulely_test_ai_connection',
+                nonce: schedulely_admin.nonce
+            });
+            fetch(schedulely_admin.ajaxurl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: params
+            })
+                .then((r) => r.json())
+                .then((json) => {
+                    if (!$out.length) {
+                        return;
+                    }
+                    if (json.success && json.data && json.data.message) {
+                        $out
+                            .addClass('schedulely-test-ok')
+                            .css({ color: '#00a32a' })
+                            .text(json.data.message);
+                    } else {
+                        const msg = (json.data && json.data.message)
+                            ? json.data.message
+                            : (schedulely_admin.strings.test_ai_fail || 'Error');
+                        $out
+                            .addClass('schedulely-test-error')
+                            .css({ color: '#d63638' })
+                            .text(msg);
+                    }
+                    $out.show();
+                })
+                .catch(() => {
+                    if ($out.length) {
+                        $out
+                            .addClass('schedulely-test-error')
+                            .css({ color: '#d63638' })
+                            .text(schedulely_admin.strings.test_ai_fail || 'Error')
+                            .show();
+                    }
+                });
+        });
+    }
+
     function initAiApiKeyReveal() {
         const $btn = $('#schedulely-reveal-ai-key');
         if (!$btn.length) {

@@ -35,6 +35,7 @@ class Schedulely_Settings
         add_action('wp_ajax_schedulely_dismiss_notice', [$this, 'ajax_dismiss_notice']);
         add_action('wp_ajax_schedulely_toggle_auto_schedule', [$this, 'ajax_toggle_auto_schedule']);
         add_action('wp_ajax_schedulely_reveal_ai_api_key', [$this, 'ajax_reveal_ai_api_key']);
+        add_action('wp_ajax_schedulely_test_ai_connection', [$this, 'ajax_test_ai_connection']);
     }
 
     /**
@@ -146,6 +147,9 @@ class Schedulely_Settings
                 'scheduling' => __('Scheduling...', 'schedulely'),
                 'schedule_now' => __('Schedule Now', 'schedulely'),
                 'reveal_ai_key_fail' => __('Could not load the stored API key.', 'schedulely'),
+                'test_ai_ok' => __('Connection OK — the API accepted your key and returned a reply.', 'schedulely'),
+                'test_ai_fail' => __('Connection test failed.', 'schedulely'),
+                'test_ai_running' => __('Testing connection…', 'schedulely'),
             ]
         ]);
     }
@@ -266,12 +270,13 @@ class Schedulely_Settings
      */
     public function sanitize_ai_base_url($value)
     {
+        $default = 'https://api.deepseek.com/v1';
         if (!is_string($value) || '' === trim($value)) {
-            return '';
+            return $default;
         }
         $url = esc_url_raw(trim($value));
         if ('' === $url || 0 !== strpos($url, 'https://')) {
-            return '';
+            return $default;
         }
 
         return untrailingslashit($url);
@@ -285,8 +290,9 @@ class Schedulely_Settings
      */
     public function sanitize_ai_model($value)
     {
+        $default = 'deepseek-v4-flash';
         if (!is_string($value) || '' === trim($value)) {
-            return '';
+            return $default;
         }
 
         return sanitize_text_field(substr(trim($value), 0, 120));
@@ -636,7 +642,22 @@ class Schedulely_Settings
                                         <div class="form-group" style="margin-top: 10px; padding: 16px; border: 1px solid #c3c4c7; border-radius: 4px; background: #fcfcfc;">
                                             <label class="form-label"><?php _e('AI series spacing (optional)', 'schedulely'); ?></label>
                                             <p class="description" style="margin-top: 0;">
-                                                <?php _e('Uses an OpenAI-compatible Chat Completions API over HTTPS. The model only reorders post IDs using each post title; Schedulely still assigns dates, times, quotas, and intervals. Leave API URL and model empty to use the plugin’s built-in defaults (overridable in code via filters).', 'schedulely'); ?>
+                                                <?php
+                                                echo wp_kses(
+                                                    sprintf(
+                                                        /* translators: %s: URL to DeepSeek API documentation */
+                                                        __('Defaults target the DeepSeek OpenAI-compatible API (<a href="%s" target="_blank" rel="noopener noreferrer">API overview</a>). The model only reorders post IDs from titles; Schedulely still assigns dates, times, quotas, and intervals. You can change base URL and model for any compatible provider.', 'schedulely'),
+                                                        esc_url('https://apidog.com/blog/how-to-use-deepseek-v4-api/')
+                                                    ),
+                                                    [
+                                                        'a' => [
+                                                            'href' => true,
+                                                            'target' => true,
+                                                            'rel' => true,
+                                                        ],
+                                                    ]
+                                                );
+                                                ?>
                                             </p>
                                             <label style="display: block; margin-bottom: 12px;">
                                                 <input type="checkbox" name="schedulely_ai_order_enabled" id="schedulely_ai_order_enabled"
@@ -647,14 +668,14 @@ class Schedulely_Settings
                                                 <div style="flex: 1; min-width: 260px;">
                                                     <label class="form-label" style="font-size: 12px;" for="schedulely_ai_base_url"><?php _e('API base URL', 'schedulely'); ?></label>
                                                     <input type="url" name="schedulely_ai_base_url" id="schedulely_ai_base_url" class="regular-text" style="width: 100%;"
-                                                           value="<?php echo esc_attr(get_option('schedulely_ai_base_url', '')); ?>"
-                                                           placeholder="https://api.example.com/v1" autocomplete="off">
+                                                           value="<?php echo esc_attr(get_option('schedulely_ai_base_url', 'https://api.deepseek.com/v1')); ?>"
+                                                           placeholder="https://api.deepseek.com/v1" autocomplete="off">
                                                 </div>
                                                 <div style="flex: 1; min-width: 220px;">
                                                     <label class="form-label" style="font-size: 12px;" for="schedulely_ai_model"><?php _e('Model', 'schedulely'); ?></label>
                                                     <input type="text" name="schedulely_ai_model" id="schedulely_ai_model" class="regular-text" style="width: 100%;"
-                                                           value="<?php echo esc_attr(get_option('schedulely_ai_model', '')); ?>"
-                                                           placeholder="<?php esc_attr_e('provider-model-id', 'schedulely'); ?>" autocomplete="off">
+                                                           value="<?php echo esc_attr(get_option('schedulely_ai_model', 'deepseek-v4-flash')); ?>"
+                                                           placeholder="deepseek-v4-flash" autocomplete="off">
                                                 </div>
                                             </div>
                                             <div style="margin-bottom: 10px;">
@@ -669,11 +690,18 @@ class Schedulely_Settings
                                                         );
                                                         ?>
                                                     </p>
-                                                    <p style="margin-bottom: 8px;">
+                                                <?php endif; ?>
+                                                <p style="margin-bottom: 8px;">
+                                                    <?php if ($stored_ai_key_len > 0) : ?>
                                                         <button type="button" class="button button-secondary" id="schedulely-reveal-ai-key"><?php esc_html_e('Show full key', 'schedulely'); ?></button>
-                                                    </p>
+                                                    <?php endif; ?>
+                                                    <button type="button" class="button button-secondary" id="schedulely-test-ai-connection" <?php echo $stored_ai_key_len > 0 ? ' style="margin-left: 8px;"' : ''; ?>><?php esc_html_e('Test connection', 'schedulely'); ?></button>
+                                                </p>
+                                                <?php if ($stored_ai_key_len > 0) : ?>
                                                     <input type="text" readonly id="schedulely_ai_api_key_display" class="regular-text" style="width: 100%; max-width: 480px; display: none;" value="" autocomplete="off">
                                                 <?php endif; ?>
+                                                <p class="description" id="schedulely-ai-test-result" style="display: none; margin-top: 8px;" aria-live="polite"></p>
+                                                <p class="description" style="font-size: 12px; margin-top: 4px;"><?php esc_html_e('Test connection uses the saved base URL, model, and API key. Save settings after changing the key, then test.', 'schedulely'); ?></p>
                                                 <input type="password" name="schedulely_ai_api_key" id="schedulely_ai_api_key" class="regular-text" style="width: 100%; max-width: 480px;" value="" autocomplete="new-password" placeholder="<?php esc_attr_e('Enter a new key, or leave blank to keep the current key', 'schedulely'); ?>">
                                             </div>
                                             <label style="display: block;">
@@ -1044,6 +1072,29 @@ class Schedulely_Settings
 
         wp_send_json_success([
             'key' => $key,
+        ]);
+    }
+
+    /**
+     * AJAX: minimal Chat Completions call to verify API settings (DeepSeek-compatible).
+     */
+    public function ajax_test_ai_connection()
+    {
+        check_ajax_referer('schedulely_admin', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => __('Insufficient permissions', 'schedulely')]);
+        }
+
+        $ai = new Schedulely_AI_Order();
+        $result = $ai->test_api_connection();
+
+        if (is_wp_error($result)) {
+            wp_send_json_error(['message' => $result->get_error_message()]);
+        }
+
+        wp_send_json_success([
+            'message' => __('Connection OK — the API accepted your key and returned a reply.', 'schedulely'),
         ]);
     }
 

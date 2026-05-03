@@ -133,6 +133,88 @@ class Schedulely_AI_Order
     }
 
     /**
+     * Send a minimal Chat Completions request to verify URL, model, and API key.
+     *
+     * @return true|WP_Error
+     */
+    public function test_api_connection()
+    {
+        $api_key = apply_filters('schedulely_ai_api_key', get_option('schedulely_ai_api_key', ''));
+        if ('' === trim((string) $api_key)) {
+            return new WP_Error(
+                'schedulely_ai_no_key',
+                __('No API key is configured.', 'schedulely')
+            );
+        }
+
+        $base = $this->get_api_base_url();
+        $model = $this->get_model();
+        $url = rtrim($base, '/') . '/chat/completions';
+
+        $body = [
+            'model' => $model,
+            'messages' => [
+                [
+                    'role' => 'user',
+                    'content' => 'Reply with the single word: ok',
+                ],
+            ],
+            'max_tokens' => 8,
+            'temperature' => 0.2,
+        ];
+        $body = apply_filters('schedulely_ai_test_connection_body', $body);
+
+        $timeout = (int) apply_filters('schedulely_ai_test_request_timeout', 45);
+        if ($timeout < 15) {
+            $timeout = 15;
+        }
+        if ($timeout > 120) {
+            $timeout = 120;
+        }
+
+        $response = wp_remote_post(
+            $url,
+            [
+                'timeout' => $timeout,
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $api_key,
+                    'Content-Type' => 'application/json',
+                ],
+                'body' => wp_json_encode($body),
+            ]
+        );
+
+        if (is_wp_error($response)) {
+            return $response;
+        }
+
+        $code = wp_remote_retrieve_response_code($response);
+        $raw = wp_remote_retrieve_body($response);
+
+        if (200 !== (int) $code) {
+            return new WP_Error(
+                'schedulely_ai_http',
+                sprintf(
+                    /* translators: 1: HTTP status code, 2: response body excerpt */
+                    __('Connection test failed (HTTP %1$s): %2$s', 'schedulely'),
+                    (string) $code,
+                    $this->excerpt_error_body($raw)
+                )
+            );
+        }
+
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded) || empty($decoded['choices'][0]['message']['content'])) {
+            return new WP_Error(
+                'schedulely_ai_test_shape',
+                __('Connection test succeeded with HTTP 200 but the response had no assistant message.', 'schedulely')
+            );
+        }
+
+        return true;
+    }
+
+    /**
      * Build Chat Completions JSON body (OpenAI-compatible).
      *
      * @param string   $model  Model id.
@@ -254,8 +336,9 @@ class Schedulely_AI_Order
      */
     private function get_api_base_url()
     {
-        $fallback = (string) apply_filters('schedulely_ai_default_base_url', 'https://api.deepseek.com/v1');
-        $stored = get_option('schedulely_ai_base_url', '');
+        $builtin = 'https://api.deepseek.com/v1';
+        $fallback = (string) apply_filters('schedulely_ai_default_base_url', $builtin);
+        $stored = get_option('schedulely_ai_base_url', $fallback);
         $url = is_string($stored) ? trim($stored) : '';
         if ('' === $url) {
             return untrailingslashit($fallback);
@@ -275,8 +358,9 @@ class Schedulely_AI_Order
      */
     private function get_model()
     {
-        $fallback = (string) apply_filters('schedulely_ai_default_model', 'deepseek-v4-flash');
-        $model = get_option('schedulely_ai_model', '');
+        $builtin = 'deepseek-v4-flash';
+        $fallback = (string) apply_filters('schedulely_ai_default_model', $builtin);
+        $model = get_option('schedulely_ai_model', $fallback);
         if (!is_string($model) || '' === trim($model)) {
             return $fallback;
         }
