@@ -4,7 +4,7 @@ Tags: schedule, posts, automation, publishing, cron
 Requires at least: 6.8
 Tested up to: 6.8
 Requires PHP: 8.2
-Stable tag: 1.4.0
+Stable tag: 1.4.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -134,6 +134,9 @@ Note: Current version uses natural random scheduling (70% efficiency) for organi
 5. Deficit status tracking
 
 == Changelog ==
+
+= 1.4.1 - 05/05/2026 =
+* Improved: Stronger AI system prompt for series spacing (variety, minimum gaps when possible, even spread when not)
 
 = 1.4.0 - 04/05/2026 =
 * Added: Optional AI queue ordering via OpenAI-compatible Chat Completions (DeepSeek defaults) using post titles; plugin still assigns all publish times and rules

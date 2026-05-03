@@ -3,7 +3,7 @@
  * Filename: class-ai-order.php
  * Author: Krafty Sprouts Media, LLC
  * Created: 04/05/2026
- * Last Modified: 04/05/2026
+ * Last Modified: 05/05/2026
  * Description: OpenAI-compatible chat API client to reorder post IDs for series spacing (DeepSeek default).
  *
  * @package Schedulely
@@ -147,9 +147,12 @@ class Schedulely_AI_Order
     {
         // English-only instructions for model reliability (not passed through gettext).
         $system = 'You reorder WordPress posts for publication. Each line is: numeric_post_id TAB title. '
-            . 'Identify posts that clearly belong to the same article series or template (e.g. same topic with different states or locations). '
-            . 'Return a JSON object with a single key "ordered_ids" whose value is an array of integers: '
-            . 'every input post ID exactly once, in an order that avoids placing obvious same-series titles next to each other when the mix allows. '
+            . 'Detect posts that belong to the same series or template (for example: same topic with different states, locations, or repeated phrasing). '
+            . 'Your goal is to maximize variety in the sequence. '
+            . 'Do not place similar or same-series posts close together. Maintain a minimum spacing of at least 3 to 5 other posts between similar titles whenever the mix allows. '
+            . 'If perfect spacing is not possible, distribute similar posts as evenly as you can across the entire list. '
+            . 'Prioritize diversity of topics over original order. '
+            . 'Return a JSON object with a single key "ordered_ids" whose value is an array of integers: every input post ID exactly once. '
             . 'Output only valid JSON, no markdown fences, no commentary.';
 
         $user = sprintf(

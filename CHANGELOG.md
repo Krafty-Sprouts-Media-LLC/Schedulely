@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.4.1] - 05/05/2026
+
+### Changed
+- **Stronger AI queue system prompt** - Instructions now ask for maximum variety, minimum spacing of several unrelated posts between same-series titles when possible, and even distribution across the full list when perfect spacing is impossible (instead of only “avoid adjacent”).
+
+### Technical Details
+- Updated `build_request_body()` system message in `includes/class-ai-order.php`.
+
+---
+
 ## [1.4.0] - 04/05/2026
 
 ### Added
