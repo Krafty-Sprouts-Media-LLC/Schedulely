@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.5.10] - 03/05/2026
+
+### Added
+- **Settings: WP-Cron hint** — Under Quick Toggles, shows the real event hook **`schedulely_auto_schedule`**, how to find it in cron plugins, recurrence (`twicedaily`), and **next run** in site time when scheduled.
+
+---
+
 ## [1.5.9] - 03/05/2026
 
 ### Fixed

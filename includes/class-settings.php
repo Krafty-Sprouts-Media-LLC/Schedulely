@@ -986,6 +986,25 @@ class Schedulely_Settings
                                             <span class="toggle-slider"></span>
                                         </label>
                                     </div>
+                                    <?php
+                                    $cron_hook = 'schedulely_auto_schedule';
+                                    $cron_next = wp_next_scheduled($cron_hook);
+                                    ?>
+                                    <p class="description" style="font-size: 11px; margin-top: 12px; margin-bottom: 0; color: #646970; line-height: 1.5;">
+                                        <strong><?php esc_html_e('WP-Cron', 'schedulely'); ?></strong>
+                                        <?php esc_html_e('— Event hook:', 'schedulely'); ?>
+                                        <code style="font-size: 11px;"><?php echo esc_html($cron_hook); ?></code>.
+                                        <?php esc_html_e('Cron manager plugins list hooks, not the plugin title—search for that slug (lowercase). Recurrence: twicedaily (~every 12 hours), triggered when the site is visited or your host runs wp-cron.php.', 'schedulely'); ?>
+                                        <?php if (false !== $cron_next) : ?>
+                                            <?php echo ' '; ?>
+                                            <strong><?php esc_html_e('Next run (site time):', 'schedulely'); ?></strong>
+                                            <?php echo esc_html(wp_date('Y-m-d H:i', (int) $cron_next)); ?>
+                                        <?php else : ?>
+                                            <?php echo ' '; ?>
+                                            <strong><?php esc_html_e('No event scheduled right now.', 'schedulely'); ?></strong>
+                                            <?php esc_html_e('Turn Auto-Schedule on and save, or reactivate the plugin.', 'schedulely'); ?>
+                                        <?php endif; ?>
+                                    </p>
                                 </div>
                             </div>
 
