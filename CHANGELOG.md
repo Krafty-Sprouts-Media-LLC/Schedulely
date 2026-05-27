@@ -7,7 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
-## [Unreleased]
+## [1.6.2] - 27/05/2026
+
+### Added
+- **UI redesign:** Full admin page overhaul — dark gradient header band, status bar with Auto-Schedule and Email Alerts toggles prominently placed, 3-stat card row (merged redundant duplicate cards), tabbed configuration card (Schedule / Queue / Authors / AI & Notifications).
+- **No-layout-shift capacity indicator:** Replaced the injected alert box (which caused page jumps and flickering on load) with a fixed-height pill in the tab bar. The pill updates text and colour in-place; suggestions are hidden in a collapsed accordion the user opens intentionally.
+
+### Known Issues
+- **Notice renders inside header band on save:** After clicking Save Changes, the "Settings saved successfully!" notice briefly appears overlaid inside the header band before the page finishes loading. Root cause: WordPress outputs `settings_errors()` before our template renders and the header's bleed margin visually overlaps the notice area during paint. Tracked for fix in 1.6.3.
 
 ---
 

@@ -148,6 +148,12 @@ class Schedulely_Admin_Assets {
 					'apply_fix'              => __( 'Apply Fix', 'schedulely' ),
 					'applied'                => __( 'Applied!', 'schedulely' ),
 					'recommended_fixes'      => __( 'Recommended Fixes', 'schedulely' ),
+					'capacity_checking'      => __( 'Recalculating…', 'schedulely' ),
+					'capacity_ok'            => __( 'Fits quota', 'schedulely' ),
+					'capacity_warn'          => __( 'Below quota', 'schedulely' ),
+					'capacity_error'         => __( 'Settings error', 'schedulely' ),
+					'capacity_show_suggestions' => __( 'Show suggestions', 'schedulely' ),
+					'capacity_hide_suggestions' => __( 'Hide suggestions', 'schedulely' ),
 				],
 			]
 		);

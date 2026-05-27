@@ -11,6 +11,7 @@
      * Initialize on DOM ready
      */
     $(document).ready(function () {
+        initTabs();
         initScheduleButton();
         initTimeValidation();
         initAuthorSelect();
@@ -18,13 +19,54 @@
         initCapacityChecker();
         initAutoScheduleToggle();
         initAiTestConnection();
-
-        // Insight Panel Toggle
-        $('.close-insight').on('click', function (e) {
-            e.preventDefault();
-            $(this).closest('.insight-panel').slideUp();
-        });
+        initModeCards();
+        initViewPostsDropdown();
+        initAuthorExclusionToggle();
     });
+
+    /**
+     * Tab switching for the config card.
+     * Reads data-tab on each button, shows/hides matching panels.
+     */
+    function initTabs() {
+        const $btns = $('.schedulely-tab-btn');
+        if ( ! $btns.length ) return;
+
+        $btns.on('click', function () {
+            const tab = $(this).data('tab');
+
+            // Update buttons
+            $btns.removeClass('active').attr('aria-selected', 'false');
+            $(this).addClass('active').attr('aria-selected', 'true');
+
+            // Update panels — use prop('hidden') to match the HTML hidden attribute
+            $('.schedulely-tab-panel').each(function () {
+                $(this).prop('hidden', $(this).attr('id') !== 'sly-tab-' + tab);
+            });
+        });
+    }
+
+    /**
+     * Mode card visual selection — keeps border/background in sync
+     * when a radio inside a .schedulely-mode-card is changed.
+     * (CSS :has() handles modern browsers; this covers older ones.)
+     */
+    function initModeCards() {
+        $('.schedulely-mode-card input[type=radio]').on('change', function () {
+            $('.schedulely-mode-card').removeClass('is-selected');
+            $(this).closest('.schedulely-mode-card').addClass('is-selected');
+        });
+    }
+
+    /**
+     * Sidebar "View posts" dropdown — navigate on select change.
+     */
+    function initViewPostsDropdown() {
+        $('#schedulely-view-posts-type').on('change', function () {
+            const url = $(this).val();
+            if ( url ) window.location.href = url;
+        });
+    }
 
     /**
      * Handle manual schedule button with SweetAlert2
@@ -346,26 +388,17 @@
     }
 
     /**
-     * Toggle author exclusion visibility based on randomize checkbox
-     */
-    $('#schedulely_randomize_authors').on('change', function () {
-        const $authorRow = $('#schedulely_excluded_authors').closest('tr');
-
-        if ($(this).is(':checked')) {
-            $authorRow.show();
-        } else {
-            $authorRow.hide();
-        }
-    }).trigger('change');
-
-    /**
-     * Initialize capacity checker
+     * Initialize capacity checker — no layout-shift version.
+     *
+     * The pill element already exists in the DOM at a fixed height.
+     * We only ever swap its text and CSS class; nothing is injected
+     * above or below the form, so the page never jumps.
      */
     function initCapacityChecker() {
-        const $startTime = $('#schedulely_start_time');
-        const $endTime = $('#schedulely_end_time');
-        const $minInterval = $('#schedulely_min_interval');
-        const $postsPerDay = $('#schedulely_posts_per_day');
+        const $startTime  = $('#schedulely_start_time');
+        const $endTime    = $('#schedulely_end_time');
+        const $minInterval  = $('#schedulely_min_interval');
+        const $postsPerDay  = $('#schedulely_posts_per_day');
 
         if (!$startTime.length || !$endTime.length || !$minInterval.length || !$postsPerDay.length) {
             return;
@@ -373,199 +406,175 @@
 
         let capacityCheckTimeout = null;
 
-        // Check capacity on page load
+        // Silent first load — no spinner, just fetch and update the pill.
         checkCapacity();
 
-        // Check capacity when any relevant field changes (with debounce)
+        // On field change: mark pill as "recalculating" (same size), then debounce.
         [$startTime, $endTime, $minInterval, $postsPerDay].forEach(function ($field) {
             $field.on('input change', function () {
                 clearTimeout(capacityCheckTimeout);
-
-                // Show loading state
-                $('#schedulely-capacity-notice').html(
-                    '<div class="schedulely-capacity-loading">' +
-                    '<span class="spinner is-active" style="float: none; margin: 0;"></span> ' +
-                    'Checking capacity...' +
-                    '</div>'
-                );
-
-                capacityCheckTimeout = setTimeout(checkCapacity, 500);
+                setPillState('checking', schedulely_admin.strings.capacity_checking || 'Recalculating…');
+                capacityCheckTimeout = setTimeout(checkCapacity, 600);
             });
+        });
+
+        // Suggestions accordion toggle.
+        $('#schedulely-capacity-details-toggle').on('click', function () {
+            const $details = $('#schedulely-capacity-details');
+            const expanded = $(this).attr('aria-expanded') === 'true';
+            $(this).attr('aria-expanded', String(!expanded));
+            $(this).text(
+                !expanded
+                    ? (schedulely_admin.strings.capacity_hide_suggestions || 'Hide suggestions')
+                    : (schedulely_admin.strings.capacity_show_suggestions || 'Show suggestions')
+            );
+            $details.prop('hidden', expanded);
         });
     }
 
     /**
-     * Check capacity via AJAX
+     * Update the capacity pill state without touching anything else in the DOM.
+     *
+     * @param {string} state  'ok' | 'warn' | 'error' | 'checking'
+     * @param {string} text   Label shown inside the pill.
+     */
+    function setPillState(state, text) {
+        const $pill = $('#schedulely-capacity-pill');
+        $pill
+            .removeClass('is-ok is-warn is-error is-checking')
+            .addClass('is-' + state)
+            .find('.schedulely-capacity-pill-text')
+            .text(text);
+    }
+
+    /**
+     * Fetch capacity data via AJAX.
      */
     function checkCapacity() {
-        const startTime = $('#schedulely_start_time').val() || '5:00 PM';
-        const endTime = $('#schedulely_end_time').val() || '11:00 PM';
-        const minInterval = parseInt($('#schedulely_min_interval').val() || 40, 10);
-        const postsPerDay = parseInt($('#schedulely_posts_per_day').val() || 8, 10);
+        const startTime   = $('#schedulely_start_time').val()  || '5:00 PM';
+        const endTime     = $('#schedulely_end_time').val()    || '11:00 PM';
+        const minInterval = parseInt($('#schedulely_min_interval').val()  || 40, 10);
+        const postsPerDay = parseInt($('#schedulely_posts_per_day').val() || 8,  10);
 
         fetch(schedulely_admin.ajaxurl, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams({
-                action: 'schedulely_check_capacity',
-                nonce: schedulely_admin.nonce,
-                start_time: startTime,
-                end_time: endTime,
+                action:       'schedulely_check_capacity',
+                nonce:        schedulely_admin.nonce,
+                start_time:   startTime,
+                end_time:     endTime,
                 min_interval: minInterval,
                 posts_per_day: postsPerDay
             })
         })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    displayCapacityResult(data.data);
-                } else {
-                    displayCapacityError(data.data?.message || 'Error checking capacity');
-                }
-            })
-            .catch(error => {
-                console.error('Capacity check error:', error);
-                displayCapacityError('Error checking capacity');
-            });
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                displayCapacityResult(data.data);
+            } else {
+                setPillState('error', schedulely_admin.strings.capacity_error || 'Settings error');
+                hideSuggestions();
+            }
+        })
+        .catch(() => {
+            setPillState('error', schedulely_admin.strings.capacity_error || 'Settings error');
+            hideSuggestions();
+        });
+    }
+
+    /** Hide the suggestions accordion and its toggle button. */
+    function hideSuggestions() {
+        $('#schedulely-capacity-details').prop('hidden', true);
+        $('#schedulely-capacity-details-toggle')
+            .prop('hidden', true)
+            .attr('aria-expanded', 'false')
+            .text(schedulely_admin.strings.capacity_show_suggestions || 'Show suggestions');
     }
 
     /**
-     * Display capacity check result
+     * Update the pill and (optionally) populate the suggestions accordion.
+     * Never injects HTML outside the two dedicated elements.
+     *
+     * @param {Object} capacityData  Response from schedulely_check_capacity.
      */
     function displayCapacityResult(capacityData) {
-        const $notice = $('#schedulely-capacity-notice');
-        const $suggestions = $('#schedulely-capacity-suggestions');
-        const $suggestionsList = $('#schedulely-suggestions-list');
-
         if (!capacityData.valid) {
-            $notice.html(
-                '<div class="alert-box" style="border-left-color: #d63638; background: #fcf0f1;">' +
-                '<div class="alert-icon" style="color: #d63638;"><span class="dashicons dashicons-warning"></span></div>' +
-                '<div style="flex: 1;">' +
-                '<span class="alert-title">Invalid Settings</span>' +
-                '<div class="alert-desc">' + (capacityData.error || 'Your time settings are invalid.') + '</div>' +
-                '</div>' +
-                '</div>'
-            );
-            $suggestions.hide();
+            setPillState('error', capacityData.error || (schedulely_admin.strings.capacity_invalid || 'Invalid settings'));
+            hideSuggestions();
             return;
         }
 
-        // Calculate capacity percentage for the meter
-        const percentage = Math.min(100, Math.round((capacityData.capacity / capacityData.desired_quota) * 100));
+        const capacity   = capacityData.capacity;
+        const quota      = capacityData.desired_quota;
+        const percentage = Math.min(100, Math.round((capacity / quota) * 100));
 
         if (capacityData.meets_quota) {
-            // Success State
-            $notice.html(
-                '<div class="alert-box" style="border-left-color: #00a32a; background: #edfaef;">' +
-                '<div class="alert-icon" style="color: #00a32a;"><span class="dashicons dashicons-yes-alt"></span></div>' +
-                '<div style="flex: 1;">' +
-                '<span class="alert-title" style="color: #00a32a;">Target Met</span>' +
-                '<div class="alert-desc">' +
-                'Your settings can fit approximately <strong>' + capacityData.capacity + ' posts per day</strong>.<br>' +
-                '<span style="font-size:11px; color: #646970;">Estimate accounts for random time placement efficiency (~70%).</span>' +
-                '</div>' +
-                '<div class="capacity-meter" style="background: #ccedd5;"><div class="capacity-fill" style="width: 100%; background: #00a32a;"></div></div>' +
-                '</div>' +
-                '</div>'
+            setPillState('ok',
+                (schedulely_admin.strings.capacity_ok || 'Fits quota') +
+                ' — ~' + capacity + '/' + quota + ' posts/day'
             );
-            $suggestions.hide();
-        } else {
-            // Warning/Error State
-            $notice.html(
-                '<div class="alert-box">' +
-                '<div class="alert-icon">' +
-                '<svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>' +
-                '</div>' +
-                '<div style="flex: 1;">' +
-                '<span class="alert-title">Target Not Met</span>' +
-                '<div class="alert-desc">Your settings can only fit approximately <strong>' + capacityData.capacity + ' posts</strong>, but you want <strong>' + capacityData.desired_quota + ' posts</strong>.</div>' +
-                '<div class="capacity-meter"><div class="capacity-fill" style="width: ' + percentage + '%;"></div></div>' +
-                '<div style="font-size: 11px; color: #d63638; margin-top: 3px;">Current Capacity: ' + percentage + '%</div>' +
-                '</div>' +
-                '</div>'
-            );
-
-            // Display suggestions
-            if (capacityData.suggestions && capacityData.suggestions.length > 0) {
-                let suggestionsHtml = '<h4 style="margin: 0 0 10px 0; font-size: 12px; text-transform: uppercase; color: #646970;">'
-                    + (schedulely_admin.strings.recommended_fixes || 'Recommended Fixes') + '</h4>';
-
-                // AI hint (WP 7.0), shown above the programmatic suggestions.
-                if (capacityData.ai_hint) {
-                    suggestionsHtml += '<p style="font-size:13px; color:#1d2327; background:#f6f7f7; border-left:3px solid #2271b1; padding:8px 12px; margin:0 0 12px 0; border-radius:2px;">'
-                        + '🤖 ' + capacityData.ai_hint
-                        + '</p>';
-                }
-
-                capacityData.suggestions.forEach(function (suggestion, index) {
-                    let actionButton = '';
-
-                    if (suggestion.type === 'reduce_interval') {
-                        actionButton = '<button type="button" class="btn-apply schedulely-apply-suggestion" ' +
-                            'data-type="interval" data-value="' + suggestion.suggested + '">Apply Fix</button>';
-                    } else if (suggestion.type === 'reduce_quota') {
-                        actionButton = '<button type="button" class="btn-apply schedulely-apply-suggestion" ' +
-                            'data-type="quota" data-value="' + suggestion.suggested + '">Apply Fix</button>';
-                    } else if (suggestion.type === 'expand_window') {
-                        actionButton = '<button type="button" class="btn-apply schedulely-apply-suggestion" ' +
-                            'data-type="endtime" data-value="' + suggestion.suggested_end + '">Apply Fix</button>';
-                    }
-
-                    suggestionsHtml +=
-                        '<div class="suggestion-card" style="margin-bottom: 10px;">' +
-                        '<div class="sugg-content">' +
-                        '<div class="sugg-title">' + (index + 1) + '. ' + suggestion.label + '</div>' +
-                        '<div class="sugg-desc">' + suggestion.message + '</div>' +
-                        '</div>' +
-                        '<div class="sugg-action">' +
-                        actionButton +
-                        '</div>' +
-                        '</div>';
-                });
-
-                $suggestionsList.html(suggestionsHtml);
-                $suggestions.show();
-
-                // Attach click handlers to apply buttons
-                $('.schedulely-apply-suggestion').on('click', function () {
-                    const type = $(this).data('type');
-                    const value = $(this).data('value');
-
-                    if (type === 'interval') {
-                        $('#schedulely_min_interval').val(value).trigger('change');
-                    } else if (type === 'quota') {
-                        $('#schedulely_posts_per_day').val(value).trigger('change');
-                    } else if (type === 'endtime') {
-                        $('#schedulely_end_time').val(value).trigger('change');
-                    }
-
-                    // Show feedback
-                    $(this).text('Applied!').prop('disabled', true).css('background', '#e5e5e5').css('color', '#888').css('border-color', '#ccc');
-                    setTimeout(() => {
-                        // We don't really revert 'Applied' state easily because the setting changed, 
-                        // forcing a re-check which will likely remove the suggestion if fixed.
-                    }, 2000);
-                });
-            } else {
-                $suggestions.hide();
-            }
+            hideSuggestions();
+            return;
         }
-    }
 
-    /**
-     * Display capacity check error
-     */
-    function displayCapacityError(message) {
-        $('#schedulely-capacity-notice').html(
-            '<div class="alert-box" style="border-left-color: #d63638; background: #fcf0f1;">' +
-            '<div class="alert-icon"><span class="dashicons dashicons-warning"></span></div>' +
-            '<div style="flex:1;"><span class="alert-title">Error</span><div class="alert-desc">' + message + '</div></div>' +
-            '</div>'
+        // Quota not met — update pill, build suggestions, reveal accordion.
+        setPillState('warn',
+            (schedulely_admin.strings.capacity_warn || 'Below quota') +
+            ' — ' + capacity + '/' + quota + ' posts/day (' + percentage + '%)'
         );
-        $('#schedulely-capacity-suggestions').hide();
+
+        const $list   = $('#schedulely-suggestions-list');
+        const $toggle = $('#schedulely-capacity-details-toggle');
+
+        let html = '<p style="margin:0 0 10px; font-size:12px; font-weight:700; text-transform:uppercase; color:#646970; letter-spacing:.5px;">' +
+            (schedulely_admin.strings.recommended_fixes || 'Recommended Fixes') + '</p>';
+
+        if (capacityData.ai_hint) {
+            html += '<p class="schedulely-capacity-ai-hint">🤖 ' + capacityData.ai_hint + '</p>';
+        }
+
+        if (capacityData.suggestions && capacityData.suggestions.length) {
+            capacityData.suggestions.forEach(function (s, i) {
+                let btn = '';
+                if (s.type === 'reduce_interval') {
+                    btn = '<button type="button" class="btn-apply schedulely-apply-suggestion" data-type="interval" data-value="' + s.suggested + '">Apply</button>';
+                } else if (s.type === 'reduce_quota') {
+                    btn = '<button type="button" class="btn-apply schedulely-apply-suggestion" data-type="quota" data-value="' + s.suggested + '">Apply</button>';
+                } else if (s.type === 'expand_window') {
+                    btn = '<button type="button" class="btn-apply schedulely-apply-suggestion" data-type="endtime" data-value="' + s.suggested_end + '">Apply</button>';
+                }
+                html +=
+                    '<div class="suggestion-card" style="margin-bottom:8px;">' +
+                    '<div class="sugg-content"><div class="sugg-title">' + (i + 1) + '. ' + s.label + '</div>' +
+                    '<div class="sugg-desc">' + s.message + '</div></div>' +
+                    '<div class="sugg-action">' + btn + '</div></div>';
+            });
+        }
+
+        $list.html(html);
+
+        // Re-attach apply handlers (list was just re-rendered).
+        $list.find('.schedulely-apply-suggestion').on('click', function () {
+            const type  = $(this).data('type');
+            const value = $(this).data('value');
+            if (type === 'interval') {
+                $('#schedulely_min_interval').val(value).trigger('change');
+            } else if (type === 'quota') {
+                $('#schedulely_posts_per_day').val(value).trigger('change');
+            } else if (type === 'endtime') {
+                $('#schedulely_end_time').val(value).trigger('change');
+            }
+            $(this).text('Applied ✓').prop('disabled', true);
+        });
+
+        // Show the toggle button (hidden by default when no suggestions exist).
+        $toggle
+            .prop('hidden', false)
+            .attr('aria-expanded', 'false')
+            .text(schedulely_admin.strings.capacity_show_suggestions || 'Show suggestions');
+        // Keep accordion closed — user opens it intentionally.
+        $('#schedulely-capacity-details').prop('hidden', true);
     }
 
     /**
