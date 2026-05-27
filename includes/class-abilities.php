@@ -33,11 +33,15 @@ class Schedulely_Abilities {
 	 * Called from schedulely_init() only when wp_register_ability() exists.
 	 *
 	 * @since 1.6.0
+	 * @since 1.6.0 Moved ability registration from 'init' to 'wp_abilities_api_init'
+	 *              to comply with the requirement added in WordPress 6.9.0.
 	 */
 	public function register_hooks(): void {
 		// Register category on the appropriate hook.
 		add_action( 'wp_register_ability_categories', [ $this, 'register_category' ] );
-		add_action( 'init', [ $this, 'register_abilities' ] );
+		// Abilities must be registered on wp_abilities_api_init (added in WP 6.9).
+		// Using 'init' causes _doing_it_wrong() notices and silently drops all abilities.
+		add_action( 'wp_abilities_api_init', [ $this, 'register_abilities' ] );
 	}
 
 	/**

@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.6.1] - 27/05/2026
+
+### Fixed
+- **Bug fix:** All five `schedulely/*` Abilities were silently dropped on every page load with a `_doing_it_wrong()` notice. `wp_register_ability()` was being called on the `init` action; WordPress 6.9+ requires it to be called on `wp_abilities_api_init`. Registration hook corrected in `Schedulely_Abilities::register_hooks()`.
+
+---
+
 ## [1.6.0] - 27/05/2026
 
 ### Changed
