@@ -1,230 +1,935 @@
-# Copyright (C) 2025 Krafty Sprouts Media, LLC
+# Copyright (C) 2026 Krafty Sprouts Media, LLC
 # This file is distributed under the GPL v2 or later.
 msgid ""
 msgstr ""
-"Project-Id-Version: Schedulely 1.0.4\n"
-"Report-Msgid-Bugs-To: https://kraftysprouts.com/contact\n"
-"POT-Creation-Date: 2025-10-06 00:00:00+00:00\n"
+"Project-Id-Version: Schedulely 1.6.0\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/schedulely\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"PO-Revision-Date: 2025-MO-DA HO:MI+ZONE\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: LANGUAGE <LL@li.org>\n"
-"Language: en\n"
-"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"POT-Creation-Date: 2026-05-27T15:47:32+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Generator: WP-CLI 2.12.0\n"
+"X-Domain: schedulely\n"
 
+#. Plugin Name of the plugin
 #: schedulely.php
-msgid "Permission denied."
-msgstr ""
-
-msgid "Successfully scheduled %d posts!"
-msgstr ""
-
-msgid "An error occurred: "
-msgstr ""
-
-#: includes/class-scheduler.php
-msgid "No posts available in %s status to schedule."
-msgstr ""
-
-msgid "No available time slots for scheduling."
-msgstr ""
-
-msgid "Successfully scheduled %d posts (%d filled deficits)."
-msgstr ""
-
-msgid "Failed to schedule post ID %d"
-msgstr ""
-
-#: includes/class-notifications.php
-msgid "Schedulely: %d Posts Scheduled Successfully"
-msgstr ""
-
-msgid "Schedulely: Scheduling Error"
-msgstr ""
-
-msgid "Yes"
-msgstr ""
-
-msgid "No"
-msgstr ""
-
-msgid "REMAINING DEFICITS"
-msgstr ""
-
-#: includes/class-settings.php
-msgid "Schedulely Settings"
-msgstr ""
-
+#: includes/class-abilities.php:50
+#: includes/class-admin-menu.php:43
+#: templates/admin/settings-page.php:29
 msgid "Schedulely"
 msgstr ""
 
-msgid "You do not have sufficient permissions to access this page."
+#. Plugin URI of the plugin
+#. Author URI of the plugin
+#: schedulely.php
+msgid "https://kraftysprouts.com"
 msgstr ""
 
-msgid "Settings saved successfully!"
+#. Description of the plugin
+#: schedulely.php
+msgid "Intelligently schedule posts from any status with smart deficit tracking, random author assignment, and customizable time windows."
 msgstr ""
 
-msgid "Scheduling Settings"
+#. Author of the plugin
+#: schedulely.php
+msgid "Krafty Sprouts Media, LLC"
 msgstr ""
 
-msgid "Post Status to Monitor"
+#: includes/class-abilities.php:51
+msgid "Post scheduling actions provided by the Schedulely plugin."
 msgstr ""
 
-msgid "Draft"
+#: includes/class-abilities.php:84
+msgid "Run scheduling pass"
 msgstr ""
 
-msgid "Pending Review"
+#: includes/class-abilities.php:85
+msgid "Schedules available posts according to current Schedulely settings. Equivalent to clicking \"Run Schedule Now\" in the admin."
 msgstr ""
 
-msgid "Private"
+#: includes/class-abilities.php:93
+msgid "When true, returns what would be scheduled without committing any changes."
 msgstr ""
 
-msgid "Posts with this status will be scheduled for publication."
+#: includes/class-abilities.php:122
+msgid "Check scheduling capacity"
 msgstr ""
 
-msgid "Posts Per Day"
+#: includes/class-abilities.php:123
+msgid "Calculates whether the configured time window and minimum interval can fit the desired posts-per-day quota."
 msgstr ""
 
-msgid "Number of posts to schedule per day."
+#: includes/class-abilities.php:128
+msgid "Window start time e.g. \"5:00 PM\"."
 msgstr ""
 
-msgid "Publishing Time Window"
+#: includes/class-abilities.php:129
+msgid "Window end time e.g. \"11:00 PM\"."
 msgstr ""
 
-msgid "to"
+#: includes/class-abilities.php:130
+msgid "Minimum minutes between posts."
 msgstr ""
 
-msgid "Posts will be randomly scheduled within this time window each day."
+#: includes/class-abilities.php:131
+msgid "Target posts per day."
 msgstr ""
 
-msgid "Minimum Interval Between Posts"
+#: includes/class-abilities.php:159
+msgid "Get furthest scheduled date"
 msgstr ""
 
-msgid "minutes"
+#: includes/class-abilities.php:160
+msgid "Returns the furthest future scheduled date and how many posts are on it relative to the daily quota."
 msgstr ""
 
-msgid "Minimum time between scheduled posts to avoid publishing too close together."
+#: includes/class-abilities.php:186
+msgid "Preview next scheduling slot"
 msgstr ""
 
-msgid "Active Days"
+#: includes/class-abilities.php:187
+msgid "Returns the datetime(s) that would be assigned to the next post(s) in the queue without making any changes."
 msgstr ""
 
-msgid "Mon"
+#: includes/class-abilities.php:219
+msgid "Preview AI queue reorder"
 msgstr ""
 
-msgid "Tue"
+#: includes/class-abilities.php:220
+msgid "Sends the current post queue to the AI and returns the suggested order without scheduling anything."
 msgstr ""
 
-msgid "Wed"
+#: includes/class-abilities.php:228
+msgid "Post IDs to reorder. If omitted, uses the current eligible post queue."
 msgstr ""
 
-msgid "Thu"
+#: includes/class-abilities.php:272
+msgid "Dry run — no posts were scheduled."
 msgstr ""
 
-msgid "Fri"
+#: includes/class-abilities.php:410
+msgid "AI reorder applied. No posts were scheduled."
 msgstr ""
 
-msgid "Sat"
+#: includes/class-abilities.php:428
+msgid "You do not have permission to use this ability."
 msgstr ""
 
-msgid "Sun"
-msgstr ""
-
-msgid "Posts will only be scheduled on these days."
-msgstr ""
-
-msgid "Author Assignment"
-msgstr ""
-
-msgid "Randomize Post Authors"
-msgstr ""
-
-msgid "Randomly assign authors to scheduled posts"
-msgstr ""
-
-msgid "Excluded Authors"
-msgstr ""
-
-msgid "These authors will not be assigned to posts."
-msgstr ""
-
-msgid "Automation Settings"
-msgstr ""
-
-msgid "Automatic Scheduling"
-msgstr ""
-
-msgid "Enable automatic scheduling via WordPress Cron (hourly)"
-msgstr ""
-
-msgid "Email Notifications"
-msgstr ""
-
-msgid "Send email notifications after scheduling runs"
-msgstr ""
-
-msgid "Notification Email"
-msgstr ""
-
-msgid "Email address to receive scheduling notifications."
-msgstr ""
-
-msgid "Save Changes"
-msgstr ""
-
-msgid "Scheduling Overview"
-msgstr ""
-
-msgid "Available Posts"
-msgstr ""
-
-msgid "Next Scheduled"
-msgstr ""
-
-msgid "Active Deficits"
-msgstr ""
-
-msgid "Last Run"
-msgstr ""
-
-msgid "Schedule Now"
-msgstr ""
-
-msgid "View All Scheduled Posts"
-msgstr ""
-
-msgid "Upcoming Scheduled Posts"
-msgstr ""
-
-msgid "No posts currently scheduled."
-msgstr ""
-
-msgid "Deficit Status"
-msgstr ""
-
-msgid "No deficits currently tracked. All days are meeting their quotas!"
-msgstr ""
-
-msgid "Deficit: %d"
-msgstr ""
-
-msgid "Made with %s by %s"
-msgstr ""
-
-msgid "None"
-msgstr ""
-
-msgid "dates"
-msgstr ""
-
-msgid "Never"
-msgstr ""
-
+#: includes/class-admin-assets.php:126
 msgid "Schedule available posts now?"
 msgstr ""
 
+#: includes/class-admin-assets.php:127
 msgid "Scheduling..."
 msgstr ""
 
+#: includes/class-admin-assets.php:128
+msgid "Schedule Now"
+msgstr ""
+
+#: includes/class-admin-assets.php:129
+#: includes/class-ajax-handlers.php:176
+msgid "Connection OK — the API accepted your key and returned a reply."
+msgstr ""
+
+#: includes/class-admin-assets.php:130
+msgid "Connection test failed."
+msgstr ""
+
+#: includes/class-admin-assets.php:131
+msgid "Testing connection…"
+msgstr ""
+
+#: includes/class-admin-assets.php:132
+msgid "Contacting the API — this can take a few seconds…"
+msgstr ""
+
+#: includes/class-admin-assets.php:133
+msgid "⚠️ Capacity Warning"
+msgstr ""
+
+#: includes/class-admin-assets.php:134
+msgid "Invalid Settings"
+msgstr ""
+
+#: includes/class-admin-assets.php:135
+msgid "Schedule Posts Now?"
+msgstr ""
+
+#: includes/class-admin-assets.php:136
+msgid "This will schedule all available posts according to your settings. Do you want to continue?"
+msgstr ""
+
+#: includes/class-admin-assets.php:137
+msgid "Yes, Schedule Now"
+msgstr ""
+
+#: includes/class-admin-assets.php:138
+msgid "Cancel"
+msgstr ""
+
+#: includes/class-admin-assets.php:139
+msgid "Success!"
+msgstr ""
+
+#: includes/class-admin-assets.php:140
+msgid "Error"
+msgstr ""
+
+#: includes/class-admin-assets.php:141
+msgid "View Scheduled Posts"
+msgstr ""
+
+#: includes/class-admin-assets.php:142
+msgid "Stay Here"
+msgstr ""
+
+#: includes/class-admin-assets.php:143
+msgid "Validation Error"
+msgstr ""
+
+#: includes/class-admin-assets.php:144
+msgid "Posts per day must be between 1 and 100."
+msgstr ""
+
+#: includes/class-admin-assets.php:145
+msgid "Minimum interval must be between 1 and 1440 minutes."
+msgstr ""
+
+#: includes/class-admin-assets.php:146
+msgid "Please select at least one active day."
+msgstr ""
+
+#: includes/class-admin-assets.php:147
+msgid "Checking Capacity..."
+msgstr ""
+
+#: includes/class-admin-assets.php:148
+msgid "Apply Fix"
+msgstr ""
+
+#: includes/class-admin-assets.php:149
+msgid "Applied!"
+msgstr ""
+
+#: includes/class-admin-assets.php:150
+msgid "Recommended Fixes"
+msgstr ""
+
+#: includes/class-admin-menu.php:42
+msgid "Schedulely Settings"
+msgstr ""
+
+#: includes/class-admin-notices.php:65
+msgid "🚀 Schedulely Activated!"
+msgstr ""
+
+#: includes/class-admin-notices.php:67
+msgid "Thank you for installing Schedulely! To get started, configure your scheduling settings."
+msgstr ""
+
+#: includes/class-admin-notices.php:71
+msgid "Go to Settings"
+msgstr ""
+
+#: includes/class-admin-notices.php:74
+msgid "Dismiss"
+msgstr ""
+
+#: includes/class-ai-order.php:78
+msgid "Connection OK — an AI provider is configured and supports text generation."
+msgstr ""
+
+#. translators: %s: URL to the WP connectors screen
+#: includes/class-ai-order.php:145
+#, php-format
+msgid "No AI provider supports text generation. Configure one at %s."
+msgstr ""
+
+#: includes/class-ai-order.php:178
+msgid "No API key is configured for AI queue ordering."
+msgstr ""
+
+#: includes/class-ai-order.php:212
+msgid "HTTP transport error before a response body was received."
+msgstr ""
+
+#. translators: 1: HTTP status code, 2: response body excerpt
+#: includes/class-ai-order.php:229
+#, php-format
+msgid "AI request failed (HTTP %1$s): %2$s"
+msgstr ""
+
+#: includes/class-ai-order.php:238
+msgid "Non-200 response."
+msgstr ""
+
+#: includes/class-ai-order.php:244
+msgid "AI response was not valid JSON."
+msgstr ""
+
+#: includes/class-ai-order.php:249
+msgid "Body was not valid JSON after HTTP 200."
+msgstr ""
+
+#: includes/class-ai-order.php:256
+msgid "AI returned an empty message."
+msgstr ""
+
+#: includes/class-ai-order.php:261
+msgid "No assistant text found in response."
+msgstr ""
+
+#: includes/class-ai-order.php:280
+msgid "No API key is configured."
+msgstr ""
+
+#. translators: 1: HTTP status code 2: response excerpt
+#: includes/class-ai-order.php:320
+#, php-format
+msgid "Connection test failed (HTTP %1$s): %2$s"
+msgstr ""
+
+#. translators: %s: response excerpt
+#: includes/class-ai-order.php:332
+#, php-format
+msgid "HTTP 200 but the body was not JSON. Excerpt: %s"
+msgstr ""
+
+#. translators: %s: API error
+#: includes/class-ai-order.php:344
+#, php-format
+msgid "API returned an error: %s"
+msgstr ""
+
+#: includes/class-ai-order.php:352
+msgid "Connection OK — the API returned an assistant message."
+msgstr ""
+
+#. translators: %d: token count
+#: includes/class-ai-order.php:359
+#, php-format
+msgid "Connection OK — the API accepted the request (reported %d total tokens)."
+msgstr ""
+
+#. translators: %s: response excerpt
+#: includes/class-ai-order.php:369
+#, php-format
+msgid "HTTP 200 but no assistant text or usage data found. Check the Base URL and model. Excerpt: %s"
+msgstr ""
+
+#: includes/class-ai-order.php:400
+msgid "Assistant text could not be parsed into ordered_ids JSON."
+msgstr ""
+
+#: includes/class-ai-order.php:415
+msgid "AI response did not contain the same post IDs as the input list."
+msgstr ""
+
+#. translators: 1: parsed count 2: expected count
+#: includes/class-ai-order.php:423
+#, php-format
+msgid "Parsed %1$d IDs; multiset does not match %2$d input IDs."
+msgstr ""
+
+#: includes/class-ai-order.php:432
+msgid "Queue order was applied."
+msgstr ""
+
+#. translators: 1: model count 2: expected count
+#: includes/class-ai-order.php:435
+#, php-format
+msgid "Queue order applied after reconciliation (model returned %1$d IDs for %2$d posts)."
+msgstr ""
+
+#: includes/class-ai-order.php:550
+msgid "AI JSON must contain an \"ordered_ids\" array."
+msgstr ""
+
+#: includes/class-ajax-handlers.php:54
+#: includes/class-ajax-handlers.php:130
+#: includes/class-ajax-handlers.php:166
+msgid "Insufficient permissions"
+msgstr ""
+
+#: includes/class-ajax-handlers.php:150
+msgid "Auto-schedule enabled. Posts will be scheduled automatically twice daily."
+msgstr ""
+
+#: includes/class-ajax-handlers.php:151
+msgid "Auto-schedule disabled. Use \"Run Schedule Now\" to schedule posts manually."
+msgstr ""
+
+#: includes/class-ajax-handlers.php:194
+#: includes/class-settings.php:234
+msgid "You do not have sufficient permissions to perform this action."
+msgstr ""
+
+#: includes/class-notifications.php:48
+#, php-format
+msgid "Schedulely: %d Posts Scheduled Successfully"
+msgstr ""
+
+#: includes/class-notifications.php:61
+msgid "AI Summary"
+msgstr ""
+
+#: includes/class-notifications.php:94
+msgid "same day"
+msgstr ""
+
+#: includes/class-notifications.php:125
+msgid "Schedulely: Scheduling Error"
+msgstr ""
+
+#: includes/class-notifications.php:231
+msgid "Yes"
+msgstr ""
+
+#: includes/class-notifications.php:231
+msgid "No"
+msgstr ""
+
+#: includes/class-notifications.php:238
+msgid "Applied — this run’s queue was reordered by the AI API before publish times were assigned."
+msgstr ""
+
+#: includes/class-notifications.php:240
+msgid "Not applied — the queue order was not taken from the model’s reply (shuffle or draft order was used). If the API was called, you were still charged for that completion; open the AI reorder log on the settings page to see error code and response excerpts."
+msgstr ""
+
+#: includes/class-notifications.php:243
+msgid "Not used — AI ordering is disabled in Schedulely settings, so the queue was never sent to the API for this step."
+msgstr ""
+
+#: includes/class-notifications.php:248
+msgid "Yes (filled previous incomplete date)"
+msgstr ""
+
+#: includes/class-notifications.php:248
+msgid "No (started fresh dates)"
+msgstr ""
+
+#: includes/class-notifications.php:275
+msgid "Latest API attempt (excerpts + error code): Tools → Schedulely → “AI queue reorder log”."
+msgstr ""
+
+#: includes/class-notifications.php:277
+msgid "Open Schedulely settings"
+msgstr ""
+
+#: includes/class-scheduler.php:98
+#, php-format
+msgid "No posts available in %s status to schedule."
+msgstr ""
+
+#: includes/class-scheduler.php:142
+msgid "AI reordered the queue for better series spacing."
+msgstr ""
+
+#: includes/class-scheduler.php:658
+#, php-format
+msgid "No available slot for post ID %d (day full — consider raising Posts Per Day or widening the time window)."
+msgstr ""
+
+#: includes/class-scheduler.php:675
+#, php-format
+msgid "Failed to generate time slot for post ID %d"
+msgstr ""
+
+#: includes/class-scheduler.php:716
+#, php-format
+msgid "Failed to schedule post ID %d"
+msgstr ""
+
+#: includes/class-scheduler.php:752
+#, php-format
+msgid "Failed to schedule post ID %d after %d attempts"
+msgstr ""
+
+#: includes/class-scheduler.php:774
+#, php-format
+msgid "Successfully scheduled %d posts."
+msgstr ""
+
+#: includes/class-scheduler.php:915
+msgid "Invalid overnight window. End time on the next morning must be after the start time on the first day."
+msgstr ""
+
+#: includes/class-scheduler.php:916
+msgid "Invalid time window. End time must be after start time on the same day."
+msgstr ""
+
+#: includes/class-scheduler.php:980
+msgid "Reduce Minimum Interval"
+msgstr ""
+
+#: includes/class-scheduler.php:985
+#, php-format
+msgid "Change interval from %d to %d minutes → fits ~%d posts"
+msgstr ""
+
+#: includes/class-scheduler.php:996
+msgid "Reduce Posts Per Day"
+msgstr ""
+
+#: includes/class-scheduler.php:1000
+#, php-format
+msgid "Lower quota from %d to %d posts per day"
+msgstr ""
+
+#: includes/class-scheduler.php:1015
+#: includes/class-scheduler.php:1077
+msgid "Expand Time Window"
+msgstr ""
+
+#. translators: %d: approximate hours of window needed
+#: includes/class-scheduler.php:1023
+#, php-format
+msgid "Overnight window: widen by starting earlier on the first day or ending later the next morning (~%d hours of span helps)."
+msgstr ""
+
+#: includes/class-scheduler.php:1041
+#, php-format
+msgid "Extend end time from %s-%s to %s-%s (~%d hours needed)"
+msgstr ""
+
+#: includes/class-scheduler.php:1054
+#, php-format
+msgid "Extend from %s-%s to %s-%s (start earlier + extend to 11:59 PM, ~%d hours needed)"
+msgstr ""
+
+#: includes/class-scheduler.php:1066
+#, php-format
+msgid "Start earlier from %s-%s to %s-%s (end time cannot extend past 11:59 PM, ~%d hours needed)"
+msgstr ""
+
+#: includes/class-settings.php:308
+msgid "Settings saved successfully!"
+msgstr ""
+
+#: includes/class-settings.php:330
+msgid "You do not have sufficient permissions to access this page."
+msgstr ""
+
+#: includes/class-settings.php:334
+msgid "AI reorder log cleared."
+msgstr ""
+
+#: includes/class-settings.php:378
+msgid "No upcoming posts scheduled."
+msgstr ""
+
+#: includes/class-settings.php:455
+#: includes/class-settings.php:460
+#: templates/admin/settings-page.php:106
+msgid "None"
+msgstr ""
+
+#: includes/class-settings.php:469
+msgid "Complete"
+msgstr ""
+
+#: includes/class-settings.php:476
+#: includes/class-settings.php:477
+msgid "Never"
+msgstr ""
+
+#: schedulely.php:112
+msgid "Settings"
+msgstr ""
+
+#: schedulely.php:267
+msgid "Permission denied."
+msgstr ""
+
+#: schedulely.php:290
+#, php-format
+msgid "Successfully scheduled %d posts!"
+msgstr ""
+
+#: schedulely.php:303
+msgid "An error occurred. Please check the debug log."
+msgstr ""
+
+#: templates/admin/settings-page.php:30
+msgid "Intelligent Post Scheduling for WordPress"
+msgstr ""
+
+#: templates/admin/settings-page.php:34
+msgid "Report Issue"
+msgstr ""
+
+#: templates/admin/settings-page.php:37
+msgid "Run Schedule Now"
+msgstr ""
+
+#: templates/admin/settings-page.php:47
+msgid "How Random Scheduling Works"
+msgstr ""
+
+#: templates/admin/settings-page.php:50
+msgid "Posts are scheduled at <strong>random times</strong> within your time window for a natural appearance."
+msgstr ""
+
+#: templates/admin/settings-page.php:52
+msgid "✅ Posts are <strong>at least X minutes</strong> apart (never closer)"
+msgstr ""
+
+#: templates/admin/settings-page.php:53
+msgid "✅ Gaps between posts vary randomly (some 30 min, some 60+ min)"
+msgstr ""
+
+#: templates/admin/settings-page.php:66
+msgid "Drafts Available"
+msgstr ""
+
+#. translators: %s: number of posts currently in pool
+#: templates/admin/settings-page.php:70
+#, php-format
+msgid "%s currently in pool"
+msgstr ""
+
+#: templates/admin/settings-page.php:90
+msgid "Last Date Scheduled"
+msgstr ""
+
+#. translators: 1: posts scheduled 2: daily quota
+#: templates/admin/settings-page.php:94
+#, php-format
+msgid "Target: %d/day"
+msgstr ""
+
+#: templates/admin/settings-page.php:95
+msgid "(Incomplete)"
+msgstr ""
+
+#: templates/admin/settings-page.php:108
+msgid "Furthest Scheduled Date"
+msgstr ""
+
+#: templates/admin/settings-page.php:112
+msgid "Action Needed"
+msgstr ""
+
+#: templates/admin/settings-page.php:114
+msgid "Scheduled"
+msgstr ""
+
+#: templates/admin/settings-page.php:116
+msgid "No posts scheduled"
+msgstr ""
+
+#: templates/admin/settings-page.php:128
+#, php-format
+msgid "Run %s ago"
+msgstr ""
+
+#: templates/admin/settings-page.php:129
+msgid "Never ran"
+msgstr ""
+
+#: templates/admin/settings-page.php:136
+msgid "Active"
+msgstr ""
+
+#: templates/admin/settings-page.php:136
+msgid "Paused"
+msgstr ""
+
+#: templates/admin/settings-page.php:138
+msgid "System Health"
+msgstr ""
+
+#: templates/admin/settings-page.php:140
+msgid "Auto-Schedule Off"
+msgstr ""
+
+#: templates/admin/settings-page.php:147
+msgid "Configuration & Constraints"
+msgstr ""
+
+#: templates/admin/settings-page.php:149
+msgid "Save Changes"
+msgstr ""
+
+#: templates/admin/settings-page.php:157
+msgid "Checking capacity..."
+msgstr ""
+
+#: templates/admin/settings-page.php:168
+msgid "Content & volume"
+msgstr ""
+
+#: templates/admin/settings-page.php:171
+msgid "Post Status to Monitor"
+msgstr ""
+
+#: templates/admin/settings-page.php:183
+msgid "Source status for scheduling."
+msgstr ""
+
+#: templates/admin/settings-page.php:186
+msgid "Post Types to Schedule"
+msgstr ""
+
+#: templates/admin/settings-page.php:197
+msgid "Select which post types to include in scheduling."
+msgstr ""
+
+#: templates/admin/settings-page.php:200
+msgid "Posts Per Day"
+msgstr ""
+
+#: templates/admin/settings-page.php:206
+msgid "Min Interval (Minutes)"
+msgstr ""
+
+#: templates/admin/settings-page.php:212
+msgid "Pool Size (Max Posts per Run)"
+msgstr ""
+
+#: templates/admin/settings-page.php:217
+msgid "How many eligible posts to load per run. A larger pool gives shuffle and AI ordering more variety. Lower this only if your host has tight execution time limits."
+msgstr ""
+
+#: templates/admin/settings-page.php:225
+msgid "When to publish"
+msgstr ""
+
+#: templates/admin/settings-page.php:228
+msgid "Time Window"
+msgstr ""
+
+#: templates/admin/settings-page.php:239
+msgid "Same calendar day: end time must be after start (e.g. 2:30 PM → 11:59 PM). Overnight: if end is at or before start on the clock, the window runs from start on the anchor day through end on the next calendar morning (e.g. 2:30 PM → 3:00 AM)."
+msgstr ""
+
+#: templates/admin/settings-page.php:243
+msgid "Active Days"
+msgstr ""
+
+#: templates/admin/settings-page.php:260
+msgid "Queue order & scheduling mode"
+msgstr ""
+
+#: templates/admin/settings-page.php:265
+msgid "Shuffle posts before assigning dates (breaks strict draft-date order)"
+msgstr ""
+
+#: templates/admin/settings-page.php:267
+msgid "When enabled, each run randomizes which eligible posts get the next slots instead of always using oldest post date first."
+msgstr ""
+
+#: templates/admin/settings-page.php:270
+msgid "Scheduling Mode"
+msgstr ""
+
+#: templates/admin/settings-page.php:276
+msgid "Random"
+msgstr ""
+
+#: templates/admin/settings-page.php:277
+msgid "Posts land at random times in the window. Looks most natural. ~70% efficiency — some days may get fewer posts than quota."
+msgstr ""
+
+#: templates/admin/settings-page.php:283
+msgid "Sequential"
+msgstr ""
+
+#: templates/admin/settings-page.php:284
+msgid "Posts are spaced perfectly evenly (e.g. every 45 min). 100% efficiency — always hits quota. Predictable, but looks automated."
+msgstr ""
+
+#: templates/admin/settings-page.php:290
+msgid "Hybrid"
+msgstr ""
+
+#: templates/admin/settings-page.php:291
+msgid "Window divided into equal slots, post placed randomly within each slot. Near-100% efficiency and looks natural. Best of both worlds."
+msgstr ""
+
+#: templates/admin/settings-page.php:301
+msgid "Author Assignment"
+msgstr ""
+
+#: templates/admin/settings-page.php:305
+msgid "Randomly assign authors to scheduled posts"
+msgstr ""
+
+#: templates/admin/settings-page.php:309
+msgid "Excluded Authors"
+msgstr ""
+
+#: templates/admin/settings-page.php:322
+msgid "Preserved Authors"
+msgstr ""
+
+#: templates/admin/settings-page.php:339
+msgid "AI series spacing (optional)"
+msgstr ""
+
+#: templates/admin/settings-page.php:352
+msgid "AI provider connected via WordPress Connectors."
+msgstr ""
+
+#: templates/admin/settings-page.php:353
+msgid "No API key required — Schedulely uses the provider configured in"
+msgstr ""
+
+#: templates/admin/settings-page.php:354
+#: templates/admin/settings-page.php:372
+msgid "Settings → Connectors"
+msgstr ""
+
+#: templates/admin/settings-page.php:360
+#: templates/admin/settings-page.php:392
+msgid "Use AI to order the queue before scheduling (skips shuffle when AI succeeds)"
+msgstr ""
+
+#: templates/admin/settings-page.php:363
+#: templates/admin/settings-page.php:423
+msgid "Test connection"
+msgstr ""
+
+#: templates/admin/settings-page.php:370
+msgid "No AI provider connected."
+msgstr ""
+
+#: templates/admin/settings-page.php:371
+msgid "Configure one in"
+msgstr ""
+
+#: templates/admin/settings-page.php:373
+msgid "No API key is needed in Schedulely — the provider is managed centrally."
+msgstr ""
+
+#: templates/admin/settings-page.php:378
+msgid "Use AI to order the queue before scheduling (requires a connected provider)"
+msgstr ""
+
+#: templates/admin/settings-page.php:385
+#, php-format
+msgid "Defaults target the DeepSeek OpenAI-compatible API (<a href=\"%s\" target=\"_blank\" rel=\"noopener noreferrer\">API overview</a>). You can change base URL and model for any compatible provider."
+msgstr ""
+
+#: templates/admin/settings-page.php:396
+msgid "API base URL"
+msgstr ""
+
+#: templates/admin/settings-page.php:402
+msgid "Model"
+msgstr ""
+
+#: templates/admin/settings-page.php:414
+msgid "Current API key"
+msgstr ""
+
+#: templates/admin/settings-page.php:418
+msgid "Replace API key (optional)"
+msgstr ""
+
+#: templates/admin/settings-page.php:420
+msgid "API key"
+msgstr ""
+
+#: templates/admin/settings-page.php:428
+msgid "Leave blank to keep the saved key, or type a new key to replace it"
+msgstr ""
+
+#: templates/admin/settings-page.php:428
+msgid "Enter your API key"
+msgstr ""
+
+#: templates/admin/settings-page.php:432
+msgid "Remove stored API key on save"
+msgstr ""
+
+#: templates/admin/settings-page.php:438
+msgid "AI queue reorder log"
+msgstr ""
+
+#: templates/admin/settings-page.php:440
+msgid "Each scheduling run that calls the reorder API records outcome, HTTP status, token usage, error code, and response excerpts."
+msgstr ""
+
+#: templates/admin/settings-page.php:443
+msgid "No reorder API attempts logged yet."
+msgstr ""
+
+#: templates/admin/settings-page.php:480
+msgid "Clear AI reorder log"
+msgstr ""
+
+#: templates/admin/settings-page.php:489
+msgid "Notification Recipients"
+msgstr ""
+
+#: templates/admin/settings-page.php:508
+msgid "Include AI-generated summary at the top of scheduling notification emails"
+msgstr ""
+
+#: templates/admin/settings-page.php:511
+msgid "A 2–3 sentence plain-text summary of each scheduling run, generated by your connected AI provider. Uses a small number of tokens per email."
+msgstr ""
+
+#: templates/admin/settings-page.php:523
+msgid "Upcoming Posts"
+msgstr ""
+
+#: templates/admin/settings-page.php:528
+msgid "View All"
+msgstr ""
+
+#: templates/admin/settings-page.php:532
+msgid "Select Type..."
+msgstr ""
+
+#: templates/admin/settings-page.php:533
+msgid "All Types"
+msgstr ""
+
+#: templates/admin/settings-page.php:547
+msgid "Quick Toggles"
+msgstr ""
+
+#: templates/admin/settings-page.php:549
+msgid "Auto-Schedule"
+msgstr ""
+
+#: templates/admin/settings-page.php:557
+msgid "Email Alerts"
+msgstr ""
+
+#: templates/admin/settings-page.php:569
+msgid "WP-Cron"
+msgstr ""
+
+#: templates/admin/settings-page.php:570
+msgid "— Event hook:"
+msgstr ""
+
+#: templates/admin/settings-page.php:572
+msgid "Search cron manager plugins by this slug (lowercase). Recurrence: twicedaily (~every 12 hours)."
+msgstr ""
+
+#: templates/admin/settings-page.php:574
+msgid "Next run (site time):"
+msgstr ""
+
+#: templates/admin/settings-page.php:577
+msgid "No event scheduled right now."
+msgstr ""
+
+#: templates/admin/settings-page.php:578
+msgid "Turn Auto-Schedule on and save, or reactivate the plugin."
+msgstr ""
+
+#. translators: 1: heart emoji span 2: company link
+#: templates/admin/settings-page.php:596
+#, php-format
+msgid "Made with %1$s by %2$s"
+msgstr ""

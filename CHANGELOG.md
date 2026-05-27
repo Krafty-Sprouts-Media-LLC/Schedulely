@@ -7,7 +7,63 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
-## [1.5.10] - 03/05/2026
+## [Unreleased]
+
+---
+
+## [1.6.0] - 27/05/2026
+
+### Changed
+- **Performance:** `schedulely_clear_cache()` no longer calls `wp_cache_flush()`. Only the two named Schedulely cache keys are invalidated. This eliminates a severe footgun on Redis/Memcached sites where every scheduling pass was evicting the entire site object cache. (P0-T1)
+- **Performance:** `uninstall.php` no longer calls `wp_cache_flush()` on plugin deletion. Only Schedulely's own cache keys are cleared. (P0-T2)
+- **Bug fix:** `schedulely_auto_schedule` option is now read with a consistent default of `false` everywhere — activation hook, cron callback, settings render, and checkbox state. Previously the activation hook wrote `false` but all read sites used `true` as the default, causing the auto-schedule toggle to display as on even on fresh installs. (P0-T3)
+- **Performance:** Dashboard "Drafts Available" count now uses `wp_count_posts()` (WP-core cached) instead of `get_posts(['posts_per_page' => -1])`. This eliminates an unbounded query that loaded every draft ID into memory on every settings page render. (P0-T4)
+- **Compatibility:** Replaced deprecated `current_time('timestamp')` with `time()` in the auto-schedule health card and `wp_date()` in the email notification run timestamp. Both previously used the deprecated form which has been removed in forthcoming WordPress versions. (P0-T5)
+- **wp.org compliance:** All third-party admin assets (SweetAlert2, Select2, Flatpickr) are now served from the local `assets/vendor/` directory instead of third-party CDNs. Google Fonts (Lato) removed — system fonts used instead. Libraries updated to stable versions: SweetAlert2 11.22.0, Select2 4.0.13 (was 4.1.0-rc.0), Flatpickr 4.6.13 unchanged. (P1-T3)
+- **wp.org compliance:** GitHub update checker (`vendor/plugin-update-checker/`) is now gated behind a `SCHEDULELY_WPORG_BUILD` constant and excluded from the wp.org release zip via `.distignore`. wp.org-hosted installs receive updates through the WordPress.org update API. (P1-T2)
+- **WP 7.0 AI migration:** `Schedulely_AI_Order` now detects WordPress 7.0+ via `wp_ai_client_prompt()` and uses the provider-agnostic WP AI client for queue reordering. No API key stored in Schedulely is required on WP 7.0+. The legacy direct-HTTP path (DeepSeek/OpenAI-compatible) is retained for older WordPress installs and is deprecated — it will be removed in a future major version. `test_api_connection()` now returns immediate success on WP 7.0+ when a connector is configured. (P1-T4, P1-T5, P1-T6)
+- **wp.org compliance:** AI settings panel now shows three states — WP 7.0 with connector (no API key fields shown), WP 7.0 without connector (prompt to configure Settings → Connectors), legacy path (existing API key / base URL / model fields, with the stored key now masked to first 4 + last 4 chars only). (P1-T7, P1-T19)
+- **wp.org compliance:** `wpai_preferred_text_models` filter registered so Schedulely expresses a preference for fast/cheap models during the AI reorder task. Priority order: DeepSeek `deepseek-v4-flash` (cheapest, JSON-native, original default — `deepseek-chat` is a deprecated alias), DeepSeek `deepseek-v4-pro` (fallback), Google `gemini-3.1-flash-lite` (GA May 2026, replaces deprecated `gemini-2.5-flash`), Google `gemini-3-flash-preview`, OpenAI `gpt-5.4-mini`, Anthropic `claude-sonnet-4-6`. (P1-T8)
+- **wp.org compliance:** Privacy Policy section in `readme.txt` rewritten to accurately describe the WP 7.0 path (provider from Settings → Connectors) and the legacy path (DeepSeek default, user API key). (P1-T9)
+- **wp.org compliance:** "Planned Features" section removed from `readme.txt`. Custom post type FAQ answer updated to reflect that CPT support ships in the current version. (P1-T10)
+- **Security:** All `_e()` calls with plain text converted to `esc_html_e()`. Strings containing HTML (`<strong>` etc.) now use `wp_kses_post(__())`. Dynamic `echo` sites wrapped with `esc_html`, `esc_attr`, `esc_url` as appropriate. (P1-T11, P1-T12)
+- **Security:** Welcome notice inline `<script>` block removed. Dismiss nonce now output via `wp_add_inline_script`. Dismiss handlers moved to `admin.js`. (P1-T14)
+- **wp.org compliance:** Inline `onchange="..."` removed from post-type dropdown `<select>`. Handler moved to `admin.js`. (P1-T15)
+- **Bug fix:** Author exclusion show/hide selector fixed — was using `.closest('tr')` on a flex layout, so it was always a no-op. Now targets the actual container. (P1-T16)
+- **i18n:** All hardcoded English strings in `admin.js` (Swal dialog titles, button labels, validation messages) moved to the `schedulely_admin.strings` localisation map. (P1-T17)
+
+### Added
+- `.distignore` — defines everything excluded from the wp.org release zip. The GitHub Actions release workflow now reads this file instead of using a hardcoded inline exclusion list. (P1-T1)
+
+### Phase 2 progress
+
+- **Architecture:** Introduced `Schedulely_Defaults` constants class (`includes/class-defaults.php`). All option default values now live in one place. `get_option()` reads and `add_option()` writes both reference the constants. (P2-T1)
+- **Architecture:** Added `spl_autoload_register`-based autoloader (`includes/autoloader.php`) — maps `Schedulely_*` class names to `includes/class-{slug}.php`. Removed the manual `require_once` chain from `schedulely.php`. (P2-T2)
+- **Architecture:** `MAX_POSTS_PER_RUN` constant in `Schedulely_Scheduler` now references `Schedulely_Defaults::MAX_POSTS_PER_RUN` (1500, restored from a premature reduction). Pool size is now user-configurable in the UI — a new "Pool Size (Max Posts per Run)" field under Content & Volume. A larger pool gives shuffle and AI ordering more variety. The `schedulely_max_posts_per_run` filter provides a programmatic override for hosts with tight execution time limits. (P2-T1, P3-T1)
+
+### Phase 3 — Performance hardening
+
+- **Performance (Critical):** AI queue reordering is now disabled on cron-driven runs. `Schedulely_Scheduler::run_schedule()` accepts a new `$allow_ai_reorder` parameter (default `false`). The cron callback passes `false`; the manual "Run Schedule Now" button and the `schedulely/run-schedule` Ability pass `true`. This eliminates the up-to-20-minute synchronous HTTP call from the cron worker. (P3-T3)
+- **Performance (High):** `Schedulely_Author_Manager::get_eligible_authors()` now caches the user list in a member variable (`$eligible_authors_cache`). The scheduling loop of 1500 posts previously issued 1500 `get_users()` queries; it now issues exactly one. (P3-T5)
+- **Performance (High):** Post objects are now primed via `_prime_post_caches()` once before the scheduling loop rather than per-post. (P3-T4)
+- **Reliability (High):** `schedulely_run_auto_schedule()` is now wrapped in `try/catch(\Throwable)`. Exceptions are logged and, if email notifications are enabled, an error notification is sent. Previously, any uncaught exception silently killed the cron pass with no trace for the admin. (P3-T8)
+- **Bug fix (Medium):** `schedulely_ajax_manual_schedule()` now catches `\Throwable` instead of the narrower `Exception`, covering PHP 8 `Error` subclasses. The error message exposed to the user is now generic — the full exception is logged, not echoed. (P3-T8 adjacent)
+- **Compatibility (Medium):** Replaced all remaining `date()` calls in `class-notifications.php` with `wp_date()` so email timestamps respect the site's configured timezone, not PHP's server default timezone. (P3-T6)
+- **Performance (Low):** Per-retry `error_log()` calls inside the scheduling loop replaced with an aggregate counter; a single summary line is emitted at the end of the run if any retries occurred. (P3-T7)
+- **Pool size configurable (user request):** Default pool size restored to 1500. New "Pool Size" field in Content & Volume section of the settings page. Filter `schedulely_max_posts_per_run` and the UI control both work — filter takes precedence if set. (P3-T1 revised)
+- **Phase 2 regression fixes:** Welcome notice dismiss switched to per-user `update_user_meta` (was site-wide `update_option`). `wp_add_inline_script` nonce output now targets `schedulely-admin` handle (was `jquery`). Clear-log handler now checks nonce before capability (consistent with other handlers). `settings-page.php` footer uses `wp_kses_post` instead of unescaped `printf`. "Target: %d/day" string now translatable. (Issues A–G from audit review)
+- **Architecture:** Extracted `Schedulely_Admin_Menu` (`includes/class-admin-menu.php`) — owns only the `add_management_page` call. (P2-T3)
+- **Architecture:** Extracted `Schedulely_Admin_Assets` (`includes/class-admin-assets.php`) — owns asset enqueuing and `wp_localize_script`. Duplicate enqueue code removed from `Schedulely_Settings`. (P2-T4)
+- **Architecture:** Extracted `Schedulely_Admin_Notices` (`includes/class-admin-notices.php`) — owns the welcome notice. (P2-T9)
+- **Architecture:** Extracted `Schedulely_Ajax_Handlers` (`includes/class-ajax-handlers.php`) — owns all five AJAX/admin-post handlers (`check_capacity`, `dismiss_notice`, `toggle_auto_schedule`, `test_ai_connection`, `clear_ai_reorder_log`). (P2-T8)
+- **Architecture:** Settings API `register_setting()` calls removed (P2-T5 — the form uses a direct `$_POST` handler, not `do_settings_sections`; the half-used Settings API pattern is gone). (P2-T5)
+- **Architecture:** Form save handler extracted to `Schedulely_Settings::handle_form_save()` — `render_settings_page()` now calls it instead of embedding 40+ lines of `update_option` calls inline. `wp_unslash()` applied consistently to every `$_POST` access. Server-side clamping added for posts-per-day and min-interval (mirrors JS validation). (P2-T6)
+- **Architecture:** `Schedulely_Settings` completely rewritten — 466 lines (was 1,407). HTML template extracted to `templates/admin/settings-page.php` (542 lines). `render_settings_page()` loads the template via `require`. All methods moved to dedicated classes in 1.6.0. `get_statistics()` updated to use `wp_date()` and `wp_count_posts`. (P2-T7, P2-T11)
+- **WP 7.0 Abilities:** Registered `Schedulely_Abilities` class (`includes/class-abilities.php`) with five abilities: `schedulely/run-schedule`, `schedulely/check-capacity`, `schedulely/get-furthest-scheduled-date`, `schedulely/preview-next-slot`, `schedulely/run-ai-reorder`. All abilities are REST-visible (`show_in_rest: true`). Only registered when `wp_register_ability()` is available (WP 7.0+). (P2-T12 through P2-T17)
+
+---
+
+## [1.5.10] - 12/05/2026
 
 ### Added
 - **Settings: WP-Cron hint** — Under Quick Toggles, shows the real event hook **`schedulely_auto_schedule`**, how to find it in cron plugins, recurrence (`twicedaily`), and **next run** in site time when scheduled.

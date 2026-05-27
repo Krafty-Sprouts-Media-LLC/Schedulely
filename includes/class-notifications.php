@@ -23,9 +23,15 @@ class Schedulely_Notifications
 {
 
     /**
-     * Send scheduling completion notification
-     * 
-     * @param array $results Scheduling results
+     * Send scheduling completion notification.
+     *
+     * If `schedulely_ai_email_summary` is enabled and WP 7.0 AI is available,
+     * a 2–3 sentence AI-generated summary is prepended to the email.
+     *
+     * @since 1.0.0
+     * @since 1.6.0 AI summary support added (P3-T9).
+     *
+     * @param array $results Scheduling results.
      */
     public function send_scheduling_notification($results)
     {
@@ -34,10 +40,10 @@ class Schedulely_Notifications
         }
 
         if (!$results['success'] || $results['scheduled_count'] === 0) {
-            return; // Don't send notification if nothing was scheduled
+            return;
         }
 
-        $to = $this->get_notification_email();
+        $to      = $this->get_notification_email();
         $subject = sprintf(
             __('Schedulely: %d Posts Scheduled Successfully', 'schedulely'),
             $results['scheduled_count']
@@ -45,9 +51,63 @@ class Schedulely_Notifications
 
         $message = $this->build_notification_message($results);
 
-        $headers = ['Content-Type: text/html; charset=UTF-8'];
+        // Prepend AI-generated summary when the feature is enabled (WP 7.0+ only).
+        if ( apply_filters( 'schedulely_feature_ai_email_summary', true )
+            && get_option( 'schedulely_ai_email_summary', false )
+            && function_exists( 'wp_ai_client_prompt' ) ) {
+            $summary = $this->generate_ai_email_summary( $results );
+            if ( '' !== $summary ) {
+                $summary_html = '<div style="background:#f0f7ff; border-left:4px solid #2271b1; padding:12px 16px; margin-bottom:20px; font-size:15px; line-height:1.6;">'
+                    . '<strong>' . esc_html__( 'AI Summary', 'schedulely' ) . '</strong><br>'
+                    . wp_kses_post( $summary )
+                    . '</div>';
+                $message = $summary_html . $message;
+            }
+        }
 
+        $headers = ['Content-Type: text/html; charset=UTF-8'];
         wp_mail($to, $subject, $message, $headers);
+    }
+
+    /**
+     * Generate a 2–3 sentence AI summary of the scheduling run.
+     *
+     * Only called when `schedulely_ai_email_summary` is true and WP 7.0 AI is available.
+     * Falls back silently to an empty string on any error.
+     *
+     * @since 1.6.0
+     * @param array $results Scheduling results.
+     * @return string Paragraph of HTML-safe plain text, or empty string.
+     */
+    private function generate_ai_email_summary( array $results ): string {
+        $count      = (int) $results['scheduled_count'];
+        $dates      = array_unique( array_column( $results['scheduled_posts'] ?? [], 'date' ) );
+        sort( $dates );
+        $date_range = ! empty( $dates )
+            ? ( wp_date( 'M j', strtotime( $dates[0] ) ) . ( count( $dates ) > 1 ? ' – ' . wp_date( 'M j', strtotime( end( $dates ) ) ) : '' ) )
+            : '';
+        $ai_applied = ! empty( $results['ai_queue_ordered'] );
+
+        $prompt = sprintf(
+            'You are a publishing operations assistant. Write a 2–3 sentence plain-text summary of this automated post-scheduling run. Be specific, use numbers, no marketing tone. Scheduled: %d posts. Date range: %s. AI reordering applied: %s.',
+            $count,
+            $date_range ?: __( 'same day', 'schedulely' ),
+            $ai_applied ? 'yes' : 'no'
+        );
+
+        try {
+            $builder = wp_ai_client_prompt( $prompt )
+                ->using_system_instruction( 'Respond in plain text only. 2–3 sentences maximum. No markdown.' )
+                ->using_temperature( 0.3 );
+
+            if ( ! $builder->is_supported_for_text_generation() ) {
+                return '';
+            }
+            return esc_html( trim( (string) $builder->generate_text() ) );
+        } catch ( \Throwable $e ) {
+            schedulely_log_error( 'AI email summary failed: ' . $e->getMessage() );
+            return '';
+        }
     }
 
     /**
@@ -127,8 +187,8 @@ class Schedulely_Notifications
         // Get all unique dates
         $dates = array_unique(array_column($results['scheduled_posts'], 'date'));
         sort($dates);
-        $start_date = !empty($dates) ? date('M j, Y', strtotime($dates[0])) : '';
-        $end_date = !empty($dates) ? date('M j, Y', strtotime(end($dates))) : '';
+        $start_date = ! empty( $dates ) ? ( wp_date( 'M j, Y', strtotime( $dates[0] ) ) ?? '' ) : '';
+        $end_date   = ! empty( $dates ) ? ( wp_date( 'M j, Y', strtotime( end( $dates ) ) ) ?? '' ) : '';
 
         // CRITICAL FIX: Count TOTAL posts per date (not just from current run)
         // This fixes the bug where counts reset instead of accumulating
@@ -144,7 +204,7 @@ class Schedulely_Notifications
         $complete_dates = 0;
 
         foreach ($posts_per_date as $date => $count) {
-            $date_display = date('l, M j, Y', strtotime($date));
+            $date_display = wp_date( 'l, M j, Y', strtotime( $date ) ) ?? $date;
             if ($count >= $quota) {
                 $date_status_html .= "✅ <strong>{$date_display}</strong>: {$count}/{$quota} posts (Complete)<br>\n";
                 $complete_dates++;
@@ -163,8 +223,9 @@ class Schedulely_Notifications
         $start_time = get_option('schedulely_start_time', '5:00 PM');
         $end_time = get_option('schedulely_end_time', '11:00 PM');
 
-        // Get the current date/time when scheduler ran
-        $run_datetime = date('l, M j, Y \a\t g:i A', current_time('timestamp'));
+        // Get the current date/time when scheduler ran.
+        // wp_date() respects the site timezone set in Settings → General.
+        $run_datetime = wp_date('l, M j, Y \a\t g:i A');
 
         // Get author randomization status
         $author_randomized = get_option('schedulely_randomize_authors', false) ? __('Yes', 'schedulely') : __('No', 'schedulely');
@@ -191,7 +252,7 @@ class Schedulely_Notifications
         $posts_to_show = array_slice($results['scheduled_posts'], 0, 10);
 
         foreach ($posts_to_show as $post_data) {
-            $display_time = date('M j, g:i A', strtotime($post_data['datetime']));
+            $display_time = wp_date( 'M j, g:i A', strtotime( $post_data['datetime'] ) ) ?? $post_data['datetime'];
             $title = esc_html($post_data['title']);
             $upcoming_posts_html .= "• {$display_time} - \"{$title}\"<br>\n";
         }

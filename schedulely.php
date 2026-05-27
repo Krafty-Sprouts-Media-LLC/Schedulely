@@ -3,7 +3,7 @@
  * Plugin Name: Schedulely
  * Plugin URI: https://kraftysprouts.com
  * Description: Intelligently schedule posts from any status with smart deficit tracking, random author assignment, and customizable time windows.
- * Version: 1.5.10
+ * Version: 1.6.0
  * Author: Krafty Sprouts Media, LLC
  * Author URI: https://kraftysprouts.com
  * License: GPL v2 or later
@@ -23,7 +23,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('SCHEDULELY_VERSION', '1.5.10');
+define('SCHEDULELY_VERSION', '1.6.0');
 define('SCHEDULELY_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('SCHEDULELY_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('SCHEDULELY_PLUGIN_BASENAME', plugin_basename(__FILE__));
@@ -38,24 +38,39 @@ function schedulely_load_textdomain()
 add_action('plugins_loaded', 'schedulely_load_textdomain');
 
 /**
- * Load plugin classes
+ * Load plugin classes via autoloader.
+ *
+ * The autoloader maps Schedulely_* class names to includes/class-{slug}.php.
+ * Individual require_once calls are no longer needed.
+ *
+ * @since 1.6.0 Replaced manual require_once chain with spl_autoload_register.
  */
-require_once SCHEDULELY_PLUGIN_DIR . 'includes/class-ai-order.php';
-require_once SCHEDULELY_PLUGIN_DIR . 'includes/class-scheduler.php';
-require_once SCHEDULELY_PLUGIN_DIR . 'includes/class-author-manager.php';
-require_once SCHEDULELY_PLUGIN_DIR . 'includes/class-settings.php';
-require_once SCHEDULELY_PLUGIN_DIR . 'includes/class-notifications.php';
+require_once SCHEDULELY_PLUGIN_DIR . 'includes/class-defaults.php';
+require_once SCHEDULELY_PLUGIN_DIR . 'includes/autoloader.php';
 
 /**
- * Initialize plugin update checker
- * 
- * Checks for updates from GitHub repository using plugin-update-checker library.
- * Updates are delivered via GitHub releases.
- * Since @version 1.3.0, the update checker is located in the vendor folder.
+ * Initialize plugin update checker.
+ *
+ * Loads the GitHub-based update checker for development builds and
+ * self-hosted distributions only. This function is a no-op when
+ * SCHEDULELY_WPORG_BUILD is defined (the wp.org release zip defines
+ * this constant), or when the library is simply not present.
+ *
+ * The wp.org release zip excludes vendor/plugin-update-checker/ via
+ * .distignore, so updates for wp.org-hosted installs flow through the
+ * WordPress.org update API instead.
+ *
+ * @since 1.3.0
+ * @since 1.6.0 Gated behind SCHEDULELY_WPORG_BUILD constant check.
  */
 function schedulely_init_update_checker()
 {
-    // Only load update checker if the library exists
+    // Never run on wp.org builds — the constant is defined by the build script.
+    if (defined('SCHEDULELY_WPORG_BUILD')) {
+        return;
+    }
+
+    // Only load update checker if the library exists (excluded from wp.org zip).
     if (file_exists(SCHEDULELY_PLUGIN_DIR . 'vendor/plugin-update-checker/plugin-update-checker.php')) {
         require_once SCHEDULELY_PLUGIN_DIR . 'vendor/plugin-update-checker/plugin-update-checker.php';
 
@@ -65,7 +80,7 @@ function schedulely_init_update_checker()
             'schedulely'
         );
 
-        // Enable release assets (zip files) for automatic updates
+        // Enable release assets (zip files) for automatic updates.
         $update_checker->getVcsApi()->enableReleaseAssets();
     }
 }
@@ -78,6 +93,11 @@ function schedulely_init()
 {
     $settings = new Schedulely_Settings();
     $settings->init();
+
+    // Register WordPress 7.0 Abilities when the API is available.
+    if ( function_exists( 'wp_register_ability' ) ) {
+        ( new Schedulely_Abilities() )->register_hooks();
+    }
 }
 add_action('plugins_loaded', 'schedulely_init');
 
@@ -112,6 +132,8 @@ function schedulely_activate()
     add_option('schedulely_active_days', [1, 2, 3, 4, 5, 6, 0]); // Mon-Sun
     add_option('schedulely_min_interval', 40);
     add_option('schedulely_shuffle_queue', true);
+    add_option('schedulely_pool_size', Schedulely_Defaults::MAX_POSTS_PER_RUN); // Max posts fetched per run
+    add_option('schedulely_scheduling_mode', Schedulely_Defaults::SCHEDULING_MODE); // random | sequential | hybrid
     add_option('schedulely_ai_order_enabled', false);
     add_option('schedulely_ai_api_key', '');
     add_option('schedulely_ai_base_url', 'https://api.deepseek.com/v1');
@@ -122,6 +144,7 @@ function schedulely_activate()
     add_option('schedulely_post_types', ['post']); // Post types to schedule (default: post for backward compatibility)
     add_option('schedulely_auto_schedule', false); // CRITICAL: Changed to false - prevents auto-run on activation
     add_option('schedulely_email_notifications', true);
+    add_option('schedulely_ai_email_summary', false); // Opt-in AI summary in notification emails
     add_option('schedulely_notification_users', []); // Empty array - will default to current user on settings page
     add_option('schedulely_version', SCHEDULELY_VERSION);
 
@@ -146,22 +169,86 @@ function schedulely_deactivate()
 register_deactivation_hook(__FILE__, 'schedulely_deactivate');
 
 /**
- * WordPress cron hook for automatic scheduling
+ * Register model preferences for the AI queue reorder task.
+ *
+ * When wp_ai_client_prompt() is used (WP 7.0+ path), this filter steers the
+ * platform toward fast, cheap, JSON-capable models. The reorder prompt is
+ * structured-output-only — there is no value in using a reasoning model here.
+ *
+ * Only applies during an active reorder call (guarded by the
+ * schedulely_pre_ai_reorder action flag).
+ *
+ * @since 1.6.0
+ */
+add_filter( 'wpai_preferred_text_models', function ( array $models ): array {
+    if ( ! did_action( 'schedulely_pre_ai_reorder' ) ) {
+        return $models;
+    }
+    /**
+     * Preferred models for AI queue reordering.
+     *
+     * DeepSeek is listed first — it is the cheapest option for structured-JSON
+     * tasks, its API natively supports response_format json_object, and it is
+     * the original default provider for this feature.
+     *
+     * Model IDs (verified May 2026 — https://api-docs.deepseek.com/quick_start/pricing):
+     *   deepseek   : deepseek-v4-flash      → main fast/cheap model.
+     *                                          'deepseek-chat' is a deprecated alias.
+     *   deepseek   : deepseek-v4-pro        → fallback if flash is unavailable.
+     *   google     : gemini-3.1-flash-lite  → GA 2026-05-07; replaces deprecated gemini-2.5-flash.
+     *   google     : gemini-3-flash-preview → preview tier.
+     *   openai     : gpt-5.4-mini
+     *   anthropic  : claude-sonnet-4-6
+     *
+     * @since 1.6.0
+     */
+    return [
+        [ 'deepseek',  'deepseek-v4-flash' ],
+        [ 'deepseek',  'deepseek-v4-pro' ],
+        [ 'google',    'gemini-3.1-flash-lite' ],
+        [ 'google',    'gemini-3-flash-preview' ],
+        [ 'openai',    'gpt-5.4-mini' ],
+        [ 'anthropic', 'claude-sonnet-4-6' ],
+    ];
+} );
+
+/**
+ * WordPress cron hook for automatic scheduling.
+ *
+ * Wrapped in try/catch so any uncaught exception does not silently kill
+ * the cron process. Exceptions are logged and an error notification email
+ * is sent if email notifications are enabled.
+ *
+ * @since 1.0.0
+ * @since 1.6.0 Added try/catch and error notification on failure.
  */
 function schedulely_run_auto_schedule()
 {
-    if (get_option('schedulely_auto_schedule', true)) {
-        $scheduler = new Schedulely_Scheduler();
-        $results = $scheduler->run_schedule();
+    if ( ! get_option( 'schedulely_auto_schedule', Schedulely_Defaults::AUTO_SCHEDULE ) ) {
+        return;
+    }
 
-        // Send notification if enabled
-        if (get_option('schedulely_email_notifications', true)) {
+    try {
+        $scheduler = new Schedulely_Scheduler();
+        $results   = $scheduler->run_schedule();
+
+        if ( get_option( 'schedulely_email_notifications', Schedulely_Defaults::EMAIL_NOTIFICATIONS ) ) {
             $notifier = new Schedulely_Notifications();
-            $notifier->send_scheduling_notification($results);
+            $notifier->send_scheduling_notification( $results );
         }
 
-        // Update last run timestamp
-        update_option('schedulely_last_run', time());
+        update_option( 'schedulely_last_run', time() );
+
+    } catch ( \Throwable $e ) {
+        schedulely_log_error( 'Cron scheduling exception: ' . $e->getMessage(), [
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+        ] );
+
+        if ( get_option( 'schedulely_email_notifications', Schedulely_Defaults::EMAIL_NOTIFICATIONS ) ) {
+            $notifier = new Schedulely_Notifications();
+            $notifier->send_error_notification( 'Cron run failed: ' . $e->getMessage() );
+        }
     }
 }
 add_action('schedulely_auto_schedule', 'schedulely_run_auto_schedule');
@@ -184,7 +271,9 @@ function schedulely_ajax_manual_schedule()
     // Run scheduler
     try {
         $scheduler = new Schedulely_Scheduler();
-        $results = $scheduler->run_schedule();
+        // Pass true to allow AI queue reordering — the admin is waiting,
+        // so synchronous HTTP timeouts are acceptable and visible to the user.
+        $results = $scheduler->run_schedule( true );
 
         if ($results['success']) {
             // Update last run timestamp
@@ -208,10 +297,10 @@ function schedulely_ajax_manual_schedule()
                 'message' => $results['message']
             ]);
         }
-    } catch (Exception $e) {
+    } catch (\Throwable $e) {
         schedulely_log_error('AJAX scheduling error: ' . $e->getMessage());
         wp_send_json_error([
-            'message' => __('An error occurred: ', 'schedulely') . $e->getMessage()
+            'message' => __('An error occurred. Please check the debug log.', 'schedulely')
         ]);
     }
 }
@@ -253,6 +342,22 @@ function schedulely_upgrade($from_version)
 {
     // Version-specific migrations go here
     // User settings are automatically preserved - we only add/modify as needed
+
+    if (version_compare($from_version, '1.6.0', '<')) {
+        add_option('schedulely_pool_size', Schedulely_Defaults::MAX_POSTS_PER_RUN);
+        add_option('schedulely_ai_email_summary', false);
+        add_option('schedulely_scheduling_mode', Schedulely_Defaults::SCHEDULING_MODE);
+
+        // Migrate legacy single-email option to the multi-user array.
+        // schedulely_notification_email was removed in 1.0.2 but may exist on very old installs.
+        $legacy_email = get_option( 'schedulely_notification_email', '' );
+        if ( '' !== $legacy_email && empty( get_option( 'schedulely_notification_users', [] ) ) ) {
+            $user = get_user_by( 'email', $legacy_email );
+            if ( $user ) {
+                add_option( 'schedulely_notification_users', [ $user->ID ] );
+            }
+        }
+    }
 
     if (version_compare($from_version, '1.3.7', '<')) {
         add_option('schedulely_shuffle_queue', true);
@@ -298,18 +403,21 @@ function schedulely_upgrade($from_version)
 }
 
 /**
- * Log errors to WordPress debug log
- * 
- * @param string $message Error message to log
- * @param array $data Additional data to log
+ * Log errors to WordPress debug log.
+ *
+ * @since 1.0.0
+ * @since 1.6.0 Uses wp_json_encode instead of print_r for compact, greppable output.
+ *
+ * @param string $message Error message to log.
+ * @param array  $data    Additional context data.
  */
 function schedulely_log_error($message, $data = [])
 {
     if (defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
         error_log(sprintf(
-            '[Schedulely] %s | Data: %s',
+            '[Schedulely] %s%s',
             $message,
-            print_r($data, true)
+            ! empty( $data ) ? ' | ' . wp_json_encode( $data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ) : ''
         ));
     }
 }
@@ -385,23 +493,27 @@ function schedulely_append_ai_reorder_log(array $entry)
 }
 
 /**
- * Clear plugin caches
+ * Clear plugin caches.
+ *
+ * Invalidates only the named keys Schedulely writes. We deliberately do NOT call
+ * wp_cache_flush() — that would evict the entire site object cache, which is a
+ * severe performance footgun on object-cached sites (Redis, Memcached). The
+ * wp_update_post() calls inside the scheduler already invalidate per-post cache
+ * entries automatically.
+ *
+ * Third-party page-cache plugins can listen to the schedulely_clear_cache action
+ * to do their own selective purging.
+ *
+ * @since 1.0.0
+ * @since 1.6.0 Removed wp_cache_flush() — no longer evicts the site-wide object cache.
  */
 function schedulely_clear_cache()
 {
-    // Clear post cache
+    // Invalidate the two named cache groups Schedulely writes to.
     wp_cache_delete('schedulely_available_posts', 'schedulely');
     wp_cache_delete('schedulely_scheduled_posts', 'schedulely');
 
-    // Clear object cache
-    wp_cache_flush();
-
-    // Clear query cache if present
-    if (function_exists('wp_cache_flush_group')) {
-        wp_cache_flush_group('posts');
-    }
-
-    // Trigger action for third-party cache plugins
+    // Allow third-party cache plugins to selectively purge their own caches.
     do_action('schedulely_clear_cache');
 }
 

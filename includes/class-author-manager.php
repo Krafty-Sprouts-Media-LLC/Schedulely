@@ -20,6 +20,15 @@ if (!defined('ABSPATH')) {
  * Handles random author assignment with exclusions.
  */
 class Schedulely_Author_Manager {
+
+    /**
+     * Cached list of eligible authors for the current request.
+     * Populated once per request on first call to get_eligible_authors().
+     *
+     * @since 1.6.0
+     * @var array<\WP_User>|null
+     */
+    private $eligible_authors_cache = null;
     
     /**
      * Get random author ID for assignment
@@ -45,11 +54,21 @@ class Schedulely_Author_Manager {
     }
     
     /**
-     * Get all eligible authors (excluding excluded users)
-     * 
-     * @return array Array of WP_User objects
+     * Get all eligible authors (excluding excluded users).
+     *
+     * Result is cached in a member variable for the lifetime of this instance
+     * so the scheduling loop only calls get_users() once regardless of how
+     * many posts are being scheduled.
+     *
+     * @since 1.0.0
+     * @since 1.6.0 Added per-instance cache (eliminates N get_users() calls in the loop).
+     * @return array<\WP_User>
      */
     private function get_eligible_authors() {
+        if ( null !== $this->eligible_authors_cache ) {
+            return $this->eligible_authors_cache;
+        }
+
         $excluded_authors = $this->get_excluded_authors();
         
         $args = [
@@ -64,9 +83,8 @@ class Schedulely_Author_Manager {
             $args['exclude'] = $excluded_authors;
         }
         
-        $users = get_users($args);
-        
-        return $users;
+        $this->eligible_authors_cache = get_users($args);
+        return $this->eligible_authors_cache;
     }
     
     /**

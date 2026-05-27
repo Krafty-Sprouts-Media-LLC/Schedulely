@@ -1,0 +1,50 @@
+# .distignore
+# Files and directories excluded from the wp.org release zip.
+# This file is read by the release workflow (release.yml).
+# It is also the canonical reference for what must NOT ship to wp.org.
+
+# Version control
+.git/
+.gitignore
+.gitattributes
+
+# CI / GitHub
+.github/
+
+# IDE / editor config
+.vscode/
+.editorconfig
+
+# AI agent skill packs (dev tooling only — never ship)
+.agent-skills/
+.skills/
+.wp-ai/
+
+# This file itself
+.distignore
+
+# Audit documents (internal)
+audit/
+audit-schedulely-wp70-ai.md
+
+# Developer documentation (not for end users)
+docs/
+README.md
+agents.md
+development.md
+IMPLEMENTATION_PLAN.md
+
+# Design playground files (no runtime purpose)
+assets/demos/
+
+# Update checker (wp.org manages updates for hosted plugins)
+vendor/plugin-update-checker/
+
+# Build artefacts and lock files
+node_modules/
+*.zip
+composer.lock
+package-lock.json
+yarn.lock
+package.json
+composer.json

@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schedulely - Dashboard Grid (Integrated)</title>
+    <!-- Lato for titles, system sans for body -->
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <style>
+        /* WP Admin Shell Simulation */
+        body {
+            background: #f0f0f1;
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+            color: #3c434a;
+            font-size: 13px;
+        }
+
+        .wp-admin-chrome {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .wp-menu {
+            width: 160px;
+            background: #1d2327;
+            color: white;
+            flex-shrink: 0;
+            padding-top: 32px;
+        }
+
+        .wp-content {
+            flex: 1;
+            padding: 20px;
+        }
+
+        .wrap {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Dashboard Design */
+        .dash-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        .dash-title {
+            font-family: 'Lato', sans-serif;
+            font-size: 24px;
+            font-weight: 700;
+            color: #1d2327;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .dash-badge {
+            background: #2271b1;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .dash-subtitle {
+            font-size: 14px;
+            color: #646970;
+            margin-top: 5px;
+        }
+
+        .action-bar {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 13px;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .btn-primary {
+            background: #2271b1;
+            color: white;
+            border-color: #2271b1;
+        }
+
+        .btn-primary:hover {
+            background: #135e96;
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #2271b1;
+            border-color: #2271b1;
+        }
+
+        .btn-secondary:hover {
+            background: #f6f7f7;
+        }
+
+        /* Grid Layout */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            grid-template-rows: auto auto;
+        }
+
+        /* Stats Cards */
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 6px;
+            border: 1px solid #dcdcde;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        .stat-icon {
+            width: 32px;
+            height: 32px;
+            background: #f0f6fc;
+            color: #2271b1;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+
+        .stat-value {
+            font-family: 'Lato', sans-serif;
+            font-size: 28px;
+            font-weight: 700;
+            color: #1d2327;
+            line-height: 1;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: #646970;
+            font-weight: 500;
+        }
+
+        .stat-trend {
+            font-size: 11px;
+            color: #00a32a;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-top: 10px;
+            font-weight: 600;
+        }
+
+        .stat-trend.down {
+            color: #d63638;
+        }
+
+        /* Main Config Area */
+        .config-card {
+            grid-column: span 3;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #dcdcde;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid #f0f0f1;
+            background: #fff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-title {
+            font-weight: 600;
+            font-size: 14px;
+            margin: 0;
+            color: #1d2327;
+        }
+
+        .timeline-view {
+            padding: 20px;
+        }
+
+        /* Activity Feed */
+        .activity-card {
+            grid-column: span 1;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #dcdcde;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        .activity-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .activity-item {
+            padding: 15px 20px;
+            border-bottom: 1px solid #f0f0f1;
+            display: flex;
+            gap: 12px;
+        }
+
+        .activity-item:last-child {
+            border-bottom: none;
+        }
+
+        .activity-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-top: 6px;
+            flex-shrink: 0;
+        }
+
+        .activity-content {
+            font-size: 13px;
+            line-height: 1.4;
+            color: #3c434a;
+        }
+
+        .activity-time {
+            font-size: 11px;
+            color: #8c8f94;
+            display: block;
+            margin-top: 4px;
+        }
+
+        .dot-blue {
+            background: #2271b1;
+        }
+
+        .dot-green {
+            background: #00a32a;
+        }
+
+        .dot-orange {
+            background: #dba617;
+        }
+
+        /* Quick Settings Panel */
+        .quick-settings {
+            padding: 20px;
+            border-top: 1px solid #f0f0f1;
+            background: #fcfcfc;
+        }
+
+        .setting-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+
+        .toggle-switch {
+            width: 36px;
+            height: 20px;
+            background: #8c8f94;
+            border-radius: 10px;
+            position: relative;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .toggle-switch.on {
+            background: #2271b1;
+        }
+
+        .toggle-knob {
+            width: 16px;
+            height: 16px;
+            background: white;
+            border-radius: 50%;
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            transition: 0.2s;
+        }
+
+        .toggle-switch.on .toggle-knob {
+            left: 18px;
+        }
+
+        /* Integrated Logic & States Styles */
+        .insight-panel {
+            background: #f0f6fc;
+            border: 1px solid #cce5ff;
+            border-radius: 6px;
+            padding: 15px 20px;
+            margin-bottom: 25px;
+            position: relative;
+        }
+
+        .insight-title {
+            color: #1d2327;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .insight-icon {
+            color: #2271b1;
+        }
+
+        .insight-content {
+            margin-top: 10px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #2c3338;
+        }
+
+        .insight-list {
+            margin: 5px 0 0 20px;
+            padding: 0;
+        }
+
+        .insight-list li {
+            margin-bottom: 5px;
+        }
+
+        .close-insight {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            border: none;
+            background: none;
+            color: #646970;
+            cursor: pointer;
+        }
+
+        /* Alert Box */
+        .alert-box {
+            background: #fcf0f1;
+            border-left: 4px solid #d63638;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            display: flex;
+            gap: 15px;
+            align-items: start;
+        }
+
+        .alert-icon {
+            color: #d63638;
+            margin-top: 2px;
+        }
+
+        .alert-title {
+            font-weight: 700;
+            color: #b32d2e;
+            display: block;
+            margin-bottom: 4px;
+            font-size: 14px;
+        }
+
+        .alert-desc {
+            color: #1d2327;
+            line-height: 1.4;
+        }
+
+        /* Suggestions */
+        .suggestion-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 20px;
+            border-top: 1px solid #f0f0f1;
+            padding-top: 20px;
+        }
+
+        .suggestion-card {
+            background: #fff;
+            border: 1px solid #dcdcde;
+            border-radius: 6px;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s;
+        }
+
+        .suggestion-card:hover {
+            border-color: #2271b1;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+
+        .sugg-content {
+            flex: 1;
+        }
+
+        .sugg-title {
+            font-weight: 600;
+            color: #1d2327;
+            font-size: 13px;
+            margin-bottom: 3px;
+        }
+
+        .sugg-desc {
+            color: #646970;
+            font-size: 12px;
+        }
+
+        .sugg-action {
+            margin-left: 20px;
+            flex-shrink: 0;
+        }
+
+        .btn-apply {
+            background: white;
+            color: #2271b1;
+            border: 1px solid #2271b1;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .btn-apply:hover {
+            background: #f0f6fc;
+        }
+
+        .capacity-meter {
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 5px;
+            width: 100%;
+        }
+
+        .capacity-fill {
+            height: 100%;
+            background: #d63638;
+            width: 37%;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="wp-admin-chrome">
+        <div class="wp-menu">
+            <div style="padding: 10px 12px; color: #f0f0f1;">Dashboard</div>
+            <div style="padding: 10px 12px; color: #f0f0f1; background: #2271b1;">Tools</div>
+        </div>
+
+        <div class="wp-content">
+            <div class="wrap">
+
+                <div class="dash-header">
+                    <div>
+                        <h1 class="dash-title">Schedulely <span class="dash-badge">Pro</span></h1>
+                        <div class="dash-subtitle">Automated Content Distribution Engine</div>
+                    </div>
+                    <div class="action-bar">
+                        <a href="#" class="btn btn-secondary">Report Issue</a>
+                        <a href="#" class="btn btn-primary" onclick="alert('Triggering WP Cron...')">Run Schedule
+                            Now</a>
+                    </div>
+                </div>
+
+                <!-- INTEGRATED INSIGHT PANEL -->
+                <div class="insight-panel">
+                    <button class="close-insight">✕</button>
+                    <div class="insight-title">
+                        <svg class="insight-icon" width="20" height="20" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        How Random Scheduling Works
+                    </div>
+                    <div class="insight-content">
+                        Posts are scheduled at <strong>random times</strong> within your time window for a natural
+                        appearance.
+                        <ul class="insight-list">
+                            <li>✅ Posts are <strong>at least X minutes</strong> apart (never closer)</li>
+                            <li>✅ Gaps between posts vary randomly (some 30 min, some 60+ min)</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="dashboard-grid">
+
+                    <!-- Stat Cards (Simulating a state needing attention) -->
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                        </div>
+                        <div class="stat-value">142</div>
+                        <div class="stat-label">Drafts Available</div>
+                        <div class="stat-trend">↑ 12 new this week</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                        </div>
+                        <div class="stat-value">3</div>
+                        <div class="stat-label">Scheduled Today</div>
+                        <!-- Highlighting the discrepancy -->
+                        <div class="stat-trend down">Target: 8/day (Missed)</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon" style="color: #d63638; background: #fcf0f1;">
+                            <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                        </div>
+                        <div class="stat-value" style="color: #d63638;">2</div>
+                        <div class="stat-label">Deficit Days</div>
+                        <div class="stat-trend down">Action Needed</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon" style="color: #00a32a; background: #edfaef;">
+                            <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                        <div class="stat-value" style="color: #00a32a;">Active</div>
+                        <div class="stat-label">System Health</div>
+                        <div class="stat-trend">Cron Running</div>
+                    </div>
+
+                    <!-- Main Config / Troubleshooting Area -->
+                    <div class="config-card">
+                        <div class="card-header">
+                            <h3 class="card-title">Configuration & Constraints</h3>
+                            <a href="#" style="font-size: 13px; text-decoration: none;">Advanced Edit</a>
+                        </div>
+
+                        <div class="timeline-view">
+
+                            <!-- INTEGRATED ALERT BOX -->
+                            <div class="alert-box">
+                                <svg class="alert-icon" width="24" height="24" fill="none" viewBox="0 0 24 24"
+                                    stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z">
+                                    </path>
+                                </svg>
+                                <div style="flex: 1;">
+                                    <span class="alert-title">Target Not Met</span>
+                                    <div class="alert-desc">Your settings can only fit approximately <strong>3
+                                            posts</strong>, but you want <strong>8 posts</strong>.</div>
+                                    <div class="capacity-meter">
+                                        <div class="capacity-fill"></div>
+                                    </div>
+                                    <div style="font-size: 11px; color: #d63638; margin-top: 3px;">Current Capacity: 37%
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Visual representation of settings (Greyed out / Context) -->
+                            <div style="display: flex; gap: 40px; opacity: 0.7; margin-bottom: 20px;">
+                                <div style="flex: 1;">
+                                    <label
+                                        style="display: block; font-weight: 600; margin-bottom: 10px; font-size: 13px;">Time
+                                        Window</label>
+                                    <div
+                                        style="height: 40px; background: #f0f0f1; border-radius: 4px; position: relative;">
+                                        <div
+                                            style="position: absolute; left: 20%; right: 20%; background: #d7e4f2; top: 0; bottom: 0; border: 1px dashed #2271b1;">
+                                            <span
+                                                style="position: absolute; top: -20px; left: 0; font-size: 11px; color: #2271b1; font-weight: bold;">09:00
+                                                AM</span>
+                                            <span
+                                                style="position: absolute; top: -20px; right: 0; font-size: 11px; color: #2271b1; font-weight: bold;">05:00
+                                                PM</span>
+                                            <div
+                                                style="display: flex; align-items: center; justify-content: center; height: 100%; font-size: 11px; color: #2271b1;">
+                                                Active Period</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="width: 200px;">
+                                    <label
+                                        style="display: block; font-weight: 600; margin-bottom: 10px; font-size: 13px;">Posts
+                                        per Day</label>
+                                    <div style="font-size: 32px; font-weight: bold; color: #d63638;">
+                                        8
+                                        <span style="font-size: 13px; font-weight: normal; color: #646970;">posts
+                                            (Target)</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- INTEGRATED SUGGESTIONS -->
+                            <h4 style="margin: 0 0 10px 0; font-size: 12px; text-transform: uppercase; color: #646970;">
+                                Recommended Fixes</h4>
+
+                            <div class="suggestion-card">
+                                <div class="sugg-content">
+                                    <div class="sugg-title">1. Reduce Minimum Interval</div>
+                                    <div class="sugg-desc">Change interval from <strong>40</strong> to <strong>27
+                                            minutes</strong>. Fits +2 posts.</div>
+                                </div>
+                                <div class="sugg-action">
+                                    <button class="btn-apply">Apply Fix</button>
+                                </div>
+                            </div>
+
+                            <div class="suggestion-card" style="margin-top: 10px;">
+                                <div class="sugg-content">
+                                    <div class="sugg-title">2. Expand Time Window</div>
+                                    <div class="sugg-desc">Extend window to <strong>2:18 PM - 11:59 PM</strong> (+5
+                                        hours needed).</div>
+                                </div>
+                                <div class="sugg-action">
+                                    <button class="btn-apply">Apply Fix</button>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- Activity Feed with Integrated Toggles -->
+                    <div class="activity-card">
+                        <div class="card-header">
+                            <h3 class="card-title">Recent Activity</h3>
+                        </div>
+                        <ul class="activity-list">
+                            <li class="activity-item">
+                                <div class="activity-dot dot-green"></div>
+                                <div class="activity-content">
+                                    <strong>Filled Deficit</strong>
+                                    <div>Scheduled post for 05/02</div>
+                                    <span class="activity-time">2 mins ago</span>
+                                </div>
+                            </li>
+                            <li class="activity-item">
+                                <div class="activity-dot dot-orange"></div>
+                                <div class="activity-content">
+                                    <strong>Constraint Error</strong>
+                                    <div>Failed to schedule 5 posts</div>
+                                    <span class="activity-time">1 hour ago</span>
+                                </div>
+                            </li>
+                        </ul>
+                        <div class="quick-settings">
+                            <div class="setting-toggle">
+                                <span style="font-size: 12px; font-weight: 500;">Auto-Schedule</span>
+                                <div class="toggle-switch on">
+                                    <div class="toggle-knob"></div>
+                                </div>
+                            </div>
+                            <div class="setting-toggle" style="margin-bottom: 0;">
+                                <span style="font-size: 12px; font-weight: 500;">Email Alerts</span>
+                                <div class="toggle-switch on">
+                                    <div class="toggle-knob"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>

@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schedulely - Native Refresh</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* WP Admin Reset */
+        body {
+            background: #f0f0f1;
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+            color: #1d2327;
+            font-size: 13px;
+        }
+
+        /* Layout Simulation */
+        .wp-admin-chrome {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .wp-menu {
+            width: 160px;
+            background: #1d2327;
+            color: white;
+            flex-shrink: 0;
+            padding-top: 32px;
+        }
+
+        .wp-menu-item {
+            padding: 10px 12px;
+            color: #f0f0f1;
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        .wp-menu-item.active {
+            background: #2271b1;
+            color: white;
+            opacity: 1;
+            font-weight: 600;
+            border-left: 4px solid #72aee6;
+            margin-left: -4px;
+        }
+
+        .wp-content {
+            flex: 1;
+            padding: 10px 20px;
+        }
+
+        /* The Actual Design */
+        .wrap {
+            max-width: 1200px;
+            margin: 20px auto 0;
+        }
+
+        h1 {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+            font-size: 23px;
+            font-weight: 400;
+            margin: 0 0 20px 0;
+            padding: 9px 0 4px 0;
+            line-height: 1.3;
+            color: #1d2327;
+        }
+
+        /* Tabs */
+        .nav-tab-wrapper {
+            border-bottom: 1px solid #c3c4c7;
+            padding-bottom: 0;
+            margin-bottom: 20px;
+        }
+
+        .nav-tab {
+            background: #eaeaec;
+            border: 1px solid #c3c4c7;
+            border-bottom: none;
+            color: #50575e;
+            padding: 8px 16px;
+            font-size: 14px;
+            text-decoration: none;
+            margin-right: 5px;
+            display: inline-block;
+            border-radius: 4px 4px 0 0;
+            font-weight: 500;
+        }
+
+        .nav-tab-active {
+            background: #f0f0f1;
+            color: #1d2327;
+            border-bottom: 1px solid #f0f0f1;
+            margin-bottom: -1px;
+        }
+
+        /* Cards */
+        .card-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+
+        .wp-card {
+            background: #fff;
+            border: 1px solid #c3c4c7;
+            padding: 0;
+            box-shadow: 0 1px 1px rgba(0, 0, 0, .04);
+            border-radius: 4px;
+        }
+
+        .header-panel {
+            padding: 20px;
+            border-bottom: 1px solid #f0f0f1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-panel h2 {
+            font-size: 14px;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #646970;
+            font-weight: 600;
+        }
+
+        .stats-row {
+            display: flex;
+            padding: 20px;
+        }
+
+        .stat-box {
+            flex: 1;
+            border-right: 1px solid #f0f0f1;
+            padding: 0 20px;
+            text-align: center;
+        }
+
+        .stat-box:last-child {
+            border-right: none;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            color: #2271b1;
+            font-weight: 300;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: #646970;
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+
+        /* Form Styling */
+        .settings-section {
+            padding: 20px;
+        }
+
+        .form-row {
+            margin-bottom: 20px;
+            border-bottom: 1px solid #f6f7f7;
+            padding-bottom: 20px;
+        }
+
+        .form-row:last-child {
+            border-bottom: none;
+        }
+
+        .form-label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #1d2327;
+            font-size: 14px;
+        }
+
+        .form-desc {
+            color: #646970;
+            font-size: 13px;
+            margin-top: 5px;
+            font-style: italic;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        select {
+            border: 1px solid #8c8f94;
+            border-radius: 4px;
+            padding: 0 8px;
+            line-height: 2;
+            min-height: 30px;
+            box-shadow: 0 0 0 transparent;
+            transition: box-shadow .1s linear;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        input[type="checkbox"] {
+            border-radius: 3px;
+            border: 1px solid #8c8f94;
+            height: 16px;
+            width: 16px;
+            margin-right: 6px;
+        }
+
+        .primary-action {
+            background: #2271b1;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: 0.2s;
+        }
+
+        .primary-action:hover {
+            background: #135e96;
+        }
+
+        /* Capacity Bar */
+        .capacity-bar-container {
+            background: #f0f0f1;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .capacity-bar-fill {
+            background: #2271b1;
+            height: 100%;
+            width: 65%;
+            border-radius: 4px;
+        }
+
+        .notification-success {
+            background: #edfaef;
+            border-left: 4px solid #00a32a;
+            padding: 12px;
+            box-shadow: 0 1px 1px rgba(0, 0, 0, .04);
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="wp-admin-chrome">
+        <div class="wp-menu">
+            <div class="wp-menu-item">Dashboard</div>
+            <div class="wp-menu-item">Posts</div>
+            <div class="wp-menu-item active">Tools</div>
+            <div style="padding-left: 20px; font-size: 12px; margin-top: 5px;">
+                <div style="color: #fff; font-weight: 600;">Schedulely</div>
+                <div style="opacity: 0.7; padding: 5px 0;">Site Health</div>
+            </div>
+            <div class="wp-menu-item">Settings</div>
+        </div>
+
+        <div class="wp-content">
+            <div class="wrap">
+                <h1>Schedulely <span
+                        style="font-size: 12px; color: #646970; border: 1px solid #c3c4c7; padding: 2px 6px; border-radius: 3px; vertical-align: middle; margin-left: 10px;">v1.2.7</span>
+                </h1>
+
+                <div class="notification-success">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <span style="color: #1d2327; font-weight: 500;">Capacity Check Complete: You have enough drafts
+                            to cover the next 3 days.</span>
+                        <button style="background:none; border:none; color: #00a32a; cursor: pointer;">Dismiss</button>
+                    </div>
+                </div>
+
+                <h2 class="nav-tab-wrapper">
+                    <a href="#" class="nav-tab nav-tab-active">Dashboard & Settings</a>
+                    <a href="#" class="nav-tab">Logs</a>
+                    <a href="#" class="nav-tab">Help</a>
+                </h2>
+
+                <div class="card-grid">
+                    <!-- Main Settings Column -->
+                    <div style="display: flex; flex-direction: column; gap: 20px;">
+
+                        <div class="wp-card">
+                            <div class="header-panel">
+                                <h2>Scheduling Rules</h2>
+                            </div>
+                            <div class="settings-section">
+
+                                <div class="form-row">
+                                    <label class="form-label">Post Status Source</label>
+                                    <select>
+                                        <option>Draft</option>
+                                        <option>Pending</option>
+                                        <option>Private</option>
+                                    </select>
+                                    <div class="form-desc">Schedulely will pull posts from this status pool.</div>
+                                </div>
+
+                                <div class="form-row">
+                                    <label class="form-label">Daily Output Target</label>
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <input type="number" value="5" style="width: 80px;">
+                                        <span style="color: #646970;">posts per day</span>
+                                    </div>
+                                </div>
+
+                                <div class="form-row" style="border-bottom: none;">
+                                    <label class="form-label">Active Days</label>
+                                    <div style="display: flex; gap: 15px; margin-top: 10px;">
+                                        <label><input type="checkbox" checked> Mon</label>
+                                        <label><input type="checkbox" checked> Tue</label>
+                                        <label><input type="checkbox" checked> Wed</label>
+                                        <label><input type="checkbox" checked> Thu</label>
+                                        <label><input type="checkbox" checked> Fri</label>
+                                        <label><input type="checkbox"> Sat</label>
+                                        <label><input type="checkbox"> Sun</label>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <div class="wp-card">
+                            <div class="header-panel">
+                                <h2>Author Distribution</h2>
+                                <div style="font-size: 12px; color: #646970;">
+                                    <span style="color: #00a32a;">●</span> Active
+                                </div>
+                            </div>
+                            <div class="settings-section">
+                                <div class="form-row" style="border-bottom: none;">
+                                    <label style="display: flex; align-items: center; margin-bottom: 20px;">
+                                        <input type="checkbox" checked>
+                                        <span style="font-weight: 600; color: #1d2327;">Enable Random Author
+                                            Assignment</span>
+                                    </label>
+
+                                    <label class="form-label">Excluded Authors</label>
+                                    <select multiple style="height: 100px;">
+                                        <option>admin (Administrator)</option>
+                                        <option>editor (Editor)</option>
+                                    </select>
+                                    <div class="form-desc">Hold Ctrl/Cmd to select multiple authors to exclude.</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button class="primary-action" style="align-self: flex-start;">
+                            Save All Settings
+                        </button>
+
+                    </div>
+
+                    <!-- Sidebar Status Column -->
+                    <div style="display: flex; flex-direction: column; gap: 20px;">
+
+                        <div class="wp-card">
+                            <div class="header-panel">
+                                <h2>Status Overview</h2>
+                            </div>
+                            <div class="stats-row">
+                                <div class="stat-box">
+                                    <div class="stat-value">24</div>
+                                    <div class="stat-label">Stockpile</div>
+                                </div>
+                                <div class="stat-box">
+                                    <div class="stat-value">8</div>
+                                    <div class="stat-label">Scheduled</div>
+                                </div>
+                            </div>
+                            <div style="padding: 20px; border-top: 1px solid #f0f0f1;">
+                                <button class="primary-action"
+                                    style="width: 100%; justify-content: center; background: #2271b1;">
+                                    Run Schedulizer Now
+                                </button>
+                                <p style="text-align: center; color: #646970; font-size: 12px; margin-top: 10px;">
+                                    Last run: 2 hours ago via Cron
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="wp-card">
+                            <div class="header-panel">
+                                <h2>Queue Health</h2>
+                            </div>
+                            <div style="padding: 20px;">
+                                <div
+                                    style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px;">
+                                    <strong>Date Coverage</strong>
+                                    <span>65%</span>
+                                </div>
+                                <div class="capacity-bar-container">
+                                    <div class="capacity-bar-fill"></div>
+                                </div>
+                                <p style="font-size: 12px; color: #d63638; margin-top: 10px;">
+                                    ⚠ You are running low on content for Friday.
+                                </p>
+                                <a href="#"
+                                    style="display: block; margin-top: 15px; font-size: 13px; text-decoration: none; color: #2271b1;">
+                                    View Upcoming Schedule →
+                                </a>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>

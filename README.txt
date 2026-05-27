@@ -4,7 +4,7 @@ Tags: schedule, posts, automation, publishing, cron
 Requires at least: 6.8
 Tested up to: 6.8
 Requires PHP: 8.2
-Stable tag: 1.5.10
+Stable tag: 1.6.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -75,7 +75,7 @@ Yes! In the Author Assignment section, you can select specific users to exclude 
 
 = Does this work with custom post types? =
 
-Currently, Schedulely only works with standard WordPress posts. Custom post type support is planned for a future release.
+Yes! Go to Tools → Schedulely and use the "Post Types to Schedule" selector to choose any public post type registered on your site. Multiple post types can be scheduled simultaneously.
 
 = What happens if I don't have enough posts? =
 
@@ -97,34 +97,6 @@ Yes! Schedulely uses WordPress's timezone settings from Settings → General, so
 
 Uncheck "Enable Automatic Scheduling" in the Automation Settings section. You can still use the manual "Schedule Now" button.
 
-== Planned Features ==
-
-Future enhancements under consideration:
-
-= Sequential Scheduling Mode =
-* Perfect even spacing between posts (100% efficiency)
-* Posts scheduled at exact intervals (e.g., 5:00, 5:45, 6:30, 7:15...)
-* Predictable, uniform distribution
-* Ideal for users who prefer structured, evenly-spaced publishing
-* Trade-off: Looks more "robotic" vs natural random placement
-
-= Hybrid Scheduling Approach =
-* Best of both worlds: random appearance with better distribution
-* Divides time window into equal slots (e.g., 8 slots for 8 posts)
-* Randomizes post time within each slot
-* Example: Slot 1 (5:00-5:45) → random time like 5:17 PM
-* Result: More even distribution while maintaining natural/random appearance
-* Prevents large gaps and unused time at end of window
-
-= Redistribute Scheduled Posts =
-* One-click rebalancing of already-scheduled posts
-* Takes existing scheduled posts and redistributes them evenly
-* Useful when capacity settings change or uneven distribution occurs
-* Preview before applying changes
-* Safety checks to prevent disruption
-
-Note: Current version uses natural random scheduling (70% efficiency) for organic appearance. These features would provide alternatives for different use cases.
-
 == Screenshots ==
 
 1. Main settings dashboard with statistics and overview
@@ -134,6 +106,28 @@ Note: Current version uses natural random scheduling (70% efficiency) for organi
 5. Deficit status tracking
 
 == Changelog ==
+
+= 1.6.0 - 27/05/2026 =
+* Changed: Pool size default 1500 (configurable from settings — "Pool Size" field under Content & Volume). Larger pool = better shuffle variety and AI series spacing
+* Added: Sequential scheduling mode — perfectly even spacing, 100% efficiency, posts at exact intervals
+* Added: Hybrid scheduling mode — even slots with random placement within each slot; near-100% efficiency and natural-looking. Recommended upgrade from Random
+* Added: Scheduling Mode selector in settings (Random / Sequential / Hybrid) with visual description of each
+* Added: WordPress 7.0 Abilities — run-schedule, check-capacity, get-furthest-scheduled-date, preview-next-slot, run-ai-reorder (command palette, REST, AI agents)
+* Added: AI email summary option — optional 2–3 sentence AI summary prepended to scheduling notification emails (WP 7.0+ only, opt-in)
+* Added: AI capacity hint — when settings don't fit the quota, an AI-generated plain-English explanation appears alongside the programmatic suggestions (WP 7.0+ only)
+* Changed: WP 7.0 AI client migration — AI queue ordering now uses wp_ai_client_prompt() on WordPress 7.0+; no API key stored in Schedulely required. Legacy DeepSeek/OpenAI path retained for older WordPress installs
+* Changed: AI queue ordering disabled on cron-driven runs; only active on manual "Run Schedule Now" and Ability calls (eliminates 20-minute synchronous HTTP calls in cron worker)
+* Changed: All admin assets now served from local vendor directory — no CDN requests. SweetAlert2 11.22.0, Select2 4.0.13 (stable), Flatpickr 4.6.13
+* Changed: Author list cached per scheduling run — eliminates up to 1500 redundant get_users() calls per cron pass
+* Changed: Post cache primed once before the scheduling loop (was per-post)
+* Changed: wp_cache_flush() removed from schedulely_clear_cache() and uninstall.php — no longer nukes the site-wide object cache
+* Changed: auto_schedule default consistent everywhere (false)
+* Changed: Dashboard stats use wp_count_posts() — no more unbounded get_posts() call on every settings page load
+* Changed: date() → wp_date() in all notification email output (respects site timezone)
+* Fixed: Welcome notice dismiss now per-user (was site-wide); new admins see the notice independently
+* Fixed: Cron callback now wrapped in try/catch — uncaught exceptions are logged and trigger error notification email
+* Fixed: GitHub update checker gated behind SCHEDULELY_WPORG_BUILD constant; excluded from wp.org zip via .distignore
+* Added: .distignore — canonical exclusion list for the wp.org release zip
 
 = 1.5.10 - 03/05/2026 =
 * Added: Tools → Schedulely shows WP-Cron hook name and next run (so cron plugins can be searched by slug)
@@ -267,7 +261,36 @@ Initial release of Schedulely. Install and configure to start intelligent post s
 
 == Privacy Policy ==
 
-Schedulely does not collect, store, or transmit any personal data. All scheduling data is stored locally in your WordPress database.
+Schedulely does not collect or transmit personal data by default.
+
+= Optional AI Queue Ordering =
+
+If you enable the "AI series spacing" feature in Tools → Schedulely, the plugin
+sends the following data to an AI provider when a scheduling run is triggered:
+
+* Post IDs and post titles of the posts queued for scheduling
+* Your site's home URL (in the HTTP User-Agent header)
+
+**On WordPress 7.0 or later:** the provider is whichever one you configure in
+Settings → Connectors. Schedulely does not store an API key — key management
+is handled centrally by WordPress. Refer to your chosen provider's privacy policy.
+
+**On older WordPress installs (legacy mode):** the plugin sends requests to the
+API endpoint you configure in the settings (default: DeepSeek at
+https://api.deepseek.com/v1). Your API key is stored in wp_options. DeepSeek's
+privacy policy: https://www.deepseek.com/privacy. You can change the endpoint
+to any HTTPS OpenAI-compatible API; review the privacy policy of the provider
+you choose.
+
+The AI feature is **disabled by default**. To use it you must explicitly enable
+it and, on older WordPress installs, supply your own API key.
+
+= Local Data =
+
+All scheduling configuration and the AI reorder log are stored in your site's
+wp_options table. The plugin's uninstall routine removes all of this data.
+The "Remove stored API key on save" checkbox on the settings page lets you
+clear a stored legacy API key at any time.
 
 == Support ==
 
@@ -280,7 +303,9 @@ For support, feature requests, or bug reports, please visit:
 Developed by Krafty Sprouts Media, LLC
 https://kraftysprouts.com
 
-Third-party libraries:
-* Select2 - MIT License
-* Flatpickr - MIT License
+Third-party libraries bundled in this plugin (all GPL-compatible):
+
+* SweetAlert2 11.22.0 — MIT License — https://sweetalert2.github.io
+* Select2 4.0.13 — MIT License — https://select2.org
+* Flatpickr 4.6.13 — MIT License — https://flatpickr.js.org
 

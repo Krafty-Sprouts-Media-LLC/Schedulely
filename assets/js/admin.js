@@ -136,14 +136,14 @@
      */
     function showScheduleConfirmation(button) {
         Swal.fire({
-            title: 'Schedule Posts Now?',
-            html: 'This will schedule all available posts according to your settings.<br><br><strong>Do you want to continue?</strong>',
+            title: schedulely_admin.strings.schedule_posts_title || 'Schedule Posts Now?',
+            html: schedulely_admin.strings.schedule_posts_body || 'This will schedule all available posts according to your settings.<br><br><strong>Do you want to continue?</strong>',
             icon: 'question',
             showCancelButton: true,
             confirmButtonColor: '#2271b1',
             cancelButtonColor: '#d63638',
-            confirmButtonText: 'Yes, Schedule Now',
-            cancelButtonText: 'Cancel',
+            confirmButtonText: schedulely_admin.strings.yes_schedule || 'Yes, Schedule Now',
+            cancelButtonText: schedulely_admin.strings.cancel || 'Cancel',
             reverseButtons: true
         }).then((result) => {
             if (result.isConfirmed) {
@@ -185,13 +185,13 @@
             .then(data => {
                 if (data.success) {
                     Swal.fire({
-                        title: 'Success!',
+                        title: schedulely_admin.strings.success || 'Success!',
                         html: data.data.message || 'Posts scheduled successfully!',
                         icon: 'success',
                         confirmButtonColor: '#2271b1',
-                        confirmButtonText: 'View Scheduled Posts',
+                        confirmButtonText: schedulely_admin.strings.view_scheduled || 'View Scheduled Posts',
                         showCancelButton: true,
-                        cancelButtonText: 'Stay Here',
+                        cancelButtonText: schedulely_admin.strings.stay_here || 'Stay Here',
                         cancelButtonColor: '#50575e',
                         reverseButtons: true
                     }).then((result) => {
@@ -490,7 +490,15 @@
 
             // Display suggestions
             if (capacityData.suggestions && capacityData.suggestions.length > 0) {
-                let suggestionsHtml = '<h4 style="margin: 0 0 10px 0; font-size: 12px; text-transform: uppercase; color: #646970;">Recommended Fixes</h4>';
+                let suggestionsHtml = '<h4 style="margin: 0 0 10px 0; font-size: 12px; text-transform: uppercase; color: #646970;">'
+                    + (schedulely_admin.strings.recommended_fixes || 'Recommended Fixes') + '</h4>';
+
+                // AI hint (WP 7.0), shown above the programmatic suggestions.
+                if (capacityData.ai_hint) {
+                    suggestionsHtml += '<p style="font-size:13px; color:#1d2327; background:#f6f7f7; border-left:3px solid #2271b1; padding:8px 12px; margin:0 0 12px 0; border-radius:2px;">'
+                        + '🤖 ' + capacityData.ai_hint
+                        + '</p>';
+                }
 
                 capacityData.suggestions.forEach(function (suggestion, index) {
                     let actionButton = '';
@@ -645,8 +653,8 @@
         if (postsPerDay < 1 || postsPerDay > 100) {
             e.preventDefault();
             Swal.fire({
-                title: 'Validation Error',
-                text: 'Posts per day must be between 1 and 100.',
+                title: schedulely_admin.strings.validation_error || 'Validation Error',
+                text: schedulely_admin.strings.posts_per_day_range || 'Posts per day must be between 1 and 100.',
                 icon: 'error',
                 confirmButtonColor: '#d63638'
             });
@@ -657,8 +665,8 @@
         if (minInterval < 1 || minInterval > 1440) {
             e.preventDefault();
             Swal.fire({
-                title: 'Validation Error',
-                text: 'Minimum interval must be between 1 and 1440 minutes.',
+                title: schedulely_admin.strings.validation_error || 'Validation Error',
+                text: schedulely_admin.strings.interval_range || 'Minimum interval must be between 1 and 1440 minutes.',
                 icon: 'error',
                 confirmButtonColor: '#d63638'
             });
@@ -669,8 +677,8 @@
         if ($('input[name="schedulely_active_days[]"]:checked').length === 0) {
             e.preventDefault();
             Swal.fire({
-                title: 'Validation Error',
-                text: 'Please select at least one active day.',
+                title: schedulely_admin.strings.validation_error || 'Validation Error',
+                text: schedulely_admin.strings.select_day || 'Please select at least one active day.',
                 icon: 'error',
                 confirmButtonColor: '#d63638'
             });
@@ -762,5 +770,81 @@
                 });
         });
     }
+
+    /**
+     * Handle welcome notice dismiss button and WP's built-in X button.
+     * The nonce is output via wp_add_inline_script as window.schedulely_dismiss_nonce.
+     */
+    function initWelcomeNoticeDismiss() {
+        if ( ! window.schedulely_dismiss_nonce ) {
+            return;
+        }
+        const nonce = window.schedulely_dismiss_nonce;
+
+        function sendDismiss() {
+            $.post( ajaxurl, {
+                action : 'schedulely_dismiss_notice',
+                nonce  : nonce
+            } );
+        }
+
+        $( document ).on( 'click', '.schedulely-dismiss-notice', function () {
+            $( '#schedulely-welcome-notice' ).fadeOut();
+            sendDismiss();
+        } );
+
+        $( document ).on( 'click', '#schedulely-welcome-notice .notice-dismiss', function () {
+            sendDismiss();
+        } );
+    }
+
+    /**
+     * Post-type "View All" dropdown — navigate on change.
+     * Replaces the inline onchange="..." attribute removed from PHP markup.
+     *
+     * @since 1.6.0
+     */
+    function initPostTypeViewSelect() {
+        $( document ).on( 'change', '#schedulely-view-posts-type', function () {
+            const url = $( this ).val();
+            if ( url ) {
+                window.location.href = url;
+            }
+        } );
+    }
+
+    /**
+     * Author exclusion show/hide tied to the randomize-authors checkbox.
+     * Targets the flex container wrapping the author selects.
+     *
+     * @since 1.6.0 Fixed selector (was .closest('tr') on a flex layout).
+     */
+    function initAuthorExclusionToggle() {
+        const $checkbox = $( '#schedulely_randomize_authors' );
+        if ( ! $checkbox.length ) {
+            return;
+        }
+        const $container = $( '#schedulely_excluded_authors, #schedulely_preserved_authors' )
+            .closest( '[style*="flex"]' )
+            .parent();
+
+        function toggle() {
+            if ( $checkbox.is( ':checked' ) ) {
+                $container.show();
+            } else {
+                $container.hide();
+            }
+        }
+
+        $checkbox.on( 'change', toggle );
+        toggle();
+    }
+
+    // Boot the new handlers alongside the existing ones.
+    $( document ).ready( function () {
+        initWelcomeNoticeDismiss();
+        initPostTypeViewSelect();
+        initAuthorExclusionToggle();
+    } );
 
 })(jQuery);

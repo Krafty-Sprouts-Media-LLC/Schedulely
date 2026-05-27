@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schedulely Design Preview</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Inter', sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: #1a1a1a;
+        }
+
+        .toolbar {
+            height: 60px;
+            background: #2a2a2a;
+            border-bottom: 1px solid #444;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            padding: 0 20px;
+            flex-shrink: 0;
+            color: white;
+        }
+
+        .toggle-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #aaa;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toggle-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .toggle-btn.active {
+            background: #2271b1;
+            border-color: #2271b1;
+            color: white;
+            box-shadow: 0 2px 8px rgba(34, 113, 177, 0.4);
+        }
+
+        .preview-container {
+            flex: 1;
+            position: relative;
+            background: #f0f0f1;
+        }
+
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: none;
+        }
+
+        iframe.active {
+            display: block;
+        }
+
+        .desc-pill {
+            font-size: 11px;
+            background: #000;
+            padding: 2px 6px;
+            border-radius: 4px;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="toolbar">
+        <div style="margin-right: auto; font-weight: 600; font-size: 16px;">Schedulely <span
+                style="font-weight: 400; opacity: 0.7;">Design Options</span></div>
+
+        <button class="toggle-btn active" onclick="switchTab('native')">
+            <span>🔹 Native Refresh</span>
+            <span class="desc-pill">Safe</span>
+        </button>
+        <button class="toggle-btn" onclick="switchTab('dashboard')">
+            <span>📊 Dashboard Grid</span>
+            <span class="desc-pill">Modern</span>
+        </button>
+        <button class="toggle-btn" onclick="switchTab('control')">
+            <span>🎛️ Control Center</span>
+            <span class="desc-pill">Interactive</span>
+        </button>
+
+        <div style="margin-left: auto; width: 120px;"></div> <!-- Spacer -->
+    </div>
+
+    <div class="preview-container">
+        <iframe id="frame-native" class="active" src="design-native-refresh.html"></iframe>
+        <iframe id="frame-dashboard" src="design-dashboard-grid.html"></iframe>
+        <iframe id="frame-control" src="design-interactive-scheduler.html"></iframe>
+    </div>
+
+    <script>
+        function switchTab(id) {
+            // Remove active class from buttons
+            document.querySelectorAll('.toggle-btn').forEach(btn => btn.classList.remove('active'));
+            // Add to clicked
+            event.currentTarget.classList.add('active');
+
+            // Hide all frames
+            document.querySelectorAll('iframe').forEach(frame => frame.classList.remove('active'));
+            // Show target
+            document.getElementById('frame-' + id).classList.add('active');
+        }
+    </script>
+
+</body>
+
+</html>

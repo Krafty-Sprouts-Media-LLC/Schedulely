@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schedulely - Logic & States Preview</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <style>
+        /* Base Styles */
+        body {
+            background: #f0f0f1;
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+            color: #3c434a;
+            font-size: 13px;
+        }
+
+        .wrap {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+
+        /* Grid Layout */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+        }
+
+        /* Typography */
+        h1,
+        h2,
+        h3 {
+            font-family: 'Lato', sans-serif;
+            color: #1d2327;
+            margin: 0;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #f0f0f1;
+        }
+
+        .card-title {
+            font-size: 14px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #646970;
+        }
+
+        /* Cards */
+        .wp-card {
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #dcdcde;
+            padding: 25px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        /* 1. THE "HOW IT WORKS" NOTICE - Redesigned as a collapsible 'Insight' panel */
+        .insight-panel {
+            background: #f0f6fc;
+            border: 1px solid #cce5ff;
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 25px;
+            position: relative;
+        }
+
+        .insight-title {
+            color: #1d2327;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+
+        .insight-icon {
+            color: #2271b1;
+        }
+
+        .insight-content {
+            margin-top: 15px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #2c3338;
+        }
+
+        .insight-list {
+            margin: 10px 0 0 20px;
+            padding: 0;
+        }
+
+        .insight-list li {
+            margin-bottom: 5px;
+        }
+
+        .close-insight {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            border: none;
+            background: none;
+            color: #646970;
+            cursor: pointer;
+        }
+
+        /* 2. CAPACITY WARNING - Redesigned as a "Health State" */
+        .alert-box {
+            background: #fcf0f1;
+            border-left: 4px solid #d63638;
+            padding: 15px 20px;
+            margin-bottom: 25px;
+            border-radius: 4px;
+            display: flex;
+            gap: 15px;
+            align-items: start;
+        }
+
+        .alert-icon {
+            color: #d63638;
+            margin-top: 2px;
+        }
+
+        .alert-title {
+            font-weight: 700;
+            color: #b32d2e;
+            display: block;
+            margin-bottom: 4px;
+            font-size: 14px;
+        }
+
+        .alert-desc {
+            color: #1d2327;
+            line-height: 1.4;
+        }
+
+        /* 3. SUGGESTIONS - Redesigned as "Action Cards" */
+        .suggestion-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .suggestion-card {
+            background: #fff;
+            border: 1px solid #dcdcde;
+            border-radius: 6px;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s;
+        }
+
+        .suggestion-card:hover {
+            border-color: #2271b1;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+
+        .sugg-content {
+            flex: 1;
+        }
+
+        .sugg-title {
+            font-weight: 600;
+            color: #1d2327;
+            font-size: 13px;
+            margin-bottom: 3px;
+        }
+
+        .sugg-desc {
+            color: #646970;
+            font-size: 12px;
+        }
+
+        .sugg-action {
+            margin-left: 20px;
+            flex-shrink: 0;
+        }
+
+        .btn-apply {
+            background: white;
+            color: #2271b1;
+            border: 1px solid #2271b1;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .btn-apply:hover {
+            background: #f0f6fc;
+        }
+
+        /* Stats Visualizer */
+        .capacity-meter {
+            height: 12px;
+            background: #f0f0f1;
+            border-radius: 6px;
+            overflow: hidden;
+            margin: 15px 0 5px;
+        }
+
+        .capacity-fill {
+            height: 100%;
+            background: #d63638;
+            width: 35%;
+            /* Low capacity */
+        }
+
+        .capacity-label {
+            font-size: 11px;
+            color: #d63638;
+            font-weight: 600;
+            text-align: right;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="wrap">
+
+        <div style="padding: 20px 0; border-bottom: 1px solid #dcdcde; margin-bottom: 30px;">
+            <h1 style="font-size: 24px;">Schedulely Settings</h1>
+        </div>
+
+        <!-- 1. "HOW RANDOM SCHEDULING WORKS" NOTICE -->
+        <!-- This replaces the blue info box in your screenshot. It's cleaner, collapsible, and less intrusive. -->
+        <div class="insight-panel">
+            <button class="close-insight">✕</button>
+            <div class="insight-title">
+                <svg class="insight-icon" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                How Random Scheduling Works
+            </div>
+            <div class="insight-content">
+                Posts are scheduled at <strong>random times</strong> within your time window for a natural appearance.
+                <ul class="insight-list">
+                    <li>✅ Posts are <strong>at least X minutes</strong> apart (never closer)</li>
+                    <li>✅ Gaps between posts vary randomly (some 30 min, some 60+ min)</li>
+                    <li>✅ Random scheduling achieves ~70% efficiency vs perfect sequential spacing</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="dashboard-grid">
+
+            <!-- Left Column: The "Problem" Area -->
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+
+                <!-- 2. CAPACITY WARNING & CALCULATOR -->
+                <!-- This replaces the yellow warning box. It is now context-aware and sits inside the "Capacity" card. -->
+                <div class="wp-card">
+                    <div class="card-header">
+                        <h2 class="card-title">Capacity Check</h2>
+                        <span style="font-size: 12px; font-weight: 600; color: #d63638;">Issues Detected</span>
+                    </div>
+
+                    <div class="alert-box">
+                        <svg class="alert-icon" width="24" height="24" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z">
+                            </path>
+                        </svg>
+                        <div>
+                            <span class="alert-title">Target Not Met</span>
+                            <div class="alert-desc">Your settings can only fit approximately <strong>3 posts</strong>,
+                                but you want <strong>8 posts</strong>. With random time scheduling, lower intervals are
+                                required.</div>
+                        </div>
+                    </div>
+
+                    <!-- Visual Meter for impact -->
+                    <div style="padding: 15px; background: #fafafa; border-radius: 6px; border: 1px dashed #dcdcde;">
+                        <div
+                            style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px;">
+                            <span>Current Capacity</span>
+                            <strong>3 / 8 Posts</strong>
+                        </div>
+                        <div class="capacity-meter">
+                            <div class="capacity-fill"></div>
+                        </div>
+                        <div class="capacity-label">37% of Goal</div>
+                    </div>
+
+                </div>
+
+                <!-- 3. SUGGESTIONS TO FIX -->
+                <!-- This replaces the "Suggestions" list. They are now clear, actionable cards. -->
+                <div class="wp-card">
+                    <div class="card-header">
+                        <h2 class="card-title">Resolution Center (3 Suggestions)</h2>
+                    </div>
+
+                    <div class="suggestion-group">
+
+                        <div class="suggestion-card">
+                            <div class="sugg-content">
+                                <div class="sugg-title">1. Reduce Minimum Interval</div>
+                                <div class="sugg-desc">Change interval from <strong>40</strong> to <strong>27
+                                        minutes</strong>. Fits +2 posts.</div>
+                            </div>
+                            <div class="sugg-action">
+                                <button class="btn-apply">Apply Fix</button>
+                            </div>
+                        </div>
+
+                        <div class="suggestion-card">
+                            <div class="sugg-content">
+                                <div class="sugg-title">2. Reduce Posts Per Day</div>
+                                <div class="sugg-desc">Lower quota from <strong>8</strong> to <strong>5</strong> posts
+                                    per day.</div>
+                            </div>
+                            <div class="sugg-action">
+                                <button class="btn-apply">Apply Fix</button>
+                            </div>
+                        </div>
+
+                        <div class="suggestion-card">
+                            <div class="sugg-content">
+                                <div class="sugg-title">3. Expand Time Window</div>
+                                <div class="sugg-desc">Extend window to <strong>2:18 PM - 11:59 PM</strong> (+5 hours
+                                    needed).</div>
+                            </div>
+                            <div class="sugg-action">
+                                <button class="btn-apply">Apply Fix</button>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Right Column: Settings (Context) -->
+            <div class="wp-card" style="height: fit-content;">
+                <div class="card-header">
+                    <h2 class="card-title">Current Configuration</h2>
+                </div>
+                <div style="opacity: 0.6; pointer-events: none;">
+                    <!-- Dimmed to show focus should be on fixing issues -->
+                    <label style="display: block; font-weight: 600; margin-bottom: 5px;">Posts Per Day</label>
+                    <input type="text" value="8"
+                        style="width: 100%; margin-bottom: 15px; padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+
+                    <label style="display: block; font-weight: 600; margin-bottom: 5px;">Min Interval</label>
+                    <input type="text" value="40 mins"
+                        style="width: 100%; margin-bottom: 15px; padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+
+                    <label style="display: block; font-weight: 600; margin-bottom: 5px;">Time Window</label>
+                    <input type="text" value="5:00 PM - 11:00 PM"
+                        style="width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+                <p style="font-size: 11px; color: #d63638; margin-top: 15px; font-style: italic;">
+                    * Settings locked until capacity issues are resolved.
+                </p>
+            </div>
+
+        </div>
+
+    </div>
+
+</body>
+
+</html>

@@ -42,18 +42,24 @@ jobs:
         run: |
           VERSION="${{ steps.tag_version.outputs.VERSION }}"
           ZIP_NAME="schedulely-${VERSION}.zip"
-          
-          # Create zip file excluding git files and other unnecessary files
-          zip -r "${ZIP_NAME}" . \
-            -x "*.git*" \
-            -x "*.github*" \
-            -x "*.DS_Store" \
-            -x "*node_modules*" \
-            -x "*.zip" \
-            -x "*composer.lock" \
-            -x "*package-lock.json" \
-            -x "*yarn.lock"
-          
+
+          # Build the exclude arguments from .distignore.
+          # Each non-blank, non-comment line becomes a -x pattern.
+          EXCLUDES=""
+          while IFS= read -r line || [[ -n "$line" ]]; do
+            # Strip inline comments and surrounding whitespace
+            line="${line%%#*}"
+            line="${line#"${line%%[![:space:]]*}"}"
+            line="${line%"${line##*[![:space:]]}"}"
+            [[ -z "$line" ]] && continue
+            EXCLUDES="$EXCLUDES -x \"*/${line}*\" -x \"${line}*\""
+          done < .distignore
+
+          # Always exclude the zip itself and hidden git metadata
+          EXCLUDES="$EXCLUDES -x \"*.git*\" -x \"*.DS_Store\""
+
+          eval zip -r "\"${ZIP_NAME}\"" . $EXCLUDES
+
           echo "ZIP_NAME=${ZIP_NAME}" >> $GITHUB_OUTPUT
           echo "ZIP_PATH=${ZIP_NAME}" >> $GITHUB_OUTPUT
       

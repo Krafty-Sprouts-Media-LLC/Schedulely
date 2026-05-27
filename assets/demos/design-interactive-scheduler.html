@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schedulely - Control Center</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <style>
+        /* WP Shell */
+        body {
+            background: #f0f0f1;
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+            color: #3c434a;
+            font-size: 13px;
+        }
+
+        .wp-admin-chrome {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .wp-menu {
+            width: 160px;
+            background: #1d2327;
+            color: white;
+            flex-shrink: 0;
+            padding-top: 32px;
+        }
+
+        .wp-content {
+            flex: 1;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* App Layout */
+        .app-header {
+            background: white;
+            padding: 15px 25px;
+            border-bottom: 1px solid #dcdcde;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .app-title {
+            font-family: 'Lato', sans-serif;
+            font-size: 20px;
+            font-weight: 900;
+            color: #2271b1;
+        }
+
+        .app-workspace {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Column 1: Sources */
+        .col-source {
+            width: 300px;
+            background: white;
+            border-right: 1px solid #dcdcde;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .col-header {
+            padding: 15px;
+            border-bottom: 1px solid #f0f0f1;
+            background: #fafafa;
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            color: #646970;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .col-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+            background: #f6f7f7;
+        }
+
+        .draft-card {
+            background: white;
+            border: 1px solid #dcdcde;
+            border-left: 3px solid #dba617;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 3px;
+            box-shadow: 0 1px 1px rgba(0, 0, 0, 0.02);
+            cursor: move;
+        }
+
+        .draft-card:hover {
+            border-color: #2271b1;
+            border-left-color: #2271b1;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .draft-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #1d2327;
+        }
+
+        .draft-meta {
+            font-size: 11px;
+            color: #646970;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        /* Column 2: Controls */
+        .col-controls {
+            width: 320px;
+            background: white;
+            border-right: 1px solid #dcdcde;
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.05);
+        }
+
+        .control-group {
+            padding: 20px;
+            border-bottom: 1px solid #f0f0f1;
+        }
+
+        .control-label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 10px;
+            font-size: 13px;
+            color: #1d2327;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .slider-range {
+            flex: 1;
+            -webkit-appearance: none;
+            height: 6px;
+            background: #dcdcde;
+            border-radius: 3px;
+            outline: none;
+        }
+
+        .slider-range::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #2271b1;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+
+        .time-box {
+            background: #f0f0f1;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+            border: 1px solid #dcdcde;
+        }
+
+        .time-display {
+            font-family: 'Lato', sans-serif;
+            font-size: 18px;
+            font-weight: 700;
+            color: #1d2327;
+            margin: 5px 0;
+        }
+
+        .avatar-pool {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .avatar-circle {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: #ddd;
+            border: 2px solid white;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+            color: #555;
+            cursor: pointer;
+        }
+
+        .avatar-circle.excluded {
+            opacity: 0.3;
+            filter: grayscale(100%);
+        }
+
+        .avatar-circle.active {
+            border-color: #2271b1;
+        }
+
+        .run-btn {
+            margin: 20px;
+            background: #2271b1;
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 15px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: 0.2s;
+            box-shadow: 0 4px 6px rgba(34, 113, 177, 0.2);
+        }
+
+        .run-btn:hover {
+            background: #135e96;
+            transform: translateY(-1px);
+        }
+
+        /* Column 3: Output */
+        .col-output {
+            flex: 1;
+            background: #f0f0f1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .schedule-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .day-group {}
+
+        .day-header {
+            font-size: 14px;
+            font-weight: 700;
+            color: #1d2327;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .day-status {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            background: #dcdcde;
+        }
+
+        .day-status.full {
+            background: #edfaef;
+            color: #00a32a;
+        }
+
+        .day-status.deficit {
+            background: #fcf0f1;
+            color: #d63638;
+        }
+
+        .slot-card {
+            background: white;
+            border: 1px solid #e2e4e7;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .slot-time {
+            font-family: 'Lato', sans-serif;
+            font-weight: 700;
+            color: #2271b1;
+            width: 80px;
+        }
+
+        .slot-info {
+            flex: 1;
+        }
+
+        .slot-title {
+            font-weight: 500;
+            color: #1d2327;
+            font-size: 13px;
+        }
+
+        .slot-author {
+            font-size: 11px;
+            color: #646970;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-top: 2px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="wp-admin-chrome">
+        <div class="wp-menu">
+            <div style="padding: 10px 12px; color: #f0f0f1;">Dashboard</div>
+            <div style="padding: 10px 12px; color: #f0f0f1; background: #2271b1;">Tools</div>
+        </div>
+
+        <div class="wp-content">
+            <div class="app-header">
+                <div class="app-title">Schedulely <span style="font-weight: 300; opacity: 0.7;">| Control Center</span>
+                </div>
+                <div style="display: flex; gap: 15px; font-size: 13px; color: #646970;">
+                    <span><strong>Status:</strong> Idle</span>
+                    <span><strong>Next Run:</strong> 4:00 PM</span>
+                </div>
+            </div>
+
+            <div class="app-workspace">
+
+                <!-- Source Column -->
+                <div class="col-source">
+                    <div class="col-header">
+                        Drafts Pool
+                        <span
+                            style="background: #e5e5e5; padding: 2px 6px; border-radius: 10px; font-size: 10px;">142</span>
+                    </div>
+                    <div class="col-content">
+                        <div class="draft-card">
+                            <div class="draft-title">10 Tips for Gutenberg</div>
+                            <div class="draft-meta">
+                                <span>Author: John</span>
+                                <span>2h ago</span>
+                            </div>
+                        </div>
+                        <div class="draft-card">
+                            <div class="draft-title">React vs Vue in 2026</div>
+                            <div class="draft-meta">
+                                <span>Author: Sarah</span>
+                                <span>5h ago</span>
+                            </div>
+                        </div>
+                        <div class="draft-card">
+                            <div class="draft-title">Plugin Security Basics</div>
+                            <div class="draft-meta">
+                                <span>Author: Admin</span>
+                                <span>Yesterday</span>
+                            </div>
+                        </div>
+                        <div class="draft-card">
+                            <div class="draft-title">Understanding WP Cron</div>
+                            <div class="draft-meta">
+                                <span>Author: Mike</span>
+                                <span>2 days ago</span>
+                            </div>
+                        </div>
+                        <!-- More Drafts Visual -->
+                        <div style="text-align: center; padding: 20px; color: #a7aaad; font-style: italic;">
+                            + 138 more drafts
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Controls Column -->
+                <div class="col-controls">
+
+                    <div class="control-group">
+                        <label class="control-label">Daily Output</label>
+                        <div class="slider-container">
+                            <span style="font-weight: bold; width: 20px;">1</span>
+                            <input type="range" class="slider-range" min="1" max="20" value="8">
+                            <span style="font-weight: bold; width: 20px;">20</span>
+                        </div>
+                        <div
+                            style="text-align: center; margin-top: 10px; font-weight: bold; color: #2271b1; font-size: 16px;">
+                            8 posts / day
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <label class="control-label">Time Window</label>
+                        <div class="time-box">
+                            <div style="font-size: 11px; color: #646970; text-transform: uppercase;">Start</div>
+                            <div class="time-display">09:00 AM</div>
+                            <div style="height: 1px; background: #dcdcde; margin: 10px 0;"></div>
+                            <div style="font-size: 11px; color: #646970; text-transform: uppercase;">End</div>
+                            <div class="time-display">05:00 PM</div>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <div style="display: flex; justify-content: space-between;">
+                            <label class="control-label">Author Pool</label>
+                            <span style="font-size: 10px; color: #2271b1; cursor: pointer;">Select All</span>
+                        </div>
+                        <div class="avatar-pool">
+                            <div class="avatar-circle active" style="background: #a3d9ff; color: #005a9e;">JD</div>
+                            <div class="avatar-circle active" style="background: #ffccbc; color: #bf360c;">SM</div>
+                            <div class="avatar-circle active" style="background: #c8e6c9; color: #1b5e20;">MR</div>
+                            <div class="avatar-circle excluded">AD</div>
+                            <div class="avatar-circle active" style="background: #e1bee7; color: #4a148c;">LK</div>
+                            <div class="avatar-circle active" style="background: #ffecb3; color: #ff6f00;">PT</div>
+                        </div>
+                        <p style="font-size: 11px; color: #646970; margin-top: 10px;">
+                            Click avatars to exclude/include in randomization.
+                        </p>
+                    </div>
+
+                    <div style="flex: 1;"></div>
+
+                    <button class="run-btn">
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z">
+                            </path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        RUN SCHEDULE
+                    </button>
+
+                </div>
+
+                <!-- Output Column -->
+                <div class="col-output">
+
+                    <div class="schedule-list">
+
+                        <div class="day-group">
+                            <div class="day-header">
+                                Today (May 20)
+                                <span class="day-status full">Complete (8/8)</span>
+                            </div>
+                            <div class="slot-card">
+                                <div class="slot-time">09:15 AM</div>
+                                <div class="slot-info">
+                                    <div class="slot-title">Intro to Schedulely</div>
+                                    <div class="slot-author">
+                                        <div
+                                            style="width: 12px; height: 12px; background: #a3d9ff; border-radius: 50%;">
+                                        </div>
+                                        John Doe
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="slot-card">
+                                <div class="slot-time">10:45 AM</div>
+                                <div class="slot-info">
+                                    <div class="slot-title">WordPress 6.8 Features</div>
+                                    <div class="slot-author">
+                                        <div
+                                            style="width: 12px; height: 12px; background: #ffccbc; border-radius: 50%;">
+                                        </div>
+                                        Sarah Miller
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- ... -->
+                        </div>
+
+                        <div class="day-group">
+                            <div class="day-header">
+                                Tomorrow (May 21)
+                                <span class="day-status deficit">Deficit (2/8)</span>
+                            </div>
+                            <!-- Visualization of empty slots -->
+                            <div class="slot-card" style="border-style: dashed; background: #fdfdfd; opacity: 0.7;">
+                                <div class="slot-time">~ 09:30 AM</div>
+                                <div class="slot-info">
+                                    <div class="slot-title" style="color: #a7aaad;">Waiting for content...</div>
+                                </div>
+                            </div>
+                            <div class="slot-card" style="border-style: dashed; background: #fdfdfd; opacity: 0.7;">
+                                <div class="slot-time">~ 11:00 AM</div>
+                                <div class="slot-info">
+                                    <div class="slot-title" style="color: #a7aaad;">Waiting for content...</div>
+                                </div>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>

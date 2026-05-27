@@ -25,9 +25,18 @@ class Schedulely_Scheduler
     /**
      * Maximum posts fetched from the monitored status per scheduling run.
      *
+     * Default 1500. The shuffle feature and AI reordering both benefit from a large
+     * pool — a low cap reduces variety. Raise or lower via filter on hosts with tight
+     * execution time limits:
+     *
+     *   add_filter( 'schedulely_max_posts_per_run', fn() => 500 );
+     *
+     * A settings field is also available in Tools → Schedulely under Queue Order.
+     *
+     * @since 1.0.0
      * @var int
      */
-    private const MAX_POSTS_PER_RUN = 1500;
+    private const MAX_POSTS_PER_RUN = Schedulely_Defaults::MAX_POSTS_PER_RUN;
 
     /**
      * Author manager instance
@@ -45,11 +54,20 @@ class Schedulely_Scheduler
     }
 
     /**
-     * Run the scheduling process
-     * 
-     * @return array Results of scheduling operation
+     * Run the scheduling process.
+     *
+     * @since 1.0.0
+     * @since 1.6.0 Added $allow_ai_reorder parameter. AI reordering is only
+     *              permitted on manual runs (admin is waiting and timeouts are
+     *              visible). Cron-driven runs skip AI and fall back to shuffle
+     *              or original order to avoid blocking the cron worker for up
+     *              to 20 minutes on an external HTTP call.
+     *
+     * @param bool $allow_ai_reorder Whether to allow AI queue reordering.
+     *                               True on manual runs, false on cron runs.
+     * @return array Results of scheduling operation.
      */
-    public function run_schedule()
+    public function run_schedule( bool $allow_ai_reorder = false )
     {
         $results = [
             'success' => false,
@@ -61,13 +79,16 @@ class Schedulely_Scheduler
             'ai_queue_ordered' => false,
         ];
 
-        $quota = get_option('schedulely_posts_per_day', 8);
+        $quota = get_option('schedulely_posts_per_day', Schedulely_Defaults::POSTS_PER_DAY);
         $available_posts = $this->get_available_posts();
         $ai_ordered = false;
 
         if (!empty($available_posts) && count($available_posts) > 1) {
-            $ai_ordered = $this->maybe_apply_ai_queue_order($available_posts);
-            if (!$ai_ordered && get_option('schedulely_shuffle_queue', true)) {
+            if ( $allow_ai_reorder ) {
+                // AI reordering only on manual runs (never blocks cron worker).
+                $ai_ordered = $this->maybe_apply_ai_queue_order($available_posts);
+            }
+            if (!$ai_ordered && get_option('schedulely_shuffle_queue', Schedulely_Defaults::SHUFFLE_QUEUE)) {
                 shuffle($available_posts);
             }
         }
@@ -139,13 +160,22 @@ class Schedulely_Scheduler
             return false;
         }
 
+        if ( ! apply_filters( 'schedulely_feature_ai_ordering', true ) ) {
+            return false;
+        }
+
         if (!get_option('schedulely_ai_order_enabled', false)) {
             return false;
         }
 
-        $key = apply_filters('schedulely_ai_api_key', get_option('schedulely_ai_api_key', ''));
-        if ('' === trim((string) $key)) {
-            return false;
+        // On WP 7.0+ the AI client handles credentials centrally — no key check needed.
+        // On the legacy path, require a stored API key.
+        $using_wp_ai = function_exists( 'wp_ai_client_prompt' );
+        if ( ! $using_wp_ai ) {
+            $key = apply_filters('schedulely_ai_api_key', get_option('schedulely_ai_api_key', ''));
+            if ('' === trim((string) $key)) {
+                return false;
+            }
         }
 
         $ai = new Schedulely_AI_Order();
@@ -175,13 +205,20 @@ class Schedulely_Scheduler
      */
     private function get_available_posts()
     {
-        $status = get_option('schedulely_post_status', 'draft');
-        $post_types = get_option('schedulely_post_types', ['post']);
+        $status = get_option('schedulely_post_status', Schedulely_Defaults::POST_STATUS);
+        $post_types = get_option('schedulely_post_types', Schedulely_Defaults::POST_TYPES);
+
+        // Read the user-configured pool size (set in Tools → Schedulely).
+        // The filter lets hosts with tight execution time lower it programmatically.
+        $configured_max = (int) get_option( 'schedulely_pool_size', self::MAX_POSTS_PER_RUN );
+        $max = (int) apply_filters( 'schedulely_max_posts_per_run', $configured_max );
+        if ( $max < 1 )     $max = 1;
+        if ( $max > 10000 ) $max = 10000;
 
         $args = [
             'post_type' => $post_types,
             'post_status' => $status,
-            'posts_per_page' => self::MAX_POSTS_PER_RUN,
+            'posts_per_page' => $max,
             'orderby' => 'date',
             'order' => 'ASC',
             'fields' => 'ids',
@@ -227,7 +264,7 @@ class Schedulely_Scheduler
 
     /**
      * Interpret Y-m-d plus time string in the site timezone (not PHP default timezone).
-     *
+     * @since 1.5.3
      * @param string $date_ymd Y-m-d.
      * @param string $time_str  Time from settings (e.g. "3:00 PM").
      * @return int|false Unix timestamp, or false on parse failure.
@@ -545,159 +582,196 @@ class Schedulely_Scheduler
     }
 
     /**
-     * Schedule posts starting from a specific date
-     * 
-     * @param array $posts Array of post IDs
-     * @param string $start_date Starting date (Y-m-d)
-     * @param int $complete_first Number of posts to complete on start date (if completing last date)
-     * @return array Scheduling results
+     * Schedule posts starting from a specific date.
+     *
+     * Dispatches to the appropriate time-slot strategy based on
+     * schedulely_scheduling_mode:
+     *   random     — existing random trial-and-error placement
+     *   sequential — perfectly even intervals across the window
+     *   hybrid     — even slots, random time within each slot
+     *
+     * @since 1.0.0
+     * @since 1.6.0 Added sequential and hybrid modes.
+     *
+     * @param array  $posts         Array of post IDs.
+     * @param string $start_date    Starting anchor date (Y-m-d).
+     * @param int    $complete_first Posts already on the start date (deficit completion).
+     * @return array Scheduling results.
      */
     private function schedule_posts_from_date($posts, $start_date, $complete_first = 0)
     {
-        $quota = get_option('schedulely_posts_per_day', 8);
+        $quota        = (int) get_option( 'schedulely_posts_per_day', Schedulely_Defaults::POSTS_PER_DAY );
+        $mode         = (string) get_option( 'schedulely_scheduling_mode', Schedulely_Defaults::SCHEDULING_MODE );
         $current_date = $start_date;
         $posts_scheduled_today = 0;
-        $scheduled_count = 0;
-        $already_scheduled_times = [];
-        $scheduled_posts = [];
-        $errors = [];
+        $scheduled_count  = 0;
+        $scheduled_posts  = [];
+        $errors           = [];
+        $retry_total      = 0;
 
-        // If completing last date, account for existing posts
-        if ($complete_first > 0) {
-            $posts_scheduled_today = $quota - $complete_first;
-            // Get already scheduled times for this date
-            $already_scheduled_times = $this->get_scheduled_timestamps_for_anchor($current_date);
+        // Pre-computed slot queue for sequential/hybrid modes (rebuilt per day).
+        $day_slots     = [];
+        $slot_index    = 0;
+
+        // Prime the post object cache once before the loop.
+        if ( function_exists( '_prime_post_caches' ) ) {
+            _prime_post_caches( $posts, false, false );
         }
 
-        foreach ($posts as $post_id) {
-            // Check if we need to move to next day
-            if ($posts_scheduled_today >= $quota) {
-                $current_date = $this->get_next_active_date($current_date);
-                $posts_scheduled_today = 0;
-                $already_scheduled_times = [];
+        if ( $complete_first > 0 ) {
+            $posts_scheduled_today = $quota - $complete_first;
+            $already_scheduled_times = $this->get_scheduled_timestamps_for_anchor( $current_date );
+            // For slot modes, pre-fill already-used slots by skipping ahead.
+            if ( in_array( $mode, [ 'sequential', 'hybrid' ], true ) ) {
+                $day_slots  = $this->generate_day_slots( $current_date, $quota, $mode );
+                $slot_index = $posts_scheduled_today; // Skip already-placed posts.
             }
+        } else {
+            $already_scheduled_times = [];
+            if ( in_array( $mode, [ 'sequential', 'hybrid' ], true ) ) {
+                $day_slots  = $this->generate_day_slots( $current_date, $quota, $mode );
+                $slot_index = 0;
+            }
+        }
 
-            $datetime = $this->generate_random_datetime($current_date, $already_scheduled_times);
-
-            if (false === $datetime) {
-                $current_date = $this->get_next_active_date($current_date);
+        foreach ( $posts as $post_id ) {
+            if ( $posts_scheduled_today >= $quota ) {
+                $current_date          = $this->get_next_active_date( $current_date );
                 $posts_scheduled_today = 0;
                 $already_scheduled_times = [];
-                $datetime = $this->generate_random_datetime($current_date, []);
-
-                if (false === $datetime) {
-                    $errors[] = sprintf(__('Failed to generate time slot for post ID %d', 'schedulely'), $post_id);
-                    continue;
+                if ( in_array( $mode, [ 'sequential', 'hybrid' ], true ) ) {
+                    $day_slots  = $this->generate_day_slots( $current_date, $quota, $mode );
+                    $slot_index = 0;
                 }
             }
 
-            // Get author assignment
-            // If post is assigned to a preserved author, keep that author (don't randomize)
-            // Otherwise, assign random author if enabled
-            $author_id = null;
-            if ($this->author_manager->is_enabled()) {
-                $post = get_post($post_id);
-                
-                if ($post && $post->post_author) {
-                    $current_author_id = (int) $post->post_author;
-                    
-                    // Check if current author is preserved - if yes, keep them
-                    if ($this->author_manager->is_author_preserved($current_author_id)) {
-                        $author_id = $current_author_id; // Keep the preserved author
-                    } else {
-                        // Not preserved, randomize among all eligible authors
-                        $author_id = $this->author_manager->get_random_author();
+            // -----------------------------------------------------------------
+            // Choose the datetime based on mode.
+            // -----------------------------------------------------------------
+            if ( in_array( $mode, [ 'sequential', 'hybrid' ], true ) ) {
+                // Slot-based modes: pull the next pre-computed slot.
+                $datetime = isset( $day_slots[ $slot_index ] ) ? $day_slots[ $slot_index ] : false;
+                $slot_index++;
+
+                if ( false === $datetime ) {
+                    $errors[] = sprintf(
+                        __( 'No available slot for post ID %d (day full — consider raising Posts Per Day or widening the time window).', 'schedulely' ),
+                        $post_id
+                    );
+                    $posts_scheduled_today++; // Count toward quota to advance the day.
+                    continue;
+                }
+            } else {
+                // Random mode — existing trial-and-error logic.
+                $datetime = $this->generate_random_datetime( $current_date, $already_scheduled_times );
+
+                if ( false === $datetime ) {
+                    $current_date          = $this->get_next_active_date( $current_date );
+                    $posts_scheduled_today = 0;
+                    $already_scheduled_times = [];
+                    $datetime = $this->generate_random_datetime( $current_date, [] );
+
+                    if ( false === $datetime ) {
+                        $errors[] = sprintf( __( 'Failed to generate time slot for post ID %d', 'schedulely' ), $post_id );
+                        continue;
                     }
+                }
+            }
+
+            // -----------------------------------------------------------------
+            // Author assignment (unchanged).
+            // -----------------------------------------------------------------
+            $author_id = null;
+            if ( $this->author_manager->is_enabled() ) {
+                $post = get_post( $post_id );
+                if ( $post && $post->post_author ) {
+                    $current_author_id = (int) $post->post_author;
+                    $author_id = $this->author_manager->is_author_preserved( $current_author_id )
+                        ? $current_author_id
+                        : $this->author_manager->get_random_author();
                 } else {
-                    // Post has no author, assign random one
                     $author_id = $this->author_manager->get_random_author();
                 }
             }
 
-            $success = $this->schedule_post($post_id, $datetime, $author_id);
+            $success = $this->schedule_post( $post_id, $datetime, $author_id );
 
-            if ($success) {
+            if ( $success ) {
                 $scheduled_count++;
                 $posts_scheduled_today++;
-                $ts_slot = $this->site_local_mysql_to_timestamp($datetime);
-                if (false !== $ts_slot) {
+                $ts_slot = $this->site_local_mysql_to_timestamp( $datetime );
+                if ( false !== $ts_slot ) {
                     $already_scheduled_times[] = $ts_slot;
                 }
-
                 $scheduled_posts[] = [
-                    'post_id' => $post_id,
+                    'post_id'  => $post_id,
                     'datetime' => $datetime,
-                    'title' => get_the_title($post_id),
-                    'date' => $current_date
+                    'title'    => get_the_title( $post_id ),
+                    'date'     => $current_date,
                 ];
             } else {
-                // RETRY LOGIC: Try up to 2 more times with different times on the same date
-                $max_retries = 2;
-                $retry_count = 0;
-                $retry_success = false;
+                // For slot modes a failed write is just counted toward quota — no retry.
+                if ( in_array( $mode, [ 'sequential', 'hybrid' ], true ) ) {
+                    $posts_scheduled_today++;
+                    $errors[] = sprintf( __( 'Failed to schedule post ID %d', 'schedulely' ), $post_id );
+                } else {
+                    // Random mode: retry up to 2 times with different times.
+                    $max_retries   = 2;
+                    $retry_count   = 0;
+                    $retry_success = false;
 
-                while ($retry_count < $max_retries && !$retry_success) {
-                    $retry_count++;
+                    while ( $retry_count < $max_retries && ! $retry_success ) {
+                        $retry_count++;
+                        $retry_datetime = $this->generate_random_datetime( $current_date, $already_scheduled_times );
 
-                    $retry_datetime = $this->generate_random_datetime($current_date, $already_scheduled_times);
-
-                    if (false !== $retry_datetime) {
-                        // Use the same author_id that was determined earlier
-                        $retry_success = $this->schedule_post($post_id, $retry_datetime, $author_id);
-
-                        if ($retry_success) {
-                            // Retry succeeded!
-                            $scheduled_count++;
-                            $posts_scheduled_today++;
-                            $retry_ts = $this->site_local_mysql_to_timestamp($retry_datetime);
-                            if (false !== $retry_ts) {
-                                $already_scheduled_times[] = $retry_ts;
+                        if ( false !== $retry_datetime ) {
+                            $retry_success = $this->schedule_post( $post_id, $retry_datetime, $author_id );
+                            if ( $retry_success ) {
+                                $retry_total++;
+                                $scheduled_count++;
+                                $posts_scheduled_today++;
+                                $retry_ts = $this->site_local_mysql_to_timestamp( $retry_datetime );
+                                if ( false !== $retry_ts ) {
+                                    $already_scheduled_times[] = $retry_ts;
+                                }
+                                $scheduled_posts[] = [
+                                    'post_id'  => $post_id,
+                                    'datetime' => $retry_datetime,
+                                    'title'    => get_the_title( $post_id ),
+                                    'date'     => $current_date,
+                                ];
                             }
-
-                            $scheduled_posts[] = [
-                                'post_id' => $post_id,
-                                'datetime' => $retry_datetime,
-                                'title' => get_the_title($post_id),
-                                'date' => $current_date
-                            ];
-
-                            // Log successful retry for debugging
-                            if (defined('WP_DEBUG_LOG') && WP_DEBUG_LOG) {
-                                error_log(sprintf(
-                                    '[Schedulely] Post ID %d scheduled successfully on retry %d at %s',
-                                    $post_id,
-                                    $retry_count,
-                                    $retry_datetime
-                                ));
-                            }
+                        } else {
+                            break;
                         }
-                    } else {
-                        // Can't generate more times for this date, stop retrying
-                        break;
                     }
-                }
 
-                // If all retries failed, count it toward quota and log error
-                if (!$retry_success) {
-                    $posts_scheduled_today++; // Count failure to ensure we move to next day
-                    $errors[] = sprintf(
-                        __('Failed to schedule post ID %d after %d attempts', 'schedulely'),
-                        $post_id,
-                        $retry_count + 1
-                    );
+                    if ( ! $retry_success ) {
+                        $posts_scheduled_today++;
+                        $errors[] = sprintf(
+                            __( 'Failed to schedule post ID %d after %d attempts', 'schedulely' ),
+                            $post_id,
+                            $retry_count + 1
+                        );
+                    }
                 }
             }
         }
 
+        if ( $retry_total > 0 ) {
+            schedulely_log_error( sprintf(
+                'Scheduling run used %d retries across %d posts scheduled.',
+                $retry_total,
+                $scheduled_count
+            ) );
+        }
+
         return [
-            'success' => $scheduled_count > 0,
+            'success'         => $scheduled_count > 0,
             'scheduled_count' => $scheduled_count,
             'scheduled_posts' => $scheduled_posts,
-            'errors' => $errors,
-            'message' => sprintf(
-                __('Successfully scheduled %d posts.', 'schedulely'),
-                $scheduled_count
-            )
+            'errors'          => $errors,
+            'message'         => sprintf( __( 'Successfully scheduled %d posts.', 'schedulely' ), $scheduled_count ),
         ];
     }
 
@@ -845,39 +919,44 @@ class Schedulely_Scheduler
 
         $total_minutes = ($end_timestamp - $start_timestamp) / 60;
 
-        // Calculate theoretical maximum capacity (number of intervals that fit)
-        // Example: 360 minutes / 35 min interval = 10.28 → 10 posts can fit with perfect spacing
+        // Theoretical maximum: how many min_interval-sized slots fit in the window.
         $theoretical_capacity = floor($total_minutes / $min_interval);
 
-        // CRITICAL: Account for random time generation inefficiency
-        // Random placement cannot achieve perfect packing like sequential placement
-        // Efficiency factor depends on interval size - smaller intervals = harder to pack randomly
+        // Efficiency factor — how close to theoretical we get in practice.
+        // Sequential and Hybrid modes achieve near-perfect efficiency because slots
+        // are pre-computed rather than found by random trial. Random mode has lower
+        // efficiency due to collision probability.
+        $mode = (string) get_option( 'schedulely_scheduling_mode', Schedulely_Defaults::SCHEDULING_MODE );
 
-        // Dynamic efficiency based on interval size:
-        // - Large intervals (60+ min): 70% efficiency (easier to find gaps)
-        // - Medium intervals (30-59 min): 65% efficiency
-        // - Small intervals (20-29 min): 55% efficiency (high collision probability)
-        // - Tiny intervals (<20 min): 50% efficiency (very difficult)
-        if ($min_interval >= 60) {
-            $efficiency = 0.70;
-        } elseif ($min_interval >= 30) {
-            $efficiency = 0.65;
-        } elseif ($min_interval >= 20) {
-            $efficiency = 0.55;
+        if ( 'sequential' === $mode ) {
+            // Sequential: perfectly even spacing → 100% efficiency.
+            $efficiency = 1.0;
+        } elseif ( 'hybrid' === $mode ) {
+            // Hybrid: even slots + random within slot → ~95% efficiency
+            // (tiny rounding loss at slot boundaries, effectively negligible).
+            $efficiency = 0.95;
         } else {
-            $efficiency = 0.50;
-        }
-
-        // Long windows (e.g. overnight 2 PM–3 AM): random placement has more room, so allow a higher packing factor.
-        if ($total_minutes >= 12 * 60) {
-            $efficiency = min(0.70, $efficiency + 0.10);
+            // Random mode: depends on interval size and window length.
+            if ($min_interval >= 60) {
+                $efficiency = 0.70;
+            } elseif ($min_interval >= 30) {
+                $efficiency = 0.65;
+            } elseif ($min_interval >= 20) {
+                $efficiency = 0.55;
+            } else {
+                $efficiency = 0.50;
+            }
+            // Long windows give random placement more room.
+            if ($total_minutes >= 12 * 60) {
+                $efficiency = min(0.70, $efficiency + 0.10);
+            }
         }
 
         $efficiency = (float) apply_filters('schedulely_capacity_efficiency', $efficiency, $total_minutes, $min_interval, $desired_quota, $overnight);
 
         $capacity = max(1, floor($theoretical_capacity * $efficiency));
 
-        // For very small capacities (1-3 posts), be more conservative
+        // For very small capacities (1-3 posts), be slightly more conservative.
         if ($theoretical_capacity <= 3) {
             $capacity = max(1, $theoretical_capacity - 1);
         }
@@ -1018,6 +1097,73 @@ class Schedulely_Scheduler
             'suggestions' => $suggestions,
             'error' => null
         ];
+    }
+
+    /**
+     * Pre-compute all time slots for a given anchor date and scheduling mode.
+     *
+     * Sequential: evenly divides the window into $quota equal intervals.
+     *   Slot N starts at: window_start + N × (window_span / quota)
+     *
+     * Hybrid: same even division, but each slot's assigned time is a random
+     *   point within the slot boundaries — giving even distribution with
+     *   natural-looking randomness.
+     *
+     * Returns an array of MySQL datetime strings (Y-m-d H:i:s), one per slot,
+     * in order. Returns fewer slots if the window is too short for the safety buffer.
+     *
+     * @since 1.6.0
+     *
+     * @param string $anchor_date Y-m-d.
+     * @param int    $quota       Posts per day.
+     * @param string $mode        'sequential' or 'hybrid'.
+     * @return array<string> MySQL datetime strings.
+     */
+    private function generate_day_slots( string $anchor_date, int $quota, string $mode ): array {
+        list( $start_ts, $end_ts ) = $this->logical_window_bounds_ts( $anchor_date );
+
+        if ( $start_ts >= $end_ts || $quota < 1 ) {
+            return [];
+        }
+
+        $now_ts        = time();
+        $safety_buffer = (int) apply_filters( 'schedulely_schedule_safety_buffer_seconds', 30 * 60, 0, $anchor_date );
+        if ( $safety_buffer < 0 ) $safety_buffer = 0;
+        $floor_ts = max( $start_ts, $now_ts + $safety_buffer );
+
+        if ( $floor_ts > $end_ts ) {
+            return [];
+        }
+
+        $usable_span = $end_ts - $floor_ts;
+
+        // Slot width in seconds. Minimum 1 second to avoid divide-by-zero.
+        $slot_width = max( 1, (int) floor( $usable_span / $quota ) );
+
+        $slots = [];
+        for ( $i = 0; $i < $quota; $i++ ) {
+            $slot_start = $floor_ts + ( $i * $slot_width );
+            $slot_end   = min( $end_ts, $slot_start + $slot_width - 1 );
+
+            if ( $slot_start > $end_ts ) {
+                break; // Window exhausted.
+            }
+
+            if ( 'sequential' === $mode ) {
+                // Exactly the start of each slot — perfectly even spacing.
+                $point = $slot_start;
+            } else {
+                // Hybrid: random within the slot.
+                $point = ( $slot_start < $slot_end ) ? rand( (int) $slot_start, (int) $slot_end ) : $slot_start;
+            }
+
+            $dt = wp_date( 'Y-m-d H:i:s', (int) $point );
+            if ( $dt ) {
+                $slots[] = $dt;
+            }
+        }
+
+        return $slots;
     }
 
     /**
