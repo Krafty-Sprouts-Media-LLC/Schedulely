@@ -42,6 +42,7 @@ class Schedulely_AI_Order {
 	 *
 	 * @since 1.4.0
 	 * @since 1.6.0 Added WP 7.0 path via wp_ai_client_prompt().
+	 * @since 1.7.0 Now sends slug alongside title for better state detection.
 	 *
 	 * @param array<int> $post_ids List of positive post IDs.
 	 * @return array<int>|WP_Error Ordered IDs (same length as input) or error.
@@ -58,6 +59,43 @@ class Schedulely_AI_Order {
 		}
 
 		return $this->reorder_via_legacy_http( $post_ids );
+	}
+
+	/**
+	 * Reorder post IDs with timezone group assignments.
+	 *
+	 * Used when US timezone-aware ordering is enabled. Returns an array of
+	 * [ 'id' => int, 'timezone_group' => string ] maps, where timezone_group
+	 * is one of: 'eastern', 'central', 'mountain', 'pacific', 'general'.
+	 *
+	 * Falls back to plain reorder_post_ids() on AI failure, assigning all
+	 * posts to 'general' so the scheduler still works.
+	 *
+	 * @since 1.7.0
+	 *
+	 * @param array<int> $post_ids
+	 * @return array<array{id:int,timezone_group:string}>
+	 */
+	public function reorder_post_ids_with_timezone( array $post_ids ): array {
+		$post_ids = array_values( array_filter( array_map( 'absint', $post_ids ) ) );
+
+		if ( count( $post_ids ) < 2 ) {
+			return array_map( fn( $id ) => [ 'id' => $id, 'timezone_group' => 'general' ], $post_ids );
+		}
+
+		if ( $this->wp_ai_available() ) {
+			$result = $this->reorder_via_wp_ai_timezone( $post_ids );
+		} else {
+			$result = $this->reorder_via_legacy_http_timezone( $post_ids );
+		}
+
+		if ( is_wp_error( $result ) ) {
+			// Graceful fallback — plain order, all general.
+			schedulely_log_error( 'Timezone AI reorder failed, falling back: ' . $result->get_error_message() );
+			return array_map( fn( $id ) => [ 'id' => $id, 'timezone_group' => 'general' ], $post_ids );
+		}
+
+		return $result;
 	}
 
 	/**
@@ -156,6 +194,151 @@ class Schedulely_AI_Order {
 		}
 
 		return $this->process_ai_response( $post_ids, $content, 'wp_ai', null );
+	}
+
+	// -------------------------------------------------------------------------
+	// Timezone-aware reorder methods (1.7.0)
+	// -------------------------------------------------------------------------
+
+	/**
+	 * Timezone-aware reorder via WP 7.0 AI client.
+	 *
+	 * @since 1.7.0
+	 * @param array<int> $post_ids
+	 * @return array<array{id:int,timezone_group:string}>|WP_Error
+	 */
+	private function reorder_via_wp_ai_timezone( array $post_ids ) {
+		$lines  = $this->build_prompt_lines( $post_ids );
+		$prompt = $this->build_user_prompt( $lines, count( $post_ids ) );
+
+		try {
+			$builder = wp_ai_client_prompt( $prompt )
+				->using_system_instruction( $this->get_system_instruction( true ) )
+				->using_temperature( 0.4 );
+
+			do_action( 'schedulely_pre_ai_reorder' );
+
+			if ( ! $builder->is_supported_for_text_generation() ) {
+				return new WP_Error( 'schedulely_ai_unsupported', __( 'No AI provider supports text generation.', 'schedulely' ) );
+			}
+
+			$content = (string) $builder->generate_text();
+
+		} catch ( \Throwable $e ) {
+			schedulely_log_error( 'WP AI timezone reorder exception: ' . $e->getMessage() );
+			return new WP_Error( 'schedulely_ai_exception', $e->getMessage() );
+		}
+
+		return $this->process_timezone_response( $post_ids, $content, 'wp_ai', null );
+	}
+
+	/**
+	 * Timezone-aware reorder via legacy HTTP path.
+	 *
+	 * @since 1.7.0
+	 * @param array<int> $post_ids
+	 * @return array<array{id:int,timezone_group:string}>|WP_Error
+	 */
+	private function reorder_via_legacy_http_timezone( array $post_ids ) {
+		$api_key = apply_filters( 'schedulely_ai_api_key', get_option( 'schedulely_ai_api_key', '' ) );
+		if ( '' === trim( (string) $api_key ) ) {
+			return new WP_Error( 'schedulely_ai_no_key', __( 'No API key configured.', 'schedulely' ) );
+		}
+
+		$base  = $this->get_api_base_url();
+		$model = $this->get_model();
+		$url   = rtrim( $base, '/' ) . '/chat/completions';
+		$lines = $this->build_prompt_lines( $post_ids );
+		$body  = $this->build_request_body( $model, $lines, count( $post_ids ), true );
+
+		$post_count      = count( $post_ids );
+		$default_timeout = max( 120, min( 1200, 60 + (int) round( $post_count * 0.45 ) ) );
+		$timeout         = (int) apply_filters( 'schedulely_ai_request_timeout', $default_timeout, $post_ids );
+		$timeout         = min( max( 30, $timeout ), (int) apply_filters( 'schedulely_ai_request_timeout_max', 1200 ) );
+
+		$response = wp_remote_post( $url, [
+			'timeout' => $timeout,
+			'headers' => $this->build_ai_http_headers( $api_key ),
+			'body'    => wp_json_encode( $body ),
+		] );
+
+		if ( is_wp_error( $response ) ) {
+			return $response;
+		}
+
+		$code    = (int) wp_remote_retrieve_response_code( $response );
+		$raw     = (string) wp_remote_retrieve_body( $response );
+		$decoded = json_decode( $raw, true );
+
+		if ( 200 !== $code || ! is_array( $decoded ) ) {
+			return new WP_Error( 'schedulely_ai_http', sprintf( __( 'AI request failed (HTTP %s).', 'schedulely' ), $code ) );
+		}
+
+		$content = $this->extract_assistant_text( $decoded );
+		if ( '' === $content ) {
+			return new WP_Error( 'schedulely_ai_empty', __( 'AI returned an empty message.', 'schedulely' ) );
+		}
+
+		$usage_tokens = isset( $decoded['usage']['total_tokens'] ) ? (int) $decoded['usage']['total_tokens'] : null;
+		return $this->process_timezone_response( $post_ids, $content, $model, $usage_tokens );
+	}
+
+	/**
+	 * Parse and validate a timezone-aware AI response.
+	 *
+	 * Expected JSON shape:
+	 *   { "ordered_ids": [1,2,3,...], "timezone_groups": {"1":"eastern","2":"pacific",...} }
+	 *
+	 * Falls back gracefully if timezone_groups is missing — assigns all to 'general'.
+	 *
+	 * @since 1.7.0
+	 * @param array<int>  $post_ids
+	 * @param string      $content
+	 * @param string      $model
+	 * @param int|null    $usage_tokens
+	 * @return array<array{id:int,timezone_group:string}>|WP_Error
+	 */
+	private function process_timezone_response( array $post_ids, string $content, string $model, ?int $usage_tokens ) {
+		$content = trim( $content );
+		if ( preg_match( '/^```(?:json)?\s*(\{.*\})\s*```$/s', $content, $m ) ) {
+			$content = $m[1];
+		}
+
+		$obj = json_decode( $content, true );
+
+		// Graceful fallback: ordered_ids present but timezone_groups missing.
+		if ( is_array( $obj ) && isset( $obj['ordered_ids'] ) && is_array( $obj['ordered_ids'] )
+			&& ( ! isset( $obj['timezone_groups'] ) || ! is_array( $obj['timezone_groups'] ) ) ) {
+			$ordered = $this->reconcile_ordered_ids_with_input( $post_ids, array_map( 'absint', $obj['ordered_ids'] ) );
+			return array_map( fn( $id ) => [ 'id' => $id, 'timezone_group' => 'general' ], $ordered );
+		}
+
+		if ( ! is_array( $obj )
+			|| ! isset( $obj['ordered_ids'] ) || ! is_array( $obj['ordered_ids'] )
+			|| ! isset( $obj['timezone_groups'] ) || ! is_array( $obj['timezone_groups'] ) ) {
+			return new WP_Error( 'schedulely_ai_tz_shape', __( 'AI timezone response missing required keys.', 'schedulely' ) );
+		}
+
+		$ordered      = $this->reconcile_ordered_ids_with_input( $post_ids, array_map( 'absint', $obj['ordered_ids'] ) );
+		$valid_groups = [ 'eastern', 'central', 'mountain', 'pacific', 'general' ];
+		$groups_map   = $obj['timezone_groups'];
+
+		$result = [];
+		foreach ( $ordered as $id ) {
+			$group = isset( $groups_map[ (string) $id ] ) ? (string) $groups_map[ (string) $id ] : 'general';
+			if ( ! in_array( $group, $valid_groups, true ) ) {
+				$group = 'general';
+			}
+			$result[] = [ 'id' => $id, 'timezone_group' => $group ];
+		}
+
+		$this->log_attempt( 'success', $model, count( $post_ids ), null, $usage_tokens,
+			'', '',
+			schedulely_ai_log_sanitize_excerpt( $content, 1200 ), '',
+			__( 'Timezone-aware queue order applied.', 'schedulely' )
+		);
+
+		return $result;
 	}
 
 	// -------------------------------------------------------------------------
@@ -451,9 +634,13 @@ class Schedulely_AI_Order {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Build "post_id TAB title" lines for the prompt.
+	 * Build "post_id TAB title TAB slug" lines for the prompt.
+	 *
+	 * Slug is included because it is derived from the primary keyword and
+	 * reliably contains the target US state name (e.g. pit-bull-laws-in-texas).
 	 *
 	 * @since 1.6.0
+	 * @since 1.7.0 Added slug column for better state detection.
 	 * @param array<int> $post_ids
 	 * @return array<string>
 	 */
@@ -462,7 +649,9 @@ class Schedulely_AI_Order {
 		foreach ( $post_ids as $post_id ) {
 			$title = get_post_field( 'post_title', $post_id, 'raw' );
 			$title = is_string( $title ) ? wp_strip_all_tags( $title ) : '';
-			$lines[] = (string) $post_id . "\t" . $title;
+			$slug  = get_post_field( 'post_name', $post_id, 'raw' );
+			$slug  = is_string( $slug ) ? $slug : '';
+			$lines[] = (string) $post_id . "\t" . $title . "\t" . $slug;
 		}
 		return $lines;
 	}
@@ -488,10 +677,17 @@ class Schedulely_AI_Order {
 	 * Kept in English only — not passed through gettext — for model reliability.
 	 *
 	 * @since 1.6.0
+	 * @since 1.7.0 Added $timezone_mode parameter.
+	 *
+	 * @param bool $timezone_mode When true, returns the US timezone-aware instruction.
 	 * @return string
 	 */
-	private function get_system_instruction(): string {
-		return 'You reorder WordPress posts for publication. Each line is: numeric_post_id TAB title. '
+	private function get_system_instruction( bool $timezone_mode = false ): string {
+		if ( $timezone_mode ) {
+			return $this->get_timezone_system_instruction();
+		}
+
+		return 'You reorder WordPress posts for publication. Each line is: numeric_post_id TAB title TAB slug. '
 			. 'Detect posts that belong to the same series or template. '
 			. 'Your goal is to maximize variety in the sequence. '
 			. 'Do not place similar or same-series posts close together. '
@@ -504,22 +700,55 @@ class Schedulely_AI_Order {
 	}
 
 	/**
+	 * System instruction for US timezone-aware ordering.
+	 *
+	 * Returns both ordered_ids AND timezone_groups so the scheduler can assign
+	 * each post to the correct time band within the publishing window.
+	 *
+	 * @since 1.7.0
+	 * @return string
+	 */
+	private function get_timezone_system_instruction(): string {
+		return 'You reorder WordPress posts for a US audience. Each line is: numeric_post_id TAB title TAB slug. '
+			. 'Step 1 — Extract the US state from each post\'s title or slug. '
+			. 'Step 2 — Assign each post to its primary US timezone group: '
+			. '"eastern" (CT, ME, MA, NH, RI, VT, NY, NJ, PA, DE, MD, DC, VA, WV, NC, SC, GA, FL, OH, MI, IN, KY, TN), '
+			. '"central" (WI, IL, MO, AR, LA, MS, AL, MN, IA, ND, SD, NE, KS, OK, TX), '
+			. '"mountain" (MT, ID, WY, CO, NM, AZ, UT, NV), '
+			. '"pacific" (WA, OR, CA, AK, HI). '
+			. 'If a state spans multiple timezones use its eastern-most zone. '
+			. 'Posts with no identifiable US state get group "general". '
+			. 'Step 3 — Order posts: Eastern first, then Central, then Mountain, then Pacific last. '
+			. 'Distribute "general" posts evenly as spacers between timezone groups. '
+			. 'Within each timezone group, alternate topics so no two adjacent posts share the same subject series '
+			. '(e.g. no back-to-back "Pit Bull Laws" or "Hunting Laws" posts). '
+			. 'Maintain a minimum spacing of 3 to 5 posts between same-series titles across the full list. '
+			. 'Return a JSON object with exactly two keys: '
+			. '"ordered_ids" — array of all input post IDs in the final order (every ID exactly once, no omissions, no invented IDs); '
+			. '"timezone_groups" — object mapping each post ID (as string key) to its group string. '
+			. 'Valid group values: "eastern", "central", "mountain", "pacific", "general". '
+			. 'Output only valid JSON, no markdown fences, no commentary.';
+	}
+
+	/**
 	 * Build the full Chat Completions request body (legacy path only).
 	 *
 	 * @since 1.4.0
+	 * @since 1.7.0 Added $timezone_mode parameter.
 	 * @param string        $model
 	 * @param array<string> $lines
 	 * @param int           $count
+	 * @param bool          $timezone_mode
 	 * @return array<string,mixed>
 	 */
-	private function build_request_body( string $model, array $lines, int $count ): array {
+	private function build_request_body( string $model, array $lines, int $count, bool $timezone_mode = false ): array {
 		$body = [
 			'model'           => $model,
 			'messages'        => [
-				[ 'role' => 'system', 'content' => $this->get_system_instruction() ],
+				[ 'role' => 'system', 'content' => $this->get_system_instruction( $timezone_mode ) ],
 				[ 'role' => 'user',   'content' => $this->build_user_prompt( $lines, $count ) ],
 			],
-			'temperature'     => 1.0,
+			'temperature'     => $timezone_mode ? 0.4 : 1.0,
 			'top_p'           => 1.0,
 			'max_tokens'      => (int) apply_filters( 'schedulely_ai_max_output_tokens', 16384 ),
 			'response_format' => [ 'type' => 'json_object' ],

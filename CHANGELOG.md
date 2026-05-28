@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.7.0] - 28/05/2026
+
+### Added
+- **US Timezone-Aware Queue Ordering** — new opt-in feature for sites publishing US state-specific content. When enabled alongside AI queue ordering and Random scheduling mode, Schedulely divides the configured publishing window into four equal timezone bands (Eastern → Central → Mountain → Pacific) and assigns each post a random time within its target audience's band. Posts with no identifiable US state are distributed evenly as spacers across all bands.
+- **Slug included in AI prompt** — the post slug is now sent alongside the title in every AI reorder request. Since slugs are derived from the primary keyword (e.g. `pit-bull-laws-in-texas`), they provide a more reliable state signal than the title alone.
+- **Timezone band calculation** — `Schedulely_Scheduler::calculate_timezone_bands()` dynamically divides any configured window into four equal bands. Bands recalculate automatically when the user changes their start/end time — nothing is hardcoded.
+- **Inline mode warning** — when US Timezone-Aware Ordering is enabled but Sequential or Hybrid scheduling mode is active, an inline notice in the AI & Notifications tab explains that timezone bands only take effect in Random mode.
+- **`schedulely_ai_us_timezone_ordering` option** — registered on activation, saved on settings save, deleted on uninstall.
+- **`Schedulely_Defaults::AI_US_TIMEZONE_ORDERING`** constant (`false` — off by default, does not affect existing users).
+
+### Changed
+- **AI system prompt** — updated to send `id TAB title TAB slug` per line (was `id TAB title`). The timezone-aware prompt instructs the AI to extract the US state from title or slug, assign each post to its primary timezone group using the eastern-most zone for split-timezone states, order Eastern first and Pacific last, scatter general posts as spacers, and return both `ordered_ids` and `timezone_groups` in the JSON response.
+- **`generate_random_datetime()`** — accepts an optional `$band` parameter (`[start_ts, end_ts]`). When provided, the random time is constrained to that sub-range of the window. Falls back to the full window if the band is outside the window or not provided.
+
+### Notes
+- Timezone-aware ordering only applies on manual "Run Schedule Now" clicks. Cron-driven runs skip AI reordering entirely (unchanged from 1.6.0) and use shuffle or draft-date order across the full window.
+- Sequential and Hybrid modes are not timezone-band-aware in this release — they assign times by slot position across the full window. Full band support for those modes is planned for a future release.
+
+---
+
 ## [1.6.2] - 27/05/2026
 
 ### Added

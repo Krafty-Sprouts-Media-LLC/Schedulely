@@ -3,7 +3,7 @@
  * Plugin Name: Schedulely
  * Plugin URI: https://kraftysprouts.com
  * Description: Intelligently schedule posts from any status with smart deficit tracking, random author assignment, and customizable time windows.
- * Version: 1.6.2
+ * Version: 1.7.0
  * Author: Krafty Sprouts Media, LLC
  * Author URI: https://kraftysprouts.com
  * License: GPL v2 or later
@@ -23,7 +23,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('SCHEDULELY_VERSION', '1.6.2');
+define('SCHEDULELY_VERSION', '1.7.0');
 define('SCHEDULELY_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('SCHEDULELY_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('SCHEDULELY_PLUGIN_BASENAME', plugin_basename(__FILE__));
@@ -135,6 +135,7 @@ function schedulely_activate()
     add_option('schedulely_pool_size', Schedulely_Defaults::MAX_POSTS_PER_RUN); // Max posts fetched per run
     add_option('schedulely_scheduling_mode', Schedulely_Defaults::SCHEDULING_MODE); // random | sequential | hybrid
     add_option('schedulely_ai_order_enabled', false);
+    add_option('schedulely_ai_us_timezone_ordering', Schedulely_Defaults::AI_US_TIMEZONE_ORDERING);
     add_option('schedulely_ai_api_key', '');
     add_option('schedulely_ai_base_url', 'https://api.deepseek.com/v1');
     add_option('schedulely_ai_model', 'deepseek-v4-flash');

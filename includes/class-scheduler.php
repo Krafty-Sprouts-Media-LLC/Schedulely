@@ -46,6 +46,18 @@ class Schedulely_Scheduler
     private $author_manager;
 
     /**
+     * Timezone queue — populated by maybe_apply_ai_queue_order() when
+     * US timezone-aware ordering is active. Each entry is:
+     *   [ 'id' => int, 'timezone_group' => string ]
+     *
+     * Keyed by post ID for O(1) lookup during scheduling.
+     *
+     * @since 1.7.0
+     * @var array<int,string>  post_id => timezone_group
+     */
+    private array $timezone_queue = [];
+
+    /**
      * Constructor
      */
     public function __construct()
@@ -149,7 +161,14 @@ class Schedulely_Scheduler
     }
 
     /**
-     * Optionally reorder posts via OpenAI-compatible API (e.g. DeepSeek). Mutates $posts on success.
+     * Optionally reorder posts via AI. Mutates $posts on success.
+     *
+     * When US timezone-aware ordering is enabled, returns an array of
+     * [ 'id' => int, 'timezone_group' => string ] maps instead of plain IDs,
+     * stored in $this->timezone_queue for use by schedule_posts_from_date().
+     *
+     * @since 1.0.0
+     * @since 1.7.0 Timezone-aware ordering support.
      *
      * @param array $posts Post IDs (by reference).
      * @return bool True when AI order was applied.
@@ -168,8 +187,6 @@ class Schedulely_Scheduler
             return false;
         }
 
-        // On WP 7.0+ the AI client handles credentials centrally — no key check needed.
-        // On the legacy path, require a stored API key.
         $using_wp_ai = function_exists( 'wp_ai_client_prompt' );
         if ( ! $using_wp_ai ) {
             $key = apply_filters('schedulely_ai_api_key', get_option('schedulely_ai_api_key', ''));
@@ -179,22 +196,32 @@ class Schedulely_Scheduler
         }
 
         $ai = new Schedulely_AI_Order();
+
+        // Timezone-aware path.
+        if ( get_option( 'schedulely_ai_us_timezone_ordering', Schedulely_Defaults::AI_US_TIMEZONE_ORDERING ) ) {
+            $reordered = $ai->reorder_post_ids_with_timezone( $posts );
+            // reorder_post_ids_with_timezone never returns WP_Error — it falls back internally.
+            // Build a keyed map for O(1) lookup during scheduling.
+            $this->timezone_queue = [];
+            foreach ( $reordered as $entry ) {
+                $this->timezone_queue[ (int) $entry['id'] ] = $entry['timezone_group'];
+            }
+            $posts = array_column( $reordered, 'id' );
+            return true;
+        }
+
+        // Standard path.
         $reordered = $ai->reorder_post_ids($posts);
 
         if (is_wp_error($reordered)) {
             schedulely_log_error(
                 'Schedulely AI queue order failed: ' . $reordered->get_error_message(),
-                [
-                    'code' => $reordered->get_error_code(),
-                    'post_count' => count($posts),
-                ]
+                [ 'code' => $reordered->get_error_code(), 'post_count' => count($posts) ]
             );
-
             return false;
         }
 
         $posts = $reordered;
-
         return true;
     }
 
@@ -662,14 +689,23 @@ class Schedulely_Scheduler
                     continue;
                 }
             } else {
-                // Random mode — existing trial-and-error logic.
-                $datetime = $this->generate_random_datetime( $current_date, $already_scheduled_times );
+                // Random mode — use timezone band if available, otherwise full window.
+                $band = null;
+                if ( ! empty( $this->timezone_queue ) ) {
+                    $group = $this->timezone_queue[ $post_id ] ?? 'general';
+                    if ( 'general' !== $group ) {
+                        $bands = $this->calculate_timezone_bands( $current_date );
+                        $band  = $bands[ $group ] ?? null;
+                    }
+                }
+
+                $datetime = $this->generate_random_datetime( $current_date, $already_scheduled_times, $band );
 
                 if ( false === $datetime ) {
                     $current_date          = $this->get_next_active_date( $current_date );
                     $posts_scheduled_today = 0;
                     $already_scheduled_times = [];
-                    $datetime = $this->generate_random_datetime( $current_date, [] );
+                    $datetime = $this->generate_random_datetime( $current_date, [], $band );
 
                     if ( false === $datetime ) {
                         $errors[] = sprintf( __( 'Failed to generate time slot for post ID %d', 'schedulely' ), $post_id );
@@ -1100,6 +1136,39 @@ class Schedulely_Scheduler
     }
 
     /**
+     * Calculate four equal timezone band boundaries from the configured window.
+     *
+     * Divides the total window duration into four equal parts:
+     *   eastern → central → mountain → pacific
+     *
+     * Returns an array keyed by group name, each value being [start_ts, end_ts].
+     * The bands are calculated dynamically from the user's start/end time settings
+     * so they always reflect the current configuration.
+     *
+     * @since 1.7.0
+     *
+     * @param string $anchor_date Y-m-d anchor date.
+     * @return array<string,array{0:int,1:int}>  group => [start_ts, end_ts]
+     */
+    public function calculate_timezone_bands( string $anchor_date ): array {
+        list( $start_ts, $end_ts ) = $this->logical_window_bounds_ts( $anchor_date );
+
+        if ( $start_ts >= $end_ts ) {
+            return [];
+        }
+
+        $span      = $end_ts - $start_ts;
+        $band_size = (int) floor( $span / 4 );
+
+        return [
+            'eastern'  => [ $start_ts,                    $start_ts + $band_size - 1 ],
+            'central'  => [ $start_ts + $band_size,        $start_ts + ( 2 * $band_size ) - 1 ],
+            'mountain' => [ $start_ts + ( 2 * $band_size ), $start_ts + ( 3 * $band_size ) - 1 ],
+            'pacific'  => [ $start_ts + ( 3 * $band_size ), $end_ts ],
+        ];
+    }
+
+    /**
      * Pre-compute all time slots for a given anchor date and scheduling mode.
      *
      * Sequential: evenly divides the window into $quota equal intervals.
@@ -1169,16 +1238,33 @@ class Schedulely_Scheduler
     /**
      * Random local datetime within the logical window for anchor date (supports overnight). Respects min interval vs used timestamps.
      *
+     * When $band is provided ([ start_ts, end_ts ]), the random time is constrained
+     * to that sub-range of the window — used for timezone-aware scheduling.
+     *
+     * @since 1.0.0
+     * @since 1.7.0 Added $band parameter for timezone-aware scheduling.
+     *
      * @param string       $anchor_date Logical anchor Y-m-d.
-     * @param array<int>   $used_ts     Unix timestamps already taken this run (and existing future posts in window).
+     * @param array<int>   $used_ts     Unix timestamps already taken this run.
+     * @param array{0:int,1:int}|null $band Optional [start_ts, end_ts] sub-range.
      * @return string|false MySQL datetime Y-m-d H:i:s or false.
      */
-    private function generate_random_datetime($anchor_date, array $used_ts = [])
+    private function generate_random_datetime($anchor_date, array $used_ts = [], ?array $band = null)
     {
         list($start_ts, $end_ts) = $this->logical_window_bounds_ts($anchor_date);
 
         if ($start_ts >= $end_ts) {
             return false;
+        }
+
+        // Constrain to timezone band if provided.
+        if ( null !== $band && isset( $band[0], $band[1] ) ) {
+            $start_ts = max( $start_ts, (int) $band[0] );
+            $end_ts   = min( $end_ts,   (int) $band[1] );
+            if ( $start_ts >= $end_ts ) {
+                // Band is outside the window — fall back to full window.
+                list( $start_ts, $end_ts ) = $this->logical_window_bounds_ts( $anchor_date );
+            }
         }
 
         $min_interval = (int) get_option('schedulely_min_interval', 40) * 60;

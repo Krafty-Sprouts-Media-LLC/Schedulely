@@ -264,6 +264,9 @@ class Schedulely_Settings {
 		update_option( 'schedulely_ai_order_enabled',
 			$this->sanitize_checkbox( $_POST['schedulely_ai_order_enabled'] ?? false ) );
 
+		update_option( 'schedulely_ai_us_timezone_ordering',
+			$this->sanitize_checkbox( $_POST['schedulely_ai_us_timezone_ordering'] ?? false ) );
+
 		update_option( 'schedulely_ai_base_url',
 			$this->sanitize_ai_base_url( wp_unslash( $_POST['schedulely_ai_base_url'] ?? '' ) ) );
 

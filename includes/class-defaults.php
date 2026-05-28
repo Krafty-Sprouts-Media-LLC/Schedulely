@@ -114,6 +114,9 @@ class Schedulely_Defaults {
 	/** @var bool Default AI ordering state. */
 	const AI_ORDER_ENABLED = false;
 
+	/** @var bool Default US timezone-aware queue ordering state. */
+	const AI_US_TIMEZONE_ORDERING = false;
+
 	/** @var string Default API key (empty = not configured). */
 	const AI_API_KEY = '';
 

@@ -416,6 +416,19 @@ $pres_authors    = get_option( 'schedulely_preserved_authors', Schedulely_Defaul
 
                 <p class="schedulely-section-label"><?php esc_html_e( 'AI Series Spacing', 'schedulely' ); ?></p>
 
+                <?php
+                $tz_ordering_on  = (bool) get_option( 'schedulely_ai_us_timezone_ordering', Schedulely_Defaults::AI_US_TIMEZONE_ORDERING );
+                $current_mode_ai = get_option( 'schedulely_scheduling_mode', Schedulely_Defaults::SCHEDULING_MODE );
+                if ( $tz_ordering_on && in_array( $current_mode_ai, [ 'sequential', 'hybrid' ], true ) ) : ?>
+                    <div class="schedulely-ai-notice schedulely-ai-notice--warn" style="margin-bottom:16px;">
+                        <span class="schedulely-ai-notice-icon">⚠️</span>
+                        <div class="schedulely-ai-notice-text">
+                            <strong><?php esc_html_e( 'Timezone ordering works best with Random mode.', 'schedulely' ); ?></strong>
+                            <?php esc_html_e( 'Sequential and Hybrid modes assign times by slot position, not queue order, so timezone bands may not align as expected. Switch to Random mode in the Queue tab.', 'schedulely' ); ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
+
                 <?php if ( $wp_ai_ready && $wp_ai_connected ) : ?>
                     <div class="schedulely-ai-notice schedulely-ai-notice--connected">
                         <span class="schedulely-ai-notice-icon">✅</span>
@@ -437,6 +450,19 @@ $pres_authors    = get_option( 'schedulely_preserved_authors', Schedulely_Defaul
                         <button type="button" class="btn btn-secondary" id="schedulely-test-ai-connection"><?php esc_html_e( 'Test connection', 'schedulely' ); ?></button>
                     </p>
                     <p class="schedulely-field-hint" id="schedulely-ai-test-result" style="display:none; margin-top:8px;" aria-live="polite"></p>
+
+                    <!-- US Timezone-Aware Ordering -->
+                    <hr class="schedulely-divider" style="margin:16px 0;">
+                    <label class="schedulely-checkbox-row">
+                        <input type="checkbox" name="schedulely_ai_us_timezone_ordering" id="schedulely_ai_us_timezone_ordering"
+                               value="1" <?php checked( get_option( 'schedulely_ai_us_timezone_ordering', Schedulely_Defaults::AI_US_TIMEZONE_ORDERING ) ); ?>>
+                        <div>
+                            <span class="schedulely-chk-label"><?php esc_html_e( 'US Timezone-Aware Queue Ordering', 'schedulely' ); ?></span>
+                            <p class="schedulely-field-hint">
+                                <?php esc_html_e( 'Orders posts by US timezone (Eastern → Pacific) so content reaches each audience during their peak hours. The AI extracts the target state from each post\'s title and slug. Only useful if your posts target specific US states. Requires Random scheduling mode.', 'schedulely' ); ?>
+                            </p>
+                        </div>
+                    </label>
 
                 <?php elseif ( $wp_ai_ready && ! $wp_ai_connected ) : ?>
                     <div class="schedulely-ai-notice schedulely-ai-notice--warn">

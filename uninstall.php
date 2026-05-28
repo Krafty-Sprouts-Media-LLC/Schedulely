@@ -23,6 +23,7 @@ delete_option('schedulely_shuffle_queue');
 delete_option('schedulely_pool_size');
 delete_option('schedulely_scheduling_mode');
 delete_option('schedulely_ai_order_enabled');
+delete_option('schedulely_ai_us_timezone_ordering');
 delete_option('schedulely_ai_api_key');
 delete_option('schedulely_ai_base_url');
 delete_option('schedulely_ai_model');
