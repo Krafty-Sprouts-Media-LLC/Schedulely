@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Schedulely_Scheduler::get_timezone_active_overlap()` — new method replacing the band calculation. Takes an anchor date and timezone group, returns `[overlap_start_ts, overlap_end_ts]` in UTC. Uses PHP's `America/*` timezone rules for DST-aware offset lookup at the time of scheduling.
 - `Schedulely_Scheduler::calculate_timezone_bands()` — kept as a deprecated wrapper around `get_timezone_active_overlap()` for backwards compatibility.
 - `schedule_posts_from_date()` — updated to call `get_timezone_active_overlap()` directly per post.
+- `calculate_capacity()` — now includes `timezone_overlaps` in its response when US timezone-aware ordering is enabled, showing the active window overlap for each US timezone group in site-local time. Displayed in the capacity accordion in the admin.
+- `admin.js` — `buildTimezoneOverlapPanel()` added. When timezone ordering is on and capacity is met, the capacity pill's "Show suggestions" toggle reveals a table of each timezone group's active window overlap. When capacity is not met, the same table appears above the fix suggestions.
 
 ---
 

@@ -1121,6 +1121,23 @@ class Schedulely_Scheduler
             }
         }
 
+        // When US timezone-aware ordering is enabled, append overlap info for
+        // each timezone group so the capacity pill can show it to the user.
+        $timezone_overlaps = null;
+        if ( get_option( 'schedulely_ai_us_timezone_ordering', Schedulely_Defaults::AI_US_TIMEZONE_ORDERING ) ) {
+            $today  = wp_date( 'Y-m-d', time() );
+            $groups = [ 'eastern', 'central', 'mountain', 'pacific' ];
+            $timezone_overlaps = [];
+            foreach ( $groups as $group ) {
+                list( $ov_start, $ov_end ) = $this->get_timezone_active_overlap( $today, $group );
+                $timezone_overlaps[ $group ] = [
+                    'start' => wp_date( 'g:i A', $ov_start ),
+                    'end'   => wp_date( 'g:i A', $ov_end ),
+                    'minutes' => (int) round( ( $ov_end - $ov_start ) / 60 ),
+                ];
+            }
+        }
+
         return [
             'valid' => true,
             'capacity' => $capacity,
@@ -1131,6 +1148,7 @@ class Schedulely_Scheduler
             'start_time' => $start_time,
             'end_time' => $end_time,
             'suggestions' => $suggestions,
+            'timezone_overlaps' => $timezone_overlaps,
             'error' => null
         ];
     }

@@ -493,6 +493,43 @@
     }
 
     /**
+     * Build and show the timezone overlap info panel.
+     * Shown when US timezone-aware ordering is on and capacity is met.
+     *
+     * @param {Object} overlaps  { eastern: {start, end, minutes}, central: ..., ... }
+     */
+    function buildTimezoneOverlapPanel(overlaps) {
+        const $list   = $('#schedulely-suggestions-list');
+        const $toggle = $('#schedulely-capacity-details-toggle');
+        const labels  = { eastern: 'Eastern', central: 'Central', mountain: 'Mountain', pacific: 'Pacific' };
+
+        let html = '<p style="margin:0 0 10px; font-size:12px; font-weight:700; text-transform:uppercase; color:#646970; letter-spacing:.5px;">🌎 US Timezone Active Windows</p>';
+        html += '<p style="font-size:12px; color:#50575e; margin:0 0 12px;">Posts will be scheduled within these overlaps between your publishing window and each timezone\'s active hours (7 AM – 11 PM local time).</p>';
+        html += '<table style="width:100%; border-collapse:collapse; font-size:12px;">';
+        html += '<thead><tr style="border-bottom:1px solid #f0f0f1;"><th style="text-align:left; padding:4px 8px; color:#646970; font-weight:600;">Timezone</th><th style="text-align:left; padding:4px 8px; color:#646970; font-weight:600;">Window (site time)</th><th style="text-align:right; padding:4px 8px; color:#646970; font-weight:600;">Span</th></tr></thead>';
+        html += '<tbody>';
+
+        Object.keys(labels).forEach(function(group) {
+            const o = overlaps[group];
+            if (!o) return;
+            html += '<tr style="border-bottom:1px solid #f9f9f9;">';
+            html += '<td style="padding:6px 8px; font-weight:600;">' + labels[group] + '</td>';
+            html += '<td style="padding:6px 8px; color:#1d2327;">' + o.start + ' – ' + o.end + '</td>';
+            html += '<td style="padding:6px 8px; text-align:right; color:#646970;">' + o.minutes + ' min</td>';
+            html += '</tr>';
+        });
+
+        html += '</tbody></table>';
+
+        $list.html(html);
+        $toggle
+            .prop('hidden', false)
+            .attr('aria-expanded', 'false')
+            .text(schedulely_admin.strings.capacity_show_suggestions || 'Show timezone windows');
+        $('#schedulely-capacity-details').prop('hidden', true);
+    }
+
+    /**
      * Update the pill and (optionally) populate the suggestions accordion.
      * Never injects HTML outside the two dedicated elements.
      *
@@ -514,11 +551,13 @@
                 (schedulely_admin.strings.capacity_ok || 'Fits quota') +
                 ' — ~' + capacity + '/' + quota + ' posts/day'
             );
-            hideSuggestions();
+            if (capacityData.timezone_overlaps) {
+                buildTimezoneOverlapPanel(capacityData.timezone_overlaps);
+            } else {
+                hideSuggestions();
+            }
             return;
         }
-
-        // Quota not met — update pill, build suggestions, reveal accordion.
         setPillState('warn',
             (schedulely_admin.strings.capacity_warn || 'Below quota') +
             ' — ' + capacity + '/' + quota + ' posts/day (' + percentage + '%)'
@@ -532,6 +571,18 @@
 
         if (capacityData.ai_hint) {
             html += '<p class="schedulely-capacity-ai-hint">🤖 ' + capacityData.ai_hint + '</p>';
+        }
+
+        if (capacityData.timezone_overlaps) {
+            const labels = { eastern: 'Eastern', central: 'Central', mountain: 'Mountain', pacific: 'Pacific' };
+            html += '<p style="margin:0 0 6px; font-size:12px; font-weight:700; text-transform:uppercase; color:#646970; letter-spacing:.5px;">🌎 US Timezone Active Windows</p>';
+            html += '<table style="width:100%; border-collapse:collapse; font-size:12px; margin-bottom:14px;">';
+            Object.keys(labels).forEach(function(group) {
+                const o = capacityData.timezone_overlaps[group];
+                if (!o) return;
+                html += '<tr style="border-bottom:1px solid #f9f9f9;"><td style="padding:4px 8px; font-weight:600;">' + labels[group] + '</td><td style="padding:4px 8px;">' + o.start + ' – ' + o.end + '</td><td style="padding:4px 8px; text-align:right; color:#646970;">' + o.minutes + ' min</td></tr>';
+            });
+            html += '</table>';
         }
 
         if (capacityData.suggestions && capacityData.suggestions.length) {
