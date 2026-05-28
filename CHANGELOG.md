@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.7.7] - 28/05/2026
+
+### Fixed
+- **Timezone ordering produced "General: 200" — root cause was an AI request timeout, not the model disobeying.** Despite the 1.7.5/1.7.6 fixes, the WP 7.0 reorder request still timed out (`cURL error 28: Operation timed out after 150002 ms`) because the model was asked to do two jobs in one call: order the posts *and* emit a per-post `timezone_groups` map for up to 1,500 posts. The oversized output blew past the request timeout, the call threw, and the hard-failure fallback assigned every post to "general". The earlier fixes targeted the model's response shape, but no response ever arrived.
+
+### Changed
+- **Timezone classification now runs in PHP; the AI only orders.** The state→timezone assignment is a fixed lookup (the same table that used to live in the AI prompt), so it is now done deterministically in `Schedulely_AI_Order::classify_timezone_group()` by scanning each post's title and slug. The AI is now asked only for `ordered_ids` (series spacing) — the path that already worked reliably. This removes the timezone half of the response entirely, eliminating the timeout, and makes classification 100% correct and instant regardless of pool size. Whole-word matching ensures "arkansas" never resolves as "kansas" and city names like "indianapolis" never resolve as "indiana". Posts with no recognizable US state still fall into "general".
+- **Removed the dead AI-timezone code paths** (`reorder_via_wp_ai_timezone()`, `reorder_via_legacy_http_timezone()`, `process_timezone_response()`, `get_timezone_system_instruction()`, and the `timezone_mode` branches in the prompt/request builders) now that classification is handled in PHP.
+
+---
+
 ## [1.7.6] - 28/05/2026
 
 ### Fixed

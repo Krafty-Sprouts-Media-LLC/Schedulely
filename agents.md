@@ -556,18 +556,22 @@ Added in 1.7.0, refined in 1.7.1–1.7.2. Opt-in feature for sites publishing US
 When `schedulely_ai_us_timezone_ordering` is `true` and AI ordering is enabled:
 
 1. `Schedulely_AI_Order::reorder_post_ids_with_timezone()` is called instead of `reorder_post_ids()`.
-2. The AI receives `id TAB title TAB slug` per post (slug added in 1.7.0 — more reliable state signal than title alone).
-3. The AI returns both `ordered_ids` and `timezone_groups` (`{"post_id": "eastern"|"central"|"mountain"|"pacific"|"general"}`).
+2. **Ordering and classification are split by reliability (changed in 1.7.7):**
+   - **Ordering** (series spacing) is the fuzzy part, so it is delegated to the AI via the shared `reorder_post_ids()` path — the model returns only `ordered_ids`.
+   - **Timezone classification** is a fixed state→zone lookup, so it is done deterministically in PHP by `classify_timezone_group()`, which scans each post's title + slug against `STATE_TIMEZONE_MAP`. No AI involved.
+3. If AI ordering fails, the queue keeps its input order but timezone groups are still assigned. `reorder_post_ids_with_timezone()` never returns WP_Error.
 4. `Schedulely_Scheduler::$timezone_queue` is populated as a keyed map `post_id => timezone_group` for O(1) lookup.
 5. For each post, `get_timezone_active_overlap( $anchor_date, $group )` computes the intersection of the publishing window and that timezone's active hours (7 AM – 11 PM local time, DST-aware via `America/*` PHP timezone rules).
 6. `generate_random_datetime()` picks a random time within that overlap. Falls back to the full window if the overlap is empty or too tight for the interval.
+
+**Why the split (1.7.7):** Up to 1.7.6 the AI was asked to return both `ordered_ids` AND a per-post `timezone_groups` map in a single call. For 200–1,500 posts that output was large enough to exceed the request timeout (`cURL error 28`), the call threw, and the hard-failure fallback assigned every post to "general". Classification never needed an LLM — the state→zone mapping is a fixed table — so it was moved into PHP, eliminating the timeout and making groups always correct.
 
 ### Key rules for agents
 
 - **Only works with Random scheduling mode.** Sequential and Hybrid assign times by slot position, not queue order — timezone bands are ignored in those modes. The UI shows a warning when the wrong mode is selected.
 - **Never hardcode timezone offsets.** Always use `DateTimeZone` + `getOffset()` at the time of scheduling for DST accuracy.
 - **The overlap approach has no overflow.** Do not reintroduce fixed equal-band division — it caused boundary collisions and capacity issues. The overlap approach handles all edge cases gracefully via full-window fallback.
-- **`max_tokens` is 40,960 in timezone mode** (vs 16,384 standard). A 1,500-post timezone response needs ~23,000 output tokens. Do not lower this.
+- **No separate timezone `max_tokens` (changed in 1.7.7).** The AI now only returns `ordered_ids` (16,384 default, shared with standard ordering). The large `timezone_groups` output that previously needed 40,960 tokens is gone — classification is done in PHP.
 - **Only runs on manual "Run Schedule Now".** Cron-driven runs skip AI reordering entirely (unchanged from 1.6.0).
 - **Works regardless of site timezone** (WAT, London, Kolkata, etc.) — all calculations are UTC internally.
 
@@ -581,8 +585,9 @@ When `schedulely_ai_us_timezone_ordering` is `true` and AI ordering is enabled:
 
 | Symbol | File | Notes |
 |---|---|---|
-| `Schedulely_AI_Order::reorder_post_ids_with_timezone()` | `class-ai-order.php` | Public. Returns `[{id, timezone_group}]`. Never returns WP_Error — falls back to all-general internally. |
-| `Schedulely_AI_Order::get_timezone_system_instruction()` | `class-ai-order.php` | Private. The US timezone-aware system prompt. Contains the full state→zone map and ordering rules. |
+| `Schedulely_AI_Order::reorder_post_ids_with_timezone()` | `class-ai-order.php` | Public. Returns `[{id, timezone_group}]`. Never returns WP_Error. Gets ordering from `reorder_post_ids()`, then classifies each post's zone in PHP. |
+| `Schedulely_AI_Order::classify_timezone_group()` | `class-ai-order.php` | Private (1.7.7). Deterministic state→zone lookup from a post's title + slug. Returns one of `eastern/central/mountain/pacific/general`. Replaces the old AI-driven classification. |
+| `Schedulely_AI_Order::STATE_TIMEZONE_MAP` | `class-ai-order.php` | Private const (1.7.7). Full US state name → zone. States spanning two zones are pre-assigned (eastern-most). DC handled separately (Eastern). |
 | `Schedulely_Scheduler::get_timezone_active_overlap()` | `class-scheduler.php` | Public. Returns `[start_ts, end_ts]` overlap in UTC. Use this, not `calculate_timezone_bands()`. |
 | `Schedulely_Scheduler::calculate_timezone_bands()` | `class-scheduler.php` | **Deprecated 1.7.1.** Kept as wrapper for backwards compat. Do not use in new code. |
 | `Schedulely_Defaults::AI_US_TIMEZONE_ORDERING` | `class-defaults.php` | `false` |
@@ -590,3 +595,40 @@ When `schedulely_ai_us_timezone_ordering` is `true` and AI ordering is enabled:
 ### Capacity checker
 
 `calculate_capacity()` returns a `timezone_overlaps` key when `schedulely_ai_us_timezone_ordering` is on. Each entry is `{ start: string, end: string, minutes: int }` in site-local time. `admin.js` renders this as a table in the capacity accordion. Do not remove this key from the return array.
+y.
+
+---
+
+## 16. Release process — mandatory rules for agents
+
+**Every fix or feature that is pushed to master after a tag has been cut MUST get its own new tag and version bump before being considered released.** Pushing commits to master without tagging does not update the zip that users download from GitHub releases.
+
+### Rules
+
+1. **Never push fixes to master and consider them "done" without a tag.** A commit on master is not a release. Users download zips from tags.
+2. **Every user-visible fix gets a patch version bump** (`1.7.1` → `1.7.2`). Every new feature gets a minor bump (`1.7.x` → `1.8.0`).
+3. **The version bump touches exactly two places:** `Version:` header in `schedulely.php` and `SCHEDULELY_VERSION` constant in `schedulely.php`. Both must match the tag.
+4. **The CHANGELOG.md entry must exist before the tag is created.** The tag message should match the changelog entry title.
+5. **Tag format:** `v{major}.{minor}.{patch}` — annotated tag (`git tag -a`), not lightweight.
+6. **Push both the commit and the tag in one step:** `git push origin master --tags`.
+7. **Do not amend or move existing tags.** If a tag was cut with a bug, cut a new patch tag. `v1.7.1` stays where it is; the fix goes into `v1.7.2`.
+8. **Document known issues in the changelog** under a `### Known Issues` heading rather than pushing silent fixes to an already-tagged release. Users deserve to know what version fixed what.
+
+### Workflow
+
+```
+1. Make the fix/feature
+2. Update CHANGELOG.md with the new version entry
+3. Bump Version: and SCHEDULELY_VERSION in schedulely.php
+4. git add <changed files>
+5. git commit -m "type(scope): description"
+6. git tag -a vX.Y.Z -m "vX.Y.Z — short description"
+7. git push origin master --tags
+```
+
+### What NOT to do
+
+- ❌ Push a fix to master, then push another fix, then push another fix — all without tags
+- ❌ Amend a commit that has already been tagged
+- ❌ Force-push to master
+- ❌ Create a tag without updating the version constant in `schedulely.php`
