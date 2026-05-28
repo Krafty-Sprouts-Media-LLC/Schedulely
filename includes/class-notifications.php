@@ -88,11 +88,26 @@ class Schedulely_Notifications
             : '';
         $ai_applied = ! empty( $results['ai_queue_ordered'] );
 
+        // Timezone distribution context (when timezone-aware ordering was used).
+        $tz_context = '';
+        if ( ! empty( $results['timezone_distribution'] ) && is_array( $results['timezone_distribution'] ) ) {
+            $parts = [];
+            foreach ( $results['timezone_distribution'] as $group => $group_count ) {
+                if ( $group_count > 0 ) {
+                    $parts[] = ucfirst( $group ) . ': ' . $group_count;
+                }
+            }
+            if ( ! empty( $parts ) ) {
+                $tz_context = ' US timezone distribution: ' . implode( ', ', $parts ) . '. Posts were scheduled within each timezone\'s active hours (7 AM – 11 PM local time).';
+            }
+        }
+
         $prompt = sprintf(
-            'You are a publishing operations assistant. Write a 2–3 sentence plain-text summary of this automated post-scheduling run. Be specific, use numbers, no marketing tone. Scheduled: %d posts. Date range: %s. AI reordering applied: %s.',
+            'You are a publishing operations assistant. Write a 2–3 sentence plain-text summary of this automated post-scheduling run. Be specific, use numbers, no marketing tone. Scheduled: %d posts. Date range: %s. AI reordering applied: %s.%s',
             $count,
             $date_range ?: __( 'same day', 'schedulely' ),
-            $ai_applied ? 'yes' : 'no'
+            $ai_applied ? 'yes' : 'no',
+            $tz_context
         );
 
         try {
@@ -278,6 +293,20 @@ class Schedulely_Notifications
                 . '</a></div>';
         }
 
+        // Timezone distribution line for the email body.
+        $tz_distribution_html = '';
+        if ( ! empty( $results['timezone_distribution'] ) && is_array( $results['timezone_distribution'] ) ) {
+            $tz_parts = [];
+            foreach ( $results['timezone_distribution'] as $tz_group => $tz_count ) {
+                if ( $tz_count > 0 ) {
+                    $tz_parts[] = ucfirst( $tz_group ) . ': ' . $tz_count;
+                }
+            }
+            if ( ! empty( $tz_parts ) ) {
+                $tz_distribution_html = '🌎 US Timezone Distribution: <strong>' . esc_html( implode( ' · ', $tz_parts ) ) . '</strong><br>';
+            }
+        }
+
         $message = <<<HTML
 <!DOCTYPE html>
 <html>
@@ -304,6 +333,7 @@ class Schedulely_Notifications
         🔄 Authors Randomized: <strong>{$author_randomized}</strong><br>
         🧠 AI ordering (this run): <strong>{$ai_queue_summary_esc}</strong>
         {$ai_log_hint_html}
+        {$tz_distribution_html}
     </div>
     
     <div style="background: #fef3c7; border-left: 4px solid {$overall_status_color}; padding: 15px; margin: 20px 0;">

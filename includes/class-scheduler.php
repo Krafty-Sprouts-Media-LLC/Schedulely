@@ -150,6 +150,17 @@ class Schedulely_Scheduler
         $results['message'] = $scheduling_results['message'];
         $results['ai_queue_ordered'] = $ai_ordered;
 
+        // Pass timezone distribution to notifications when timezone ordering was used.
+        if ( ! empty( $this->timezone_queue ) ) {
+            $tz_counts = [ 'eastern' => 0, 'central' => 0, 'mountain' => 0, 'pacific' => 0, 'general' => 0 ];
+            foreach ( $this->timezone_queue as $group ) {
+                if ( isset( $tz_counts[ $group ] ) ) {
+                    $tz_counts[ $group ]++;
+                }
+            }
+            $results['timezone_distribution'] = $tz_counts;
+        }
+
         if ($ai_ordered && $results['success'] && $results['scheduled_count'] > 0) {
             $results['message'] .= ' ' . __('AI reordered the queue for better series spacing.', 'schedulely');
         }

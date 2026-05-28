@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.7.4] - 28/05/2026
+
+### Added
+- **Timezone distribution in scheduling notification emails.** When US timezone-aware ordering is active, the email summary now includes a "🌎 US Timezone Distribution" line showing how many posts were assigned to each timezone group (e.g. "Eastern: 15 · Central: 12 · Mountain: 8 · Pacific: 10 · General: 5").
+- **AI email summary now includes timezone context.** When timezone-aware ordering was used, the AI-generated summary prompt receives the timezone distribution data so it can write a sentence like "Posts were distributed across Eastern, Central, Mountain, and Pacific time zones targeting each audience's active hours."
+- **`$results['timezone_distribution']` key** added to the scheduler results array when timezone ordering is active. Contains `[ 'eastern' => int, 'central' => int, 'mountain' => int, 'pacific' => int, 'general' => int ]`.
+
+---
+
 ## [1.7.3] - 28/05/2026
 
 ### Fixed
