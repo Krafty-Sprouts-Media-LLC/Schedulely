@@ -40,6 +40,10 @@ class Schedulely_Admin_Notices {
 	 *
 	 * @since 1.0.0
 	 * @since 1.6.0 Moved from Schedulely_Settings. Per-user dismiss via user_meta.
+	 * @since 1.7.3 Dismiss nonce now enqueued via a dedicated inline script on
+	 *              every admin page — previously it was attached to the settings-page
+	 *              handle which is not loaded on other admin pages, so the dismiss
+	 *              button silently did nothing outside Tools → Schedulely.
 	 */
 	public function show_welcome_notice(): void {
 		// Per-user: check whether this specific admin has dismissed.
@@ -60,6 +64,28 @@ class Schedulely_Admin_Notices {
 			return;
 		}
 
+		// Register + enqueue a tiny inline script that works on ANY admin page.
+		// We cannot rely on the schedulely-admin handle here because that is only
+		// enqueued on the plugin's own settings page.
+		wp_register_script( 'schedulely-dismiss', false, [ 'jquery' ], null, true );
+		wp_enqueue_script( 'schedulely-dismiss' );
+		wp_add_inline_script(
+			'schedulely-dismiss',
+			'(function($){
+				var nonce = ' . wp_json_encode( wp_create_nonce( 'schedulely_dismiss_notice' ) ) . ';
+				function sendDismiss(){
+					$.post(ajaxurl,{action:"schedulely_dismiss_notice",nonce:nonce});
+				}
+				$(document).on("click",".schedulely-dismiss-notice",function(){
+					$("#schedulely-welcome-notice").fadeOut();
+					sendDismiss();
+				});
+				$(document).on("click","#schedulely-welcome-notice .notice-dismiss",function(){
+					sendDismiss();
+				});
+			})(jQuery);'
+		);
+
 		?>
 		<div class="notice notice-info is-dismissible" id="schedulely-welcome-notice">
 			<h3><?php esc_html_e( '🚀 Schedulely Activated!', 'schedulely' ); ?></h3>
@@ -76,12 +102,5 @@ class Schedulely_Admin_Notices {
 			</p>
 		</div>
 		<?php
-		// Output the dismiss nonce as a global JS variable so admin.js can read
-		// it without an inline <script> block inside the notice markup.
-		wp_add_inline_script(
-			'schedulely-admin',
-			'window.schedulely_dismiss_nonce = ' . wp_json_encode( wp_create_nonce( 'schedulely_dismiss_notice' ) ) . ';',
-			'after'
-		);
 	}
 }

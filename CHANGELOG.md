@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.7.3] - 28/05/2026
+
+### Fixed
+- **Timezone ordering toggle not visible on legacy AI path.** The "US Timezone-Aware Queue Ordering" checkbox was only rendered inside the WP 7.0 connected provider block. Users on the legacy path (stored DeepSeek/OpenAI API key) never saw the option. Toggle now appears on all three AI states: WP 7.0 connected, WP 7.0 not connected, and legacy path.
+- **WP 7.0 provider detection returning false when provider is connected.** `wp_ai_client_prompt( '' )->is_supported_for_text_generation()` was called with an empty string prompt, which caused some providers (including DeepSeek via Connectors) to return false even when correctly configured. Changed to `wp_ai_client_prompt( 'test' )` — a minimal non-empty prompt — in both the settings template and `Schedulely_AI_Order::wp_ai_available()`.
+- **Welcome notice Dismiss button not working on non-settings admin pages.** The dismiss nonce was attached to the `schedulely-admin` script handle via `wp_add_inline_script()`, but that handle is only enqueued on the plugin's own settings page. On all other admin pages (Dashboard, Posts, etc.) the handle was never registered, so the nonce was never output and the JS dismiss handler bailed immediately. Fixed by registering a dedicated `schedulely-dismiss` inline script that is enqueued only when the notice is actually shown, on any admin page.
+
+### Added
+- **`AGENTS.md` § 16 — Release process rules.** Documents the mandatory workflow: every fix after a tag requires a new version bump, changelog entry, and tag before being considered released. Prevents the pattern of pushing untagged fixes to master that users never receive.
+
+---
+
 ## [1.7.2] - 28/05/2026
 
 ### Fixed

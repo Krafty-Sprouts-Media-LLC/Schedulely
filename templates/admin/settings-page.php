@@ -40,7 +40,9 @@ $cron_next      = wp_next_scheduled( 'schedulely_auto_schedule' );
 
 $wp_ai_ready = function_exists( 'wp_ai_client_prompt' );
 try {
-    $wp_ai_connected = $wp_ai_ready && (bool) wp_ai_client_prompt( '' )->is_supported_for_text_generation();
+    // Use a minimal non-empty prompt — empty string can cause some providers
+    // to return false from is_supported_for_text_generation() even when connected.
+    $wp_ai_connected = $wp_ai_ready && (bool) wp_ai_client_prompt( 'test' )->is_supported_for_text_generation();
 } catch ( \Throwable $e ) {
     $wp_ai_connected = false;
 }

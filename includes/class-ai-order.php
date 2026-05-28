@@ -143,7 +143,7 @@ class Schedulely_AI_Order {
 		}
 
 		try {
-			$available = (bool) wp_ai_client_prompt( '' )->is_supported_for_text_generation();
+			$available = (bool) wp_ai_client_prompt( 'test' )->is_supported_for_text_generation();
 		} catch ( \Throwable $e ) {
 			$available = false;
 		}
