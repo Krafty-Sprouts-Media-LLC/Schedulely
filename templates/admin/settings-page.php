@@ -531,6 +531,19 @@ $pres_authors    = get_option( 'schedulely_preserved_authors', Schedulely_Defaul
                         <input type="checkbox" name="schedulely_ai_clear_api_key" id="schedulely_ai_clear_api_key" value="1">
                         <div><span class="schedulely-chk-label"><?php esc_html_e( 'Remove stored API key on save', 'schedulely' ); ?></span></div>
                     </label>
+
+                    <!-- US Timezone-Aware Ordering — legacy path -->
+                    <hr class="schedulely-divider" style="margin:16px 0;">
+                    <label class="schedulely-checkbox-row">
+                        <input type="checkbox" name="schedulely_ai_us_timezone_ordering" id="schedulely_ai_us_timezone_ordering"
+                               value="1" <?php checked( get_option( 'schedulely_ai_us_timezone_ordering', Schedulely_Defaults::AI_US_TIMEZONE_ORDERING ) ); ?>>
+                        <div>
+                            <span class="schedulely-chk-label"><?php esc_html_e( 'US Timezone-Aware Queue Ordering', 'schedulely' ); ?></span>
+                            <p class="schedulely-field-hint">
+                                <?php esc_html_e( 'Orders posts by US timezone (Eastern → Pacific) so content reaches each audience during their peak hours. The AI extracts the target state from each post\'s title and slug. Only useful if your posts target specific US states. Requires Random scheduling mode.', 'schedulely' ); ?>
+                            </p>
+                        </div>
+                    </label>
                 <?php endif; ?>
 
                 <!-- AI Reorder Log -->
