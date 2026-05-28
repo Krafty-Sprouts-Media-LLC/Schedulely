@@ -209,7 +209,7 @@ class Schedulely_AI_Order {
 	 */
 	private function reorder_via_wp_ai_timezone( array $post_ids ) {
 		$lines  = $this->build_prompt_lines( $post_ids );
-		$prompt = $this->build_user_prompt( $lines, count( $post_ids ) );
+		$prompt = $this->build_user_prompt( $lines, count( $post_ids ), true );
 
 		try {
 			$builder = wp_ai_client_prompt( $prompt )
@@ -310,6 +310,11 @@ class Schedulely_AI_Order {
 		if ( is_array( $obj ) && isset( $obj['ordered_ids'] ) && is_array( $obj['ordered_ids'] )
 			&& ( ! isset( $obj['timezone_groups'] ) || ! is_array( $obj['timezone_groups'] ) ) ) {
 			$ordered = $this->reconcile_ordered_ids_with_input( $post_ids, array_map( 'absint', $obj['ordered_ids'] ) );
+			$this->log_attempt( 'success', $model, count( $post_ids ), null, $usage_tokens,
+				'', '',
+				schedulely_ai_log_sanitize_excerpt( $content, 1200 ), '',
+				__( 'Timezone groups missing from AI response — all posts assigned to "general". The AI may have ignored the timezone_groups instruction.', 'schedulely' )
+			);
 			return array_map( fn( $id ) => [ 'id' => $id, 'timezone_group' => 'general' ], $ordered );
 		}
 
@@ -660,15 +665,27 @@ class Schedulely_AI_Order {
 	 * Build the user-turn prompt string.
 	 *
 	 * @since 1.6.0
+	 * @since 1.7.4 Timezone mode now explicitly requests both ordered_ids and
+	 *              timezone_groups in the user prompt to avoid the AI ignoring
+	 *              the system instruction and only returning ordered_ids.
 	 * @param array<string> $lines
 	 * @param int           $count
+	 * @param bool          $timezone_mode
 	 * @return string
 	 */
-	private function build_user_prompt( array $lines, int $count ): string {
-		return sprintf(
-			"Reorder these %d posts. Respond with JSON only: {\"ordered_ids\":[...]}\n\n",
-			$count
-		) . implode( "\n", $lines );
+	private function build_user_prompt( array $lines, int $count, bool $timezone_mode = false ): string {
+		if ( $timezone_mode ) {
+			$header = sprintf(
+				"Reorder these %d posts for US timezone-aware scheduling. Respond with JSON only: {\"ordered_ids\":[...], \"timezone_groups\":{\"id\":\"group\",...}}\n\n",
+				$count
+			);
+		} else {
+			$header = sprintf(
+				"Reorder these %d posts. Respond with JSON only: {\"ordered_ids\":[...]}\n\n",
+				$count
+			);
+		}
+		return $header . implode( "\n", $lines );
 	}
 
 	/**
@@ -754,7 +771,7 @@ class Schedulely_AI_Order {
 			'model'           => $model,
 			'messages'        => [
 				[ 'role' => 'system', 'content' => $this->get_system_instruction( $timezone_mode ) ],
-				[ 'role' => 'user',   'content' => $this->build_user_prompt( $lines, $count ) ],
+				[ 'role' => 'user',   'content' => $this->build_user_prompt( $lines, $count, $timezone_mode ) ],
 			],
 			'temperature'     => $timezone_mode ? 0.4 : 1.0,
 			'top_p'           => 1.0,

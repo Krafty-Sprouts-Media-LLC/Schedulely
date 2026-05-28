@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.7.5] - 28/05/2026
+
+### Fixed
+- **Timezone ordering not working — AI only returned `ordered_ids`, ignored `timezone_groups`.** Root cause: `build_user_prompt()` told the AI "Respond with JSON only: `{\"ordered_ids\":[...]}`" — which explicitly only asked for one key. The system instruction asked for both keys, but the user prompt contradicted it and the AI followed the user prompt. Fixed by making `build_user_prompt()` timezone-aware: when timezone mode is on, the user prompt now explicitly requests both `ordered_ids` and `timezone_groups` in the JSON shape.
+- **Timezone fallback was silent — no log entry when `timezone_groups` was missing.** When the AI returned `ordered_ids` but no `timezone_groups`, the graceful fallback assigned all posts to "general" but wrote nothing to the AI reorder log. Now logs a success entry with a note explaining the fallback occurred.
+
+---
+
 ## [1.7.4] - 28/05/2026
 
 ### Added
