@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.7.9] - 28/05/2026
+
+### Fixed
+- **AI Reorder Log stayed empty even though reorder attempts were happening.** On the WP 7.0 AI path, the log was only written from `process_ai_response()` — which is reached *only after* a successful `generate_text()` call. The two failure exits in `reorder_via_wp_ai()` (provider not supported for text generation, and the `\Throwable` catch that swallows request **timeouts** like `cURL error 28`) returned a `WP_Error` and wrote to the PHP error log, but never recorded an entry in the user-facing reorder log. Because v1.7.7 split timezone classification into PHP, a reorder that timed out still produced a correct-looking timezone distribution while leaving the log blank — so failures were invisible. Fixed by recording an `error` entry (with error code, sanitized message, and a note) in both WP-AI failure branches, plus the legacy path's missing-API-key early return. Every reorder attempt — success or failure — now leaves a log entry.
+
+---
+
 ## [1.7.8] - 28/05/2026
 
 ### Fixed

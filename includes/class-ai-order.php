@@ -275,7 +275,7 @@ class Schedulely_AI_Order {
 
 			if ( ! $builder->is_supported_for_text_generation() ) {
 				remove_filter( 'wp_ai_client_default_request_timeout', $timeout_filter, 999 );
-				return new WP_Error(
+				$err = new WP_Error(
 					'schedulely_ai_unsupported',
 					sprintf(
 						/* translators: %s: URL to the WP connectors screen */
@@ -283,6 +283,13 @@ class Schedulely_AI_Order {
 						esc_url( admin_url( 'options-connectors.php' ) )
 					)
 				);
+				$this->log_attempt( 'error', 'wp_ai', count( $post_ids ), null, null,
+					$err->get_error_code(),
+					schedulely_ai_log_sanitize_excerpt( $err->get_error_message(), 500 ),
+					'', '',
+					__( 'No configured AI provider supports text generation; queue kept its input order.', 'schedulely' )
+				);
+				return $err;
 			}
 
 			$content = (string) $builder->generate_text();
@@ -290,6 +297,12 @@ class Schedulely_AI_Order {
 		} catch ( \Throwable $e ) {
 			remove_filter( 'wp_ai_client_default_request_timeout', $timeout_filter, 999 );
 			schedulely_log_error( 'WP AI reorder exception: ' . $e->getMessage() );
+			$this->log_attempt( 'error', 'wp_ai', count( $post_ids ), null, null,
+				'schedulely_ai_exception',
+				schedulely_ai_log_sanitize_excerpt( $e->getMessage(), 500 ),
+				'', '',
+				__( 'WP AI client threw while generating text (often a request timeout on large pools); queue kept its input order.', 'schedulely' )
+			);
 			return new WP_Error( 'schedulely_ai_exception', $e->getMessage() );
 		}
 
@@ -312,10 +325,17 @@ class Schedulely_AI_Order {
 	private function reorder_via_legacy_http( array $post_ids ) {
 		$api_key = apply_filters( 'schedulely_ai_api_key', get_option( 'schedulely_ai_api_key', '' ) );
 		if ( '' === trim( (string) $api_key ) ) {
-			return new WP_Error(
+			$err = new WP_Error(
 				'schedulely_ai_no_key',
 				__( 'No API key is configured for AI queue ordering.', 'schedulely' )
 			);
+			$this->log_attempt( 'error', $this->get_model(), count( $post_ids ), null, null,
+				'schedulely_ai_no_key',
+				schedulely_ai_log_sanitize_excerpt( $err->get_error_message(), 500 ),
+				'', '',
+				__( 'No API key configured; queue kept its input order.', 'schedulely' )
+			);
+			return $err;
 		}
 
 		$base  = $this->get_api_base_url();
