@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.7.1] - 28/05/2026
+
+### Changed
+- **Timezone-aware scheduling: replaced equal-band division with window/active-hours overlap.** The 1.7.0 implementation divided the publishing window into four equal fixed slices (bands). This caused overflow when too many posts targeted the same timezone group, boundary collisions at band edges, and capacity issues that didn't exist before. The new approach computes the **intersection of the user's publishing window and each US timezone's active hours (7 AM – 11 PM local time)**. Each post gets a random time within that overlap — no hard boundaries, no overflow, no capacity changes needed. The minimum interval continues to apply across all posts as normal. Falls back to the full window silently if a timezone's active hours don't overlap with the configured window at all. Works correctly regardless of the WordPress site timezone (WAT, London, Kolkata, or any other) because all calculations are done in UTC internally.
+
+### Technical
+- `Schedulely_Scheduler::get_timezone_active_overlap()` — new method replacing the band calculation. Takes an anchor date and timezone group, returns `[overlap_start_ts, overlap_end_ts]` in UTC. Uses PHP's `America/*` timezone rules for DST-aware offset lookup at the time of scheduling.
+- `Schedulely_Scheduler::calculate_timezone_bands()` — kept as a deprecated wrapper around `get_timezone_active_overlap()` for backwards compatibility.
+- `schedule_posts_from_date()` — updated to call `get_timezone_active_overlap()` directly per post.
+
+---
+
 ## [1.7.0] - 28/05/2026
 
 ### Added

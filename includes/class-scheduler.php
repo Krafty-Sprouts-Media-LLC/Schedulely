@@ -689,23 +689,23 @@ class Schedulely_Scheduler
                     continue;
                 }
             } else {
-                // Random mode — use timezone band if available, otherwise full window.
-                $band = null;
+                // Random mode — use timezone active-hours overlap if available, otherwise full window.
+                $overlap = null;
                 if ( ! empty( $this->timezone_queue ) ) {
-                    $group = $this->timezone_queue[ $post_id ] ?? 'general';
-                    if ( 'general' !== $group ) {
-                        $bands = $this->calculate_timezone_bands( $current_date );
-                        $band  = $bands[ $group ] ?? null;
-                    }
+                    $group   = $this->timezone_queue[ $post_id ] ?? 'general';
+                    $overlap = $this->get_timezone_active_overlap( $current_date, $group );
                 }
 
-                $datetime = $this->generate_random_datetime( $current_date, $already_scheduled_times, $band );
+                $datetime = $this->generate_random_datetime( $current_date, $already_scheduled_times, $overlap );
 
                 if ( false === $datetime ) {
                     $current_date          = $this->get_next_active_date( $current_date );
                     $posts_scheduled_today = 0;
                     $already_scheduled_times = [];
-                    $datetime = $this->generate_random_datetime( $current_date, [], $band );
+                    $overlap = null !== $overlap
+                        ? $this->get_timezone_active_overlap( $current_date, $this->timezone_queue[ $post_id ] ?? 'general' )
+                        : null;
+                    $datetime = $this->generate_random_datetime( $current_date, [], $overlap );
 
                     if ( false === $datetime ) {
                         $errors[] = sprintf( __( 'Failed to generate time slot for post ID %d', 'schedulely' ), $post_id );
@@ -1136,35 +1136,114 @@ class Schedulely_Scheduler
     }
 
     /**
-     * Calculate four equal timezone band boundaries from the configured window.
+     * Calculate the overlap between the configured publishing window and a
+     * timezone group's active hours for a given anchor date.
      *
-     * Divides the total window duration into four equal parts:
-     *   eastern → central → mountain → pacific
+     * Instead of dividing the window into fixed equal bands, this method
+     * computes the intersection of:
+     *   - The user's configured publishing window (start_ts → end_ts)
+     *   - The target timezone's "active hours" (7 AM – 11 PM local time)
      *
-     * Returns an array keyed by group name, each value being [start_ts, end_ts].
-     * The bands are calculated dynamically from the user's start/end time settings
-     * so they always reflect the current configuration.
+     * The result is the range within which a random publish time will feel
+     * natural for that timezone's audience. If there is no overlap (the
+     * window doesn't cover that timezone's active hours at all), the full
+     * window is returned as a fallback so scheduling never fails.
+     *
+     * Active hours use standard US UTC offsets adjusted for DST at the time
+     * of scheduling. The offsets are:
+     *   Eastern  UTC-5 (EST) / UTC-4 (EDT)
+     *   Central  UTC-6 (CST) / UTC-5 (CDT)
+     *   Mountain UTC-7 (MST) / UTC-6 (MDT)
+     *   Pacific  UTC-8 (PST) / UTC-7 (PDT)
+     *
+     * DST is determined by PHP's America/* timezone rules at the anchor date.
      *
      * @since 1.7.0
+     * @since 1.7.1 Replaced equal-band division with window/active-hours overlap.
      *
-     * @param string $anchor_date Y-m-d anchor date.
-     * @return array<string,array{0:int,1:int}>  group => [start_ts, end_ts]
+     * @param string $anchor_date  Y-m-d anchor date.
+     * @param string $group        Timezone group: 'eastern'|'central'|'mountain'|'pacific'|'general'.
+     * @return array{0:int,1:int}  [overlap_start_ts, overlap_end_ts] in UTC.
      */
-    public function calculate_timezone_bands( string $anchor_date ): array {
-        list( $start_ts, $end_ts ) = $this->logical_window_bounds_ts( $anchor_date );
+    public function get_timezone_active_overlap( string $anchor_date, string $group ): array {
+        list( $win_start, $win_end ) = $this->logical_window_bounds_ts( $anchor_date );
 
-        if ( $start_ts >= $end_ts ) {
-            return [];
+        if ( 'general' === $group || $win_start >= $win_end ) {
+            return [ $win_start, $win_end ];
         }
 
-        $span      = $end_ts - $start_ts;
-        $band_size = (int) floor( $span / 4 );
+        // Map group to a representative PHP timezone for DST-aware offset lookup.
+        $tz_map = [
+            'eastern'  => 'America/New_York',
+            'central'  => 'America/Chicago',
+            'mountain' => 'America/Denver',
+            'pacific'  => 'America/Los_Angeles',
+        ];
 
+        $tz_name = $tz_map[ $group ] ?? null;
+        if ( null === $tz_name ) {
+            return [ $win_start, $win_end ];
+        }
+
+        try {
+            $tz  = new DateTimeZone( $tz_name );
+            // Use the midpoint of the window to determine DST offset for that day.
+            $mid = (int) round( ( $win_start + $win_end ) / 2 );
+            $dt  = new DateTimeImmutable( '@' . $mid );
+            $offset_seconds = $tz->getOffset( $dt ); // e.g. -18000 for EST (UTC-5)
+
+            // Active hours: 7:00 AM – 11:00 PM in the target timezone.
+            // Convert to UTC by subtracting the offset.
+            $active_start_utc = mktime( 7,  0, 0,
+                (int) wp_date( 'n', $win_start ),
+                (int) wp_date( 'j', $win_start ),
+                (int) wp_date( 'Y', $win_start )
+            ) - $offset_seconds;
+
+            $active_end_utc = mktime( 23, 0, 0,
+                (int) wp_date( 'n', $win_start ),
+                (int) wp_date( 'j', $win_start ),
+                (int) wp_date( 'Y', $win_start )
+            ) - $offset_seconds;
+
+            // For overnight windows the window may span two calendar days.
+            // If the active window ends before the publishing window starts,
+            // try the next calendar day's active hours.
+            if ( $active_end_utc < $win_start ) {
+                $active_start_utc += 86400;
+                $active_end_utc   += 86400;
+            }
+
+        } catch ( \Exception $e ) {
+            return [ $win_start, $win_end ];
+        }
+
+        // Compute intersection.
+        $overlap_start = max( $win_start, $active_start_utc );
+        $overlap_end   = min( $win_end,   $active_end_utc );
+
+        // No overlap — fall back to full window so scheduling never fails.
+        if ( $overlap_start >= $overlap_end ) {
+            return [ $win_start, $win_end ];
+        }
+
+        return [ $overlap_start, $overlap_end ];
+    }
+
+    /**
+     * @deprecated 1.7.1 Use get_timezone_active_overlap() instead.
+     *             Kept for backwards compatibility with any external callers.
+     *
+     * @since 1.7.0
+     * @param string $anchor_date
+     * @return array<string,array{0:int,1:int}>
+     */
+    public function calculate_timezone_bands( string $anchor_date ): array {
         return [
-            'eastern'  => [ $start_ts,                    $start_ts + $band_size - 1 ],
-            'central'  => [ $start_ts + $band_size,        $start_ts + ( 2 * $band_size ) - 1 ],
-            'mountain' => [ $start_ts + ( 2 * $band_size ), $start_ts + ( 3 * $band_size ) - 1 ],
-            'pacific'  => [ $start_ts + ( 3 * $band_size ), $end_ts ],
+            'eastern'  => $this->get_timezone_active_overlap( $anchor_date, 'eastern' ),
+            'central'  => $this->get_timezone_active_overlap( $anchor_date, 'central' ),
+            'mountain' => $this->get_timezone_active_overlap( $anchor_date, 'mountain' ),
+            'pacific'  => $this->get_timezone_active_overlap( $anchor_date, 'pacific' ),
         ];
     }
 
