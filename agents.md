@@ -28,9 +28,9 @@ The companion human-facing document is `development.md`. The audit's full findin
 
 ### Current version
 
-The active development version is **1.6.0**. All new code you write targets this version.
+The active development version is **1.7.2**. All new code you write targets this version.
 
-Do not write `1.5.10` in new code. Do not invent a future version number (e.g. `1.7.0`). If the version has been bumped since this document was last updated, read `schedulely.php` header (`Version:`) and use that number.
+Do not write `1.6.0` or any earlier version in new code. If the version has been bumped since this document was last updated, read `schedulely.php` header (`Version:`) and use that number.
 
 ### `@since` rules
 
@@ -245,6 +245,7 @@ schedulely_ai_api_key                schedulely_welcome_dismissed
 schedulely_ai_base_url
 schedulely_ai_model
 schedulely_ai_reorder_log            (NOT autoloaded)
+schedulely_ai_us_timezone_ordering
 schedulely_randomize_authors
 ```
 Adding an option means updating this list AND `uninstall.php` AND `schedulely_activate()`.
@@ -543,3 +544,49 @@ add_filter( 'wpai_preferred_text_models', function ( $models ) {
 When adding any AI feature that sends user data to a provider, update `readme.txt`'s Privacy Policy section in the same PR. The WP 7.0 disclosure is shorter than the legacy disclosure but still required:
 
 > When AI ordering is enabled, post titles are sent to the AI provider configured in Settings → Connectors. Refer to your provider's privacy policy.
+
+---
+
+## 15. US Timezone-Aware Queue Ordering (1.7.0+)
+
+Added in 1.7.0, refined in 1.7.1–1.7.2. Opt-in feature for sites publishing US state-specific content.
+
+### How it works
+
+When `schedulely_ai_us_timezone_ordering` is `true` and AI ordering is enabled:
+
+1. `Schedulely_AI_Order::reorder_post_ids_with_timezone()` is called instead of `reorder_post_ids()`.
+2. The AI receives `id TAB title TAB slug` per post (slug added in 1.7.0 — more reliable state signal than title alone).
+3. The AI returns both `ordered_ids` and `timezone_groups` (`{"post_id": "eastern"|"central"|"mountain"|"pacific"|"general"}`).
+4. `Schedulely_Scheduler::$timezone_queue` is populated as a keyed map `post_id => timezone_group` for O(1) lookup.
+5. For each post, `get_timezone_active_overlap( $anchor_date, $group )` computes the intersection of the publishing window and that timezone's active hours (7 AM – 11 PM local time, DST-aware via `America/*` PHP timezone rules).
+6. `generate_random_datetime()` picks a random time within that overlap. Falls back to the full window if the overlap is empty or too tight for the interval.
+
+### Key rules for agents
+
+- **Only works with Random scheduling mode.** Sequential and Hybrid assign times by slot position, not queue order — timezone bands are ignored in those modes. The UI shows a warning when the wrong mode is selected.
+- **Never hardcode timezone offsets.** Always use `DateTimeZone` + `getOffset()` at the time of scheduling for DST accuracy.
+- **The overlap approach has no overflow.** Do not reintroduce fixed equal-band division — it caused boundary collisions and capacity issues. The overlap approach handles all edge cases gracefully via full-window fallback.
+- **`max_tokens` is 40,960 in timezone mode** (vs 16,384 standard). A 1,500-post timezone response needs ~23,000 output tokens. Do not lower this.
+- **Only runs on manual "Run Schedule Now".** Cron-driven runs skip AI reordering entirely (unchanged from 1.6.0).
+- **Works regardless of site timezone** (WAT, London, Kolkata, etc.) — all calculations are UTC internally.
+
+### Options
+
+| Option | Default | Notes |
+|---|---|---|
+| `schedulely_ai_us_timezone_ordering` | `false` | Opt-in. Off by default — does not affect existing users. |
+
+### Classes and methods
+
+| Symbol | File | Notes |
+|---|---|---|
+| `Schedulely_AI_Order::reorder_post_ids_with_timezone()` | `class-ai-order.php` | Public. Returns `[{id, timezone_group}]`. Never returns WP_Error — falls back to all-general internally. |
+| `Schedulely_AI_Order::get_timezone_system_instruction()` | `class-ai-order.php` | Private. The US timezone-aware system prompt. Contains the full state→zone map and ordering rules. |
+| `Schedulely_Scheduler::get_timezone_active_overlap()` | `class-scheduler.php` | Public. Returns `[start_ts, end_ts]` overlap in UTC. Use this, not `calculate_timezone_bands()`. |
+| `Schedulely_Scheduler::calculate_timezone_bands()` | `class-scheduler.php` | **Deprecated 1.7.1.** Kept as wrapper for backwards compat. Do not use in new code. |
+| `Schedulely_Defaults::AI_US_TIMEZONE_ORDERING` | `class-defaults.php` | `false` |
+
+### Capacity checker
+
+`calculate_capacity()` returns a `timezone_overlaps` key when `schedulely_ai_us_timezone_ordering` is on. Each entry is `{ start: string, end: string, minutes: int }` in site-local time. `admin.js` renders this as a table in the capacity accordion. Do not remove this key from the return array.
