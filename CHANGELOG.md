@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.7.10] - 28/05/2026
+
+### Changed
+- **Reorder prompt is now slug-only — dropped the title column to roughly halve prompt size.** The reorder request previously sent `post_id TAB title TAB slug` for every post. The slug was only added in 1.7.0 to help the AI detect the US state for timezone classification — a job that moved entirely to PHP in 1.7.7 — so the prompt was still paying for redundant text. Title and slug encode the same series/template pattern, but the slug is shorter, punctuation-free, and a cleaner "same series" signal (series posts share an identical slug stem with only the state differing, e.g. `rabies-vaccine-requirements-for-cats-in-tennessee` vs `...-north-carolina`). `build_prompt_lines()` now emits `post_id TAB slug`, falling back to a title-derived slug only when a post has no slug. The system instruction was updated to describe the new line format. This cuts input tokens and prefill time on large pools to reduce the reorder timeout (`cURL error 28`) seen at 300+ posts; on very large pools, batching the reorder is the next lever if timeouts persist.
+
+---
+
 ## [1.7.9] - 28/05/2026
 
 ### Fixed

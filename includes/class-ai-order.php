@@ -610,24 +610,31 @@ class Schedulely_AI_Order {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Build "post_id TAB title TAB slug" lines for the prompt.
+	 * Build "post_id TAB slug" lines for the prompt.
 	 *
-	 * Slug is included because it is derived from the primary keyword and
-	 * reliably contains the target US state name (e.g. pit-bull-laws-in-texas).
+	 * Only the slug is sent. Series posts share an identical slug stem with just
+	 * the state differing (e.g. rabies-vaccine-requirements-for-cats-in-tennessee
+	 * vs ...-north-carolina), which is the cleanest "same template" signal, while
+	 * being shorter and punctuation-free compared to the title. The title is
+	 * deliberately omitted to roughly halve prompt size — it carries the same
+	 * pattern with extra tokens and no extra ordering value.
 	 *
 	 * @since 1.6.0
 	 * @since 1.7.0 Added slug column for better state detection.
+	 * @since 1.7.10 Slug-only; dropped the title column to shrink the prompt.
 	 * @param array<int> $post_ids
 	 * @return array<string>
 	 */
 	private function build_prompt_lines( array $post_ids ): array {
 		$lines = [];
 		foreach ( $post_ids as $post_id ) {
-			$title = get_post_field( 'post_title', $post_id, 'raw' );
-			$title = is_string( $title ) ? wp_strip_all_tags( $title ) : '';
-			$slug  = get_post_field( 'post_name', $post_id, 'raw' );
-			$slug  = is_string( $slug ) ? $slug : '';
-			$lines[] = (string) $post_id . "\t" . $title . "\t" . $slug;
+			$slug = get_post_field( 'post_name', $post_id, 'raw' );
+			$slug = is_string( $slug ) ? $slug : '';
+			if ( '' === $slug ) {
+				$title = get_post_field( 'post_title', $post_id, 'raw' );
+				$slug  = is_string( $title ) ? sanitize_title( $title ) : '';
+			}
+			$lines[] = (string) $post_id . "\t" . $slug;
 		}
 		return $lines;
 	}
@@ -659,11 +666,12 @@ class Schedulely_AI_Order {
 	 * @return string
 	 */
 	private function get_system_instruction(): string {
-		return 'You reorder WordPress posts for publication. Each line is: numeric_post_id TAB title TAB slug. '
+		return 'You reorder WordPress posts for publication. Each line is: numeric_post_id TAB slug. '
+			. 'The slug is the URL keyword; posts in the same series share an almost identical slug with only a word or two differing. '
 			. 'Detect posts that belong to the same series or template. '
 			. 'Your goal is to maximize variety in the sequence. '
 			. 'Do not place similar or same-series posts close together. '
-			. 'Maintain a minimum spacing of at least 3 to 5 other posts between similar titles whenever the mix allows. '
+			. 'Maintain a minimum spacing of at least 3 to 5 other posts between similar slugs whenever the mix allows. '
 			. 'If perfect spacing is not possible, distribute similar posts as evenly as you can across the entire list. '
 			. 'Prioritize diversity of topics over original order. '
 			. 'Return a JSON object with a single key "ordered_ids" whose value is an array of integers. '
