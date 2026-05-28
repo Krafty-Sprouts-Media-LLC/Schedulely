@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.7.8] - 28/05/2026
+
+### Fixed
+- **Other plugins' admin notices appeared inside the Schedulely header banner.** Notices such as "Purged all caches successfully." or "Reset the optimized data successfully." (from cache/optimization plugins) flashed at the top of the page on load, then jumped into the dark header band. Root cause: WordPress core's `common.js` relocates all admin notices to just before an `<hr class="wp-header-end">` marker, and when that marker is absent it falls back to inserting them after the first `<h1>`/`<h2>` in `.wrap` — which is Schedulely's page title *inside* the header banner. Fixed by adding the standard `<hr class="wp-header-end">` marker immediately after the header band in `templates/admin/settings-page.php`, so notices render below the header where they belong. The marker is hidden by core admin CSS and adds no visible line.
+
+---
+
 ## [1.7.7] - 28/05/2026
 
 ### Fixed

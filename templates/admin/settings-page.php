@@ -86,6 +86,10 @@ $pres_authors    = get_option( 'schedulely_preserved_authors', Schedulely_Defaul
         </div>
     </div>
 
+    <?php // WordPress core relocates admin notices to just before this marker. ?>
+    <?php // Without it, common.js places them after the first <h1> — inside the header banner above. ?>
+    <hr class="wp-header-end">
+
     <!-- ═══════════════════════════════════════════════════════════════
          STATUS BAR  — always visible, key toggles live here
     ═══════════════════════════════════════════════════════════════ -->
