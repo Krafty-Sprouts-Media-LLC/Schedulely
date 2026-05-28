@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.7.2] - 28/05/2026
+
+### Fixed
+- **`max_tokens` corrected to 40,960 in timezone mode** (was 32,768 in the 1.7.1 tag — the fix was pushed to master but not tagged). A 1,500-post timezone response needs ~23,000 output tokens; 40,960 gives comfortable headroom.
+- **Stale code comment** in `build_request_body()` still referenced 32,768 — updated to reflect 40,960.
+- **Capacity checker now shows US timezone active windows** when timezone-aware ordering is enabled. The capacity pill's accordion displays a table of each timezone group's overlap between the publishing window and its active hours (7 AM – 11 PM local time), shown in site-local time. Appears both when capacity is met (informational) and when quota is not met (alongside fix suggestions).
+
+---
+
 ## [1.7.1] - 28/05/2026
 
 ### Changed
