@@ -735,6 +735,9 @@ class Schedulely_AI_Order {
 	 *
 	 * @since 1.4.0
 	 * @since 1.7.0 Added $timezone_mode parameter.
+	 * @since 1.7.1 Raises max_tokens to 32768 in timezone mode — a 1,500-post
+	 *              timezone response needs ~23,000 output tokens; the default
+	 *              16,384 would truncate it for large pools.
 	 * @param string        $model
 	 * @param array<string> $lines
 	 * @param int           $count
@@ -742,6 +745,10 @@ class Schedulely_AI_Order {
 	 * @return array<string,mixed>
 	 */
 	private function build_request_body( string $model, array $lines, int $count, bool $timezone_mode = false ): array {
+		// Timezone mode needs more output tokens: ordered_ids + timezone_groups
+		// for 1,500 posts ≈ 23,000 tokens. Standard mode needs far less.
+		$default_max_tokens = $timezone_mode ? 32768 : 16384;
+
 		$body = [
 			'model'           => $model,
 			'messages'        => [
@@ -750,7 +757,7 @@ class Schedulely_AI_Order {
 			],
 			'temperature'     => $timezone_mode ? 0.4 : 1.0,
 			'top_p'           => 1.0,
-			'max_tokens'      => (int) apply_filters( 'schedulely_ai_max_output_tokens', 16384 ),
+			'max_tokens'      => (int) apply_filters( 'schedulely_ai_max_output_tokens', $default_max_tokens ),
 			'response_format' => [ 'type' => 'json_object' ],
 		];
 		return $body;
