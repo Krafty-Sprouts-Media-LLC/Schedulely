@@ -747,7 +747,7 @@ class Schedulely_AI_Order {
 	private function build_request_body( string $model, array $lines, int $count, bool $timezone_mode = false ): array {
 		// Timezone mode needs more output tokens: ordered_ids + timezone_groups
 		// for 1,500 posts ≈ 23,000 tokens. Standard mode needs far less.
-		$default_max_tokens = $timezone_mode ? 32768 : 16384;
+		$default_max_tokens = $timezone_mode ? 40960 : 16384;
 
 		$body = [
 			'model'           => $model,
