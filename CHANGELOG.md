@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.7.6] - 28/05/2026
+
+### Fixed
+- **WP 7.0 AI client timeout too short for large pools.** The WordPress AI client (`wp_ai_client_prompt()`) uses a default 30-second timeout. With 200+ posts the AI needs several minutes to process the timezone reorder — causing `cURL error 28: Operation timed out after 30006 milliseconds`. Fixed by hooking `wp_ai_client_default_request_timeout` during Schedulely's AI calls and raising the timeout using the same scaling formula as the legacy path: `60 + (post_count × 0.45)`, clamped between 120 and 1200 seconds. The filter is added before the call and removed immediately after.
+
+---
+
 ## [1.7.5] - 28/05/2026
 
 ### Fixed

@@ -162,6 +162,10 @@ class Schedulely_AI_Order {
 		$lines = $this->build_prompt_lines( $post_ids );
 		$prompt = $this->build_user_prompt( $lines, count( $post_ids ) );
 
+		// Raise the WP AI client timeout for large pools.
+		$timeout_filter = $this->get_wp_ai_timeout_filter( count( $post_ids ) );
+		add_filter( 'wp_ai_client_default_request_timeout', $timeout_filter, 999 );
+
 		try {
 			$builder = wp_ai_client_prompt( $prompt )
 				->using_system_instruction( $this->get_system_instruction() )
@@ -176,6 +180,7 @@ class Schedulely_AI_Order {
 			do_action( 'schedulely_pre_ai_reorder' );
 
 			if ( ! $builder->is_supported_for_text_generation() ) {
+				remove_filter( 'wp_ai_client_default_request_timeout', $timeout_filter, 999 );
 				return new WP_Error(
 					'schedulely_ai_unsupported',
 					sprintf(
@@ -189,10 +194,12 @@ class Schedulely_AI_Order {
 			$content = (string) $builder->generate_text();
 
 		} catch ( \Throwable $e ) {
+			remove_filter( 'wp_ai_client_default_request_timeout', $timeout_filter, 999 );
 			schedulely_log_error( 'WP AI reorder exception: ' . $e->getMessage() );
 			return new WP_Error( 'schedulely_ai_exception', $e->getMessage() );
 		}
 
+		remove_filter( 'wp_ai_client_default_request_timeout', $timeout_filter, 999 );
 		return $this->process_ai_response( $post_ids, $content, 'wp_ai', null );
 	}
 
@@ -211,6 +218,10 @@ class Schedulely_AI_Order {
 		$lines  = $this->build_prompt_lines( $post_ids );
 		$prompt = $this->build_user_prompt( $lines, count( $post_ids ), true );
 
+		// Raise the WP AI client timeout for large pools.
+		$timeout_filter = $this->get_wp_ai_timeout_filter( count( $post_ids ) );
+		add_filter( 'wp_ai_client_default_request_timeout', $timeout_filter, 999 );
+
 		try {
 			$builder = wp_ai_client_prompt( $prompt )
 				->using_system_instruction( $this->get_system_instruction( true ) )
@@ -219,16 +230,19 @@ class Schedulely_AI_Order {
 			do_action( 'schedulely_pre_ai_reorder' );
 
 			if ( ! $builder->is_supported_for_text_generation() ) {
+				remove_filter( 'wp_ai_client_default_request_timeout', $timeout_filter, 999 );
 				return new WP_Error( 'schedulely_ai_unsupported', __( 'No AI provider supports text generation.', 'schedulely' ) );
 			}
 
 			$content = (string) $builder->generate_text();
 
 		} catch ( \Throwable $e ) {
+			remove_filter( 'wp_ai_client_default_request_timeout', $timeout_filter, 999 );
 			schedulely_log_error( 'WP AI timezone reorder exception: ' . $e->getMessage() );
 			return new WP_Error( 'schedulely_ai_exception', $e->getMessage() );
 		}
 
+		remove_filter( 'wp_ai_client_default_request_timeout', $timeout_filter, 999 );
 		return $this->process_timezone_response( $post_ids, $content, 'wp_ai', null );
 	}
 
@@ -939,6 +953,25 @@ class Schedulely_AI_Order {
 			return $fallback;
 		}
 		return sanitize_text_field( substr( trim( $model ), 0, 120 ) );
+	}
+
+	/**
+	 * Return a closure that overrides the WP AI client timeout for large pools.
+	 *
+	 * Uses the same scaling formula as the legacy path:
+	 *   60 + (post_count × 0.45), clamped between 120 and 1200 seconds.
+	 *
+	 * The WP AI client default is 30s which is far too short for 200+ posts.
+	 *
+	 * @since 1.7.6
+	 * @param int $post_count Number of posts in the queue.
+	 * @return \Closure
+	 */
+	private function get_wp_ai_timeout_filter( int $post_count ): \Closure {
+		$timeout = max( 120, min( 1200, 60 + (int) round( $post_count * 0.45 ) ) );
+		return function () use ( $timeout ) {
+			return (float) $timeout;
+		};
 	}
 
 	/**
