@@ -474,6 +474,18 @@ $pres_authors    = get_option( 'schedulely_preserved_authors', Schedulely_Defaul
                             <p class="schedulely-field-hint"><?php esc_html_e( 'Skips shuffle when AI succeeds. Only runs on manual "Run Schedule Now" — never on cron.', 'schedulely' ); ?></p>
                         </div>
                     </label>
+                    <div class="schedulely-form-row" style="margin:12px 0;">
+                        <div class="schedulely-form-col">
+                            <label class="schedulely-field-label" for="schedulely_ai_model"><?php esc_html_e( 'Preferred model', 'schedulely' ); ?></label>
+                            <input type="text" name="schedulely_ai_model" id="schedulely_ai_model"
+                                   value="<?php echo esc_attr( get_option( 'schedulely_ai_model', Schedulely_Defaults::AI_MODEL ) ); ?>"
+                                   placeholder="deepseek-v4-flash" autocomplete="off">
+                            <p class="schedulely-field-hint">
+                                <?php esc_html_e( 'Tried first for reordering, ahead of the built-in fallbacks. DeepSeek IDs: deepseek-v4-flash (fast, recommended) or deepseek-v4-pro. Leave as the default unless your connector exposes a different model. The provider still comes from Settings → Connectors.', 'schedulely' ); ?>
+                            </p>
+                        </div>
+                    </div>
+
                     <p>
                         <button type="button" class="btn btn-secondary" id="schedulely-test-ai-connection"><?php esc_html_e( 'Test connection', 'schedulely' ); ?></button>
                     </p>
@@ -578,7 +590,7 @@ $pres_authors    = get_option( 'schedulely_preserved_authors', Schedulely_Defaul
                 <hr class="schedulely-divider">
                 <p class="schedulely-section-label"><?php esc_html_e( 'AI Reorder Log', 'schedulely' ); ?></p>
                 <p class="schedulely-field-hint" style="margin-bottom:10px;">
-                    <?php esc_html_e( 'Each scheduling run that calls the reorder API records outcome, HTTP status, token usage, error code, and response excerpts.', 'schedulely' ); ?>
+                    <?php esc_html_e( 'Each manual "Run Schedule Now" that orders the queue records its outcome here — including whether AI or PHP ordering ran, and when AI fails and PHP fallback takes over. AI rows also show HTTP status, token usage, error code, and response excerpts.', 'schedulely' ); ?>
                 </p>
                 <?php if ( empty( $ai_reorder_log ) ) : ?>
                     <p class="schedulely-field-hint"><?php esc_html_e( 'No reorder API attempts logged yet.', 'schedulely' ); ?></p>

@@ -86,8 +86,14 @@ class Schedulely_AI_Order {
 		}
 
 		// When the deterministic PHP method is selected, never touch the network.
+		// Logged (model 'php') so the AI Reorder Log shows PHP ran and why.
 		if ( 'php' === $this->get_ordering_method() ) {
-			return $this->order_via_php( $post_ids );
+			$ordered = $this->order_via_php( $post_ids );
+			$this->log_attempt( 'success', 'php', count( $post_ids ), null, null,
+				'', '', '', '',
+				__( 'PHP ordering applied — ordering method is set to PHP; the AI was not called.', 'schedulely' )
+			);
+			return $ordered;
 		}
 
 		$ordered = $this->wp_ai_available()
@@ -95,12 +101,24 @@ class Schedulely_AI_Order {
 			: $this->reorder_via_legacy_http( $post_ids );
 
 		// Auto-fallback: a failed AI request must not lose the run. Order the
-		// queue deterministically in PHP instead of leaving it un-ordered.
+		// queue deterministically in PHP instead of leaving it un-ordered. The AI
+		// failure already wrote its own ERROR row; this adds a follow-up row so
+		// the log tells the full story: "AI failed → PHP fallback applied".
 		if ( is_wp_error( $ordered ) ) {
+			$code = $ordered->get_error_code();
 			schedulely_log_error(
 				'AI reorder failed; falling back to deterministic PHP ordering: ' . $ordered->get_error_message()
 			);
-			return $this->order_via_php( $post_ids );
+			$php_ordered = $this->order_via_php( $post_ids );
+			$this->log_attempt( 'success', 'php', count( $post_ids ), null, null,
+				(string) $code, '', '', '',
+				sprintf(
+					/* translators: %s: the AI error code that triggered the fallback */
+					__( 'PHP ordering applied as automatic fallback after the AI request failed (%s).', 'schedulely' ),
+					(string) $code
+				)
+			);
+			return $php_ordered;
 		}
 
 		return $ordered;

@@ -3,7 +3,7 @@
  * Plugin Name: Schedulely
  * Plugin URI: https://kraftysprouts.com
  * Description: Intelligently schedule posts from any status with smart deficit tracking, random author assignment, and customizable time windows.
- * Version: 1.8.0
+ * Version: 1.8.1
  * Author: Krafty Sprouts Media, LLC
  * Author URI: https://kraftysprouts.com
  * License: GPL v2 or later
@@ -23,7 +23,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('SCHEDULELY_VERSION', '1.8.0');
+define('SCHEDULELY_VERSION', '1.8.1');
 define('SCHEDULELY_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('SCHEDULELY_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('SCHEDULELY_PLUGIN_BASENAME', plugin_basename(__FILE__));
@@ -216,7 +216,7 @@ add_filter( 'wpai_preferred_text_models', function ( array $models ): array {
      * @since 1.6.0
      * @since 1.7.14 Added deepseek-chat fallback; documented the thinking-mode pitfall.
      */
-    return [
+    $preferred = [
         [ 'deepseek',  'deepseek-v4-flash' ],
         [ 'deepseek',  'deepseek-v4-pro' ],
         [ 'deepseek',  'deepseek-chat' ],
@@ -225,6 +225,18 @@ add_filter( 'wpai_preferred_text_models', function ( array $models ): array {
         [ 'openai',    'gpt-5.4-mini' ],
         [ 'anthropic', 'claude-sonnet-4-6' ],
     ];
+
+    // Honor the user's model selection (Tools → Schedulely): put it first so it
+    // is tried before the curated fallbacks. Kept as a [provider, model] tuple
+    // for format consistency; provider defaults to deepseek (this feature's
+    // primary provider) and is filterable for other connectors.
+    $selected = trim( (string) get_option( 'schedulely_ai_model', Schedulely_Defaults::AI_MODEL ) );
+    if ( '' !== $selected ) {
+        $provider = (string) apply_filters( 'schedulely_ai_model_provider', 'deepseek', $selected );
+        array_unshift( $preferred, [ $provider, $selected ] );
+    }
+
+    return $preferred;
 } );
 
 /**

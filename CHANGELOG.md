@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.8.1] - 29/05/2026
+
+### Added
+- **Surfaced the model selector on the WP 7.0+ (Connectors) path and made it actually take effect.** The "Model" field previously only rendered on the pre-WP-7.0 legacy path, so on a Connectors-based install there was no way to choose a model — and even the stored `schedulely_ai_model` value was ignored, because the reorder picked its model purely from the hardcoded `wpai_preferred_text_models` preference list. The AI section now shows a **Preferred model** field for connected installs, and the preference filter prepends the saved model to the front of the list (keeping the curated fallbacks behind it), so your choice is tried first. Provider defaults to `deepseek` and is filterable via the new `schedulely_ai_model_provider` for other connectors.
+- **The AI Reorder Log now shows when PHP ordering ran — both as the deliberate method and as an AI fallback — instead of doing it silently.** Previously a PHP run (chosen method or post-failure fallback) left no visible trace; you'd see an AI ERROR row with no confirmation anything recovered it. Now a PHP run records a `model: php` row: "PHP ordering applied — method is set to PHP; the AI was not called", or, after a failure, "PHP ordering applied as automatic fallback after the AI request failed (`<error_code>`)". A failed AI run therefore reads as a clear two-row story — the AI ERROR, then the PHP fallback SUCCESS — so you always know which path produced the final order. The log's description text was updated to reflect that PHP runs are recorded too.
+
+---
+
 ## [1.8.0] - 29/05/2026
 
 ### Added
