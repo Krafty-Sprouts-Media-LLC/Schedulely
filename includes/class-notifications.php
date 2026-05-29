@@ -158,9 +158,25 @@ class Schedulely_Notifications
         $latest = $log[0];
         $model  = isset($latest['model']) ? (string) $latest['model'] : '';
         $note   = isset($latest['note']) ? (string) $latest['note'] : '';
+        $method = ('php' === $model) ? 'php' : 'ai';
+
+        // For PHP rows the email's summary line already states the method and that
+        // no AI/tokens were used, so strip the leading status sentence and keep
+        // only the grouping summary ("N series detected … spread by …"). The split
+        // points (" series detected", ". ") are ASCII, so byte offsets are safe
+        // even though the note contains multibyte characters. AI rows keep their
+        // full note (the reconciliation detail is not redundant there).
+        if ('php' === $method && false !== ($pos = strpos($note, ' series detected'))) {
+            $head  = substr($note, 0, $pos);
+            $start = strrpos($head, '. ');
+            if (false !== $start) {
+                $note = substr($note, $start + 2);
+            }
+        }
+
         return [
-            'method' => ('php' === $model) ? 'php' : 'ai',
-            'note'   => $note,
+            'method' => $method,
+            'note'   => trim($note),
         ];
     }
 

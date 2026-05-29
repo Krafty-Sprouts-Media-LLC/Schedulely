@@ -17,6 +17,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.8.6] - 29/05/2026
+
+### Fixed
+- **Removed the redundant ordering line in the completion email.** The email's "Queue ordering (this run)" summary already states the method and that no AI/tokens were used, but the line beneath it repeated the raw log note ("PHP ordering applied — … the AI was not called.") before the useful part. For PHP runs the email now shows only the grouping-summary detail (e.g. "77 series detected across 1081 posts; largest … spread by even distribution."), with the status said once. AI runs are unchanged — their note (reconciliation detail) isn't redundant, so it's kept in full.
+
+---
+
 ## [1.8.5] - 29/05/2026
 
 ### Changed
