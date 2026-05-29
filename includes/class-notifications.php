@@ -102,11 +102,23 @@ class Schedulely_Notifications
             }
         }
 
+        // Describe the ordering method accurately — PHP runs must not be called "AI".
+        $ordering_info = $ai_applied ? $this->get_last_ordering_info() : [ 'method' => '', 'note' => '' ];
+        if ( ! $ai_applied ) {
+            $ordering_desc = 'none (queue order left unchanged)';
+        } elseif ( 'php' === $ordering_info['method'] ) {
+            $ordering_desc = 'deterministic PHP ordering (no AI model used)';
+        } else {
+            $ordering_desc = 'AI reordering';
+        }
+        $ordering_detail = ( '' !== trim( (string) $ordering_info['note'] ) ) ? ' Ordering detail: ' . $ordering_info['note'] : '';
+
         $prompt = sprintf(
-            'You are a publishing operations assistant. Write a 2–3 sentence plain-text summary of this automated post-scheduling run. Be specific, use numbers, no marketing tone. Scheduled: %d posts. Date range: %s. AI reordering applied: %s.%s',
+            'You are a publishing operations assistant. Write a 2–3 sentence plain-text summary of this automated post-scheduling run. Be specific, use numbers, no marketing tone. Scheduled: %d posts. Date range: %s. Queue ordering: %s.%s%s',
             $count,
             $date_range ?: __( 'same day', 'schedulely' ),
-            $ai_applied ? 'yes' : 'no',
+            $ordering_desc,
+            $ordering_detail,
             $tz_context
         );
 
@@ -126,8 +138,35 @@ class Schedulely_Notifications
     }
 
     /**
+     * Read the method + note of the most recent queue-ordering attempt.
+     *
+     * Source of truth is the latest AI Reorder Log entry (newest is index 0),
+     * which is the only place that distinguishes deliberate PHP ordering from an
+     * AI run that fell back to PHP — and carries the human note (PHP grouping
+     * summary or AI reconciliation note). The reorder runs earlier in the same
+     * request as this notification, so index 0 is this run's entry.
+     *
+     * @since 1.8.2
+     * @return array{method:string,note:string} method is 'php', 'ai', or ''.
+     */
+    private function get_last_ordering_info(): array
+    {
+        $log = get_option('schedulely_ai_reorder_log', []);
+        if (!is_array($log) || empty($log) || !is_array($log[0])) {
+            return ['method' => '', 'note' => ''];
+        }
+        $latest = $log[0];
+        $model  = isset($latest['model']) ? (string) $latest['model'] : '';
+        $note   = isset($latest['note']) ? (string) $latest['note'] : '';
+        return [
+            'method' => ('php' === $model) ? 'php' : 'ai',
+            'note'   => $note,
+        ];
+    }
+
+    /**
      * Send error notification
-     * 
+     *
      * @param string $error_message Error message
      */
     public function send_error_notification($error_message)
@@ -245,19 +284,28 @@ class Schedulely_Notifications
         // Get author randomization status
         $author_randomized = get_option('schedulely_randomize_authors', false) ? __('Yes', 'schedulely') : __('No', 'schedulely');
 
-        // AI queue ordering (optional): did this run apply API reorder?
+        // Queue ordering (optional): did this run order the queue, and how (AI vs PHP)?
         $ai_enabled = (bool) get_option('schedulely_ai_order_enabled', false);
         $ai_used = !empty($results['ai_queue_ordered']);
-        if ($ai_enabled) {
-            if ($ai_used) {
-                $ai_queue_summary = __('Applied — this run’s queue was reordered by the AI API before publish times were assigned.', 'schedulely');
+        $ordering_info = $ai_used ? $this->get_last_ordering_info() : ['method' => '', 'note' => ''];
+        if ($ai_used) {
+            if ('php' === $ordering_info['method']) {
+                $ai_queue_summary = __('Applied (PHP) — the queue was ordered deterministically in PHP. No AI provider was called and no tokens were used.', 'schedulely');
             } else {
-                $ai_queue_summary = __('Not applied — the queue order was not taken from the model’s reply (shuffle or draft order was used). If the API was called, you were still charged for that completion; open the AI reorder log on the settings page to see error code and response excerpts.', 'schedulely');
+                $ai_queue_summary = __('Applied (AI) — the queue was reordered by the AI before publish times were assigned.', 'schedulely');
             }
+        } elseif ($ai_enabled) {
+            $ai_queue_summary = __('Not applied — ordering did not run this time; the shuffle or draft order was used.', 'schedulely');
         } else {
-            $ai_queue_summary = __('Not used — AI ordering is disabled in Schedulely settings, so the queue was never sent to the API for this step.', 'schedulely');
+            $ai_queue_summary = __('Not used — queue ordering is disabled in Schedulely settings.', 'schedulely');
         }
         $ai_queue_summary_esc = esc_html($ai_queue_summary);
+
+        // Second line: the method's own note — PHP grouping summary or AI reconciliation note.
+        $ordering_note_html = '';
+        if ('' !== trim((string) $ordering_info['note'])) {
+            $ordering_note_html = '<br><span style="font-size:0.9em; color:#374151;">' . esc_html($ordering_info['note']) . '</span>';
+        }
 
         // Get completed last date status
         $completion_status = $completed_last_date ? __('Yes (filled previous incomplete date)', 'schedulely') : __('No (started fresh dates)', 'schedulely');
@@ -331,7 +379,7 @@ class Schedulely_Notifications
         📊 Dates Complete: <strong>{$complete_dates}</strong> | Dates Incomplete: <strong>{$incomplete_dates}</strong><br>
         📋 Filled Previous Incomplete: <strong>{$completion_status}</strong><br>
         🔄 Authors Randomized: <strong>{$author_randomized}</strong><br>
-        🧠 AI ordering (this run): <strong>{$ai_queue_summary_esc}</strong>
+        🧠 Queue ordering (this run): <strong>{$ai_queue_summary_esc}</strong>{$ordering_note_html}
         {$ai_log_hint_html}
         {$tz_distribution_html}
     </div>

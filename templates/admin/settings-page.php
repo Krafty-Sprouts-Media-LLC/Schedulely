@@ -470,8 +470,8 @@ $pres_authors    = get_option( 'schedulely_preserved_authors', Schedulely_Defaul
                         <input type="checkbox" name="schedulely_ai_order_enabled" id="schedulely_ai_order_enabled"
                                value="1" <?php checked( get_option( 'schedulely_ai_order_enabled', Schedulely_Defaults::AI_ORDER_ENABLED ) ); ?>>
                         <div>
-                            <span class="schedulely-chk-label"><?php esc_html_e( 'Use AI to order the queue before scheduling', 'schedulely' ); ?></span>
-                            <p class="schedulely-field-hint"><?php esc_html_e( 'Skips shuffle when AI succeeds. Only runs on manual "Run Schedule Now" — never on cron.', 'schedulely' ); ?></p>
+                            <span class="schedulely-chk-label"><?php esc_html_e( 'Enable queue ordering on manual runs', 'schedulely' ); ?></span>
+                            <p class="schedulely-field-hint"><?php esc_html_e( 'Master switch for the method chosen above (AI or PHP). Skips shuffle. Only runs on "Run Schedule Now" — never on cron.', 'schedulely' ); ?></p>
                         </div>
                     </label>
                     <div class="schedulely-form-row" style="margin:12px 0;">
@@ -514,9 +514,13 @@ $pres_authors    = get_option( 'schedulely_preserved_authors', Schedulely_Defaul
                             <?php esc_html_e( 'No API key needed in Schedulely — managed centrally.', 'schedulely' ); ?>
                         </div>
                     </div>
-                    <label class="schedulely-checkbox-row" style="opacity:.5; margin-bottom:12px;">
-                        <input type="checkbox" name="schedulely_ai_order_enabled" id="schedulely_ai_order_enabled" value="1" disabled>
-                        <div><span class="schedulely-chk-label"><?php esc_html_e( 'Use AI to order the queue (requires a connected provider)', 'schedulely' ); ?></span></div>
+                    <label class="schedulely-checkbox-row" style="margin-bottom:12px;">
+                        <input type="checkbox" name="schedulely_ai_order_enabled" id="schedulely_ai_order_enabled"
+                               value="1" <?php checked( get_option( 'schedulely_ai_order_enabled', Schedulely_Defaults::AI_ORDER_ENABLED ) ); ?>>
+                        <div>
+                            <span class="schedulely-chk-label"><?php esc_html_e( 'Enable queue ordering on manual runs', 'schedulely' ); ?></span>
+                            <p class="schedulely-field-hint"><?php esc_html_e( 'PHP ordering (selected above) needs no provider. AI ordering needs one connected here — without it, AI mode falls back to PHP automatically.', 'schedulely' ); ?></p>
+                        </div>
                     </label>
 
                 <?php else : ?>
@@ -530,7 +534,7 @@ $pres_authors    = get_option( 'schedulely_preserved_authors', Schedulely_Defaul
                     <label class="schedulely-checkbox-row" style="margin-bottom:16px;">
                         <input type="checkbox" name="schedulely_ai_order_enabled" id="schedulely_ai_order_enabled"
                                value="1" <?php checked( get_option( 'schedulely_ai_order_enabled', Schedulely_Defaults::AI_ORDER_ENABLED ) ); ?>>
-                        <div><span class="schedulely-chk-label"><?php esc_html_e( 'Use AI to order the queue before scheduling', 'schedulely' ); ?></span></div>
+                        <div><span class="schedulely-chk-label"><?php esc_html_e( 'Enable queue ordering before scheduling', 'schedulely' ); ?></span></div>
                     </label>
                     <div class="schedulely-form-row" style="margin-bottom:12px;">
                         <div class="schedulely-form-col">
