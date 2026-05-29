@@ -193,19 +193,32 @@ add_filter( 'wpai_preferred_text_models', function ( array $models ): array {
      * the original default provider for this feature.
      *
      * Model IDs (verified May 2026 — https://api-docs.deepseek.com/quick_start/pricing):
-     *   deepseek   : deepseek-v4-flash      → main fast/cheap model.
-     *                                          'deepseek-chat' is a deprecated alias.
-     *   deepseek   : deepseek-v4-pro        → fallback if flash is unavailable.
+     *   deepseek   : deepseek-v4-flash      → current main fast/cheap model.
+     *   deepseek   : deepseek-v4-pro        → current higher-tier model.
+     *   deepseek   : deepseek-chat          → legacy alias, "will be deprecated";
+     *                                          reroutes to deepseek-v4-flash in
+     *                                          NON-thinking mode. Listed as a fallback
+     *                                          because the installed DeepSeek connector
+     *                                          may only expose the legacy IDs, and this
+     *                                          one is the fast (non-reasoning) path.
      *   google     : gemini-3.1-flash-lite  → GA 2026-05-07; replaces deprecated gemini-2.5-flash.
      *   google     : gemini-3-flash-preview → preview tier.
      *   openai     : gpt-5.4-mini
      *   anthropic  : claude-sonnet-4-6
      *
+     * IMPORTANT: deepseek-reasoner is deliberately NOT listed. It reroutes to
+     * deepseek-v4-flash in THINKING mode, which spends thousands of tokens on
+     * internal reasoning — useless for a permutation task and the likely cause of
+     * the multi-minute, ~29k-token runs observed on large pools. We only ever want
+     * the non-thinking flash model here.
+     *
      * @since 1.6.0
+     * @since 1.7.14 Added deepseek-chat fallback; documented the thinking-mode pitfall.
      */
     return [
         [ 'deepseek',  'deepseek-v4-flash' ],
         [ 'deepseek',  'deepseek-v4-pro' ],
+        [ 'deepseek',  'deepseek-chat' ],
         [ 'google',    'gemini-3.1-flash-lite' ],
         [ 'google',    'gemini-3-flash-preview' ],
         [ 'openai',    'gpt-5.4-mini' ],
