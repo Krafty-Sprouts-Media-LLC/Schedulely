@@ -15,11 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **The PHP ordering log row now shows the resulting order and a series-grouping summary** instead of only a "PHP ran" confirmation. The AI Reorder Log's `model: php` row now includes an excerpt of the produced `{"ordered_ids":[...]}` sequence (same shape the AI rows log) plus a plain-language summary — e.g. "47 series detected across 300 posts; largest \"rabies-vaccine-requirements-for-cats\" = 50 posts, interleaved for even spacing." This makes the spacing decision visible for verification without inspecting every scheduled post, and applies both when PHP is the chosen method and when it runs as an automatic fallback after an AI failure.
 
+---
+
+## [1.8.3] - 29/05/2026
+
 ### Fixed
 - **The completion email now reports the real ordering method instead of always saying "AI."** When PHP ordering ran, the notification still read "AI ordering (this run): Applied — reordered by the AI API" and the optional AI Summary said "AI reordering applied" — both wrong, since no model was called. The email now reads the latest reorder-log entry to label the run accurately: "Queue ordering (this run): Applied (PHP) — ordered deterministically in PHP, no AI provider called, no tokens used" or "Applied (AI) …", and it appends the method's note — for PHP, the same series-grouping summary shown in the log ("47 series detected across 300 posts; largest …"). The AI Summary prompt was likewise corrected to state the true method (and the grouping detail) so the generated blurb can't claim AI ran when it didn't.
 
 ### Changed
 - **Queue-ordering settings are no longer worded as AI-only.** With PHP as a first-class method, the enable checkbox was relabeled from "Use AI to order the queue" to "Enable queue ordering on manual runs" — it is the master on/off for whichever method is selected above (AI or PHP), so it stays active in PHP mode rather than being disabled. The "no AI provider connected" state no longer disables the checkbox (PHP ordering needs no provider); it now explains that PHP works without one and that AI mode falls back to PHP automatically if no provider is present.
+- **The AI provider settings (connection notice, model field, API key, Test connection) are now hidden when PHP ordering is selected.** They only render under an "AI provider" sub-heading while Queue Ordering is set to AI; in PHP mode a one-line note replaces them ("ordered locally with no AI provider, API key, or tokens"). The master enable toggle and the US Timezone-Aware Ordering toggle were lifted out of the provider-specific markup so they show for both methods (timezone state detection runs in PHP, so it works either way).
 
 ---
 

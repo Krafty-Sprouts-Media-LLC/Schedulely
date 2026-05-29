@@ -442,12 +442,24 @@ $pres_authors    = get_option( 'schedulely_preserved_authors', Schedulely_Defaul
                 </label>
 
                 <hr class="schedulely-divider" style="margin:16px 0;">
-                <p class="schedulely-section-label"><?php esc_html_e( 'AI Series Spacing', 'schedulely' ); ?></p>
 
                 <?php
                 $tz_ordering_on  = (bool) get_option( 'schedulely_ai_us_timezone_ordering', Schedulely_Defaults::AI_US_TIMEZONE_ORDERING );
                 $current_mode_ai = get_option( 'schedulely_scheduling_mode', Schedulely_Defaults::SCHEDULING_MODE );
-                if ( $tz_ordering_on && in_array( $current_mode_ai, [ 'sequential', 'hybrid' ], true ) ) : ?>
+                ?>
+
+                <!-- Master enable — method-neutral, applies to AI and PHP alike -->
+                <label class="schedulely-checkbox-row" style="margin-bottom:12px;">
+                    <input type="checkbox" name="schedulely_ai_order_enabled" id="schedulely_ai_order_enabled"
+                           value="1" <?php checked( get_option( 'schedulely_ai_order_enabled', Schedulely_Defaults::AI_ORDER_ENABLED ) ); ?>>
+                    <div>
+                        <span class="schedulely-chk-label"><?php esc_html_e( 'Enable queue ordering on manual runs', 'schedulely' ); ?></span>
+                        <p class="schedulely-field-hint"><?php esc_html_e( 'Master switch for the method chosen above (AI or PHP). Skips shuffle. Only runs on "Run Schedule Now" — never on cron.', 'schedulely' ); ?></p>
+                    </div>
+                </label>
+
+                <!-- US Timezone-Aware Ordering — works with either method (state detection is done in PHP) -->
+                <?php if ( $tz_ordering_on && in_array( $current_mode_ai, [ 'sequential', 'hybrid' ], true ) ) : ?>
                     <div class="schedulely-ai-notice schedulely-ai-notice--warn" style="margin-bottom:16px;">
                         <span class="schedulely-ai-notice-icon">⚠️</span>
                         <div class="schedulely-ai-notice-text">
@@ -456,138 +468,114 @@ $pres_authors    = get_option( 'schedulely_preserved_authors', Schedulely_Defaul
                         </div>
                     </div>
                 <?php endif; ?>
-
-                <?php if ( $wp_ai_ready && $wp_ai_connected ) : ?>
-                    <div class="schedulely-ai-notice schedulely-ai-notice--connected">
-                        <span class="schedulely-ai-notice-icon">✅</span>
-                        <div class="schedulely-ai-notice-text">
-                            <strong><?php esc_html_e( 'AI provider connected via WordPress Connectors.', 'schedulely' ); ?></strong>
-                            <?php esc_html_e( 'No API key needed in Schedulely — managed in', 'schedulely' ); ?>
-                            <a href="<?php echo esc_url( admin_url( 'options-connectors.php' ) ); ?>"><?php esc_html_e( 'Settings → Connectors', 'schedulely' ); ?></a>.
-                        </div>
+                <label class="schedulely-checkbox-row">
+                    <input type="checkbox" name="schedulely_ai_us_timezone_ordering" id="schedulely_ai_us_timezone_ordering"
+                           value="1" <?php checked( get_option( 'schedulely_ai_us_timezone_ordering', Schedulely_Defaults::AI_US_TIMEZONE_ORDERING ) ); ?>>
+                    <div>
+                        <span class="schedulely-chk-label"><?php esc_html_e( 'US Timezone-Aware Queue Ordering', 'schedulely' ); ?></span>
+                        <p class="schedulely-field-hint">
+                            <?php esc_html_e( 'Orders posts by US timezone (Eastern → Pacific) so content reaches each audience during their peak hours. The target state is detected from each post\'s title and slug (in PHP, so it works with either ordering method). Only useful if your posts target specific US states. Requires Random scheduling mode.', 'schedulely' ); ?>
+                        </p>
                     </div>
-                    <label class="schedulely-checkbox-row" style="margin-bottom:12px;">
-                        <input type="checkbox" name="schedulely_ai_order_enabled" id="schedulely_ai_order_enabled"
-                               value="1" <?php checked( get_option( 'schedulely_ai_order_enabled', Schedulely_Defaults::AI_ORDER_ENABLED ) ); ?>>
-                        <div>
-                            <span class="schedulely-chk-label"><?php esc_html_e( 'Enable queue ordering on manual runs', 'schedulely' ); ?></span>
-                            <p class="schedulely-field-hint"><?php esc_html_e( 'Master switch for the method chosen above (AI or PHP). Skips shuffle. Only runs on "Run Schedule Now" — never on cron.', 'schedulely' ); ?></p>
-                        </div>
-                    </label>
-                    <div class="schedulely-form-row" style="margin:12px 0;">
-                        <div class="schedulely-form-col">
-                            <label class="schedulely-field-label" for="schedulely_ai_model"><?php esc_html_e( 'Preferred model', 'schedulely' ); ?></label>
-                            <input type="text" name="schedulely_ai_model" id="schedulely_ai_model"
-                                   value="<?php echo esc_attr( get_option( 'schedulely_ai_model', Schedulely_Defaults::AI_MODEL ) ); ?>"
-                                   placeholder="deepseek-v4-flash" autocomplete="off">
-                            <p class="schedulely-field-hint">
-                                <?php esc_html_e( 'Tried first for reordering, ahead of the built-in fallbacks. DeepSeek IDs: deepseek-v4-flash (fast, recommended) or deepseek-v4-pro. Leave as the default unless your connector exposes a different model. The provider still comes from Settings → Connectors.', 'schedulely' ); ?>
-                            </p>
-                        </div>
-                    </div>
+                </label>
 
-                    <p>
-                        <button type="button" class="btn btn-secondary" id="schedulely-test-ai-connection"><?php esc_html_e( 'Test connection', 'schedulely' ); ?></button>
-                    </p>
-                    <p class="schedulely-field-hint" id="schedulely-ai-test-result" style="display:none; margin-top:8px;" aria-live="polite"></p>
-
-                    <!-- US Timezone-Aware Ordering -->
+                <?php if ( 'ai' === $ordering_method ) : ?>
                     <hr class="schedulely-divider" style="margin:16px 0;">
-                    <label class="schedulely-checkbox-row">
-                        <input type="checkbox" name="schedulely_ai_us_timezone_ordering" id="schedulely_ai_us_timezone_ordering"
-                               value="1" <?php checked( get_option( 'schedulely_ai_us_timezone_ordering', Schedulely_Defaults::AI_US_TIMEZONE_ORDERING ) ); ?>>
-                        <div>
-                            <span class="schedulely-chk-label"><?php esc_html_e( 'US Timezone-Aware Queue Ordering', 'schedulely' ); ?></span>
-                            <p class="schedulely-field-hint">
-                                <?php esc_html_e( 'Orders posts by US timezone (Eastern → Pacific) so content reaches each audience during their peak hours. The AI extracts the target state from each post\'s title and slug. Only useful if your posts target specific US states. Requires Random scheduling mode.', 'schedulely' ); ?>
-                            </p>
-                        </div>
-                    </label>
-
-                <?php elseif ( $wp_ai_ready && ! $wp_ai_connected ) : ?>
-                    <div class="schedulely-ai-notice schedulely-ai-notice--warn">
-                        <span class="schedulely-ai-notice-icon">⚠️</span>
-                        <div class="schedulely-ai-notice-text">
-                            <strong><?php esc_html_e( 'No AI provider connected.', 'schedulely' ); ?></strong>
-                            <?php esc_html_e( 'Configure one in', 'schedulely' ); ?>
-                            <a href="<?php echo esc_url( admin_url( 'options-connectors.php' ) ); ?>"><?php esc_html_e( 'Settings → Connectors', 'schedulely' ); ?></a>.
-                            <?php esc_html_e( 'No API key needed in Schedulely — managed centrally.', 'schedulely' ); ?>
-                        </div>
-                    </div>
-                    <label class="schedulely-checkbox-row" style="margin-bottom:12px;">
-                        <input type="checkbox" name="schedulely_ai_order_enabled" id="schedulely_ai_order_enabled"
-                               value="1" <?php checked( get_option( 'schedulely_ai_order_enabled', Schedulely_Defaults::AI_ORDER_ENABLED ) ); ?>>
-                        <div>
-                            <span class="schedulely-chk-label"><?php esc_html_e( 'Enable queue ordering on manual runs', 'schedulely' ); ?></span>
-                            <p class="schedulely-field-hint"><?php esc_html_e( 'PHP ordering (selected above) needs no provider. AI ordering needs one connected here — without it, AI mode falls back to PHP automatically.', 'schedulely' ); ?></p>
-                        </div>
-                    </label>
-
-                <?php else : ?>
-                    <!-- Legacy path — pre-WP-7.0 -->
+                    <p class="schedulely-section-label"><?php esc_html_e( 'AI provider', 'schedulely' ); ?></p>
                     <p class="schedulely-field-hint" style="margin-bottom:12px;">
-                        <?php echo wp_kses(
-                            sprintf( __( 'Defaults target the DeepSeek OpenAI-compatible API (<a href="%s" target="_blank" rel="noopener noreferrer">API overview</a>). You can change the base URL and model for any compatible provider.', 'schedulely' ), esc_url( 'https://apidog.com/blog/how-to-use-deepseek-v4-api/' ) ),
-                            [ 'a' => [ 'href' => true, 'target' => true, 'rel' => true ] ]
-                        ); ?>
+                        <?php esc_html_e( 'These settings are used only while Queue Ordering above is set to AI.', 'schedulely' ); ?>
                     </p>
-                    <label class="schedulely-checkbox-row" style="margin-bottom:16px;">
-                        <input type="checkbox" name="schedulely_ai_order_enabled" id="schedulely_ai_order_enabled"
-                               value="1" <?php checked( get_option( 'schedulely_ai_order_enabled', Schedulely_Defaults::AI_ORDER_ENABLED ) ); ?>>
-                        <div><span class="schedulely-chk-label"><?php esc_html_e( 'Enable queue ordering before scheduling', 'schedulely' ); ?></span></div>
-                    </label>
-                    <div class="schedulely-form-row" style="margin-bottom:12px;">
-                        <div class="schedulely-form-col">
-                            <label class="schedulely-field-label" for="schedulely_ai_base_url"><?php esc_html_e( 'API Base URL', 'schedulely' ); ?></label>
-                            <input type="url" name="schedulely_ai_base_url" id="schedulely_ai_base_url"
-                                   value="<?php echo esc_attr( get_option( 'schedulely_ai_base_url', Schedulely_Defaults::AI_BASE_URL ) ); ?>"
-                                   placeholder="https://api.deepseek.com/v1" autocomplete="off">
+
+                    <?php if ( $wp_ai_ready && $wp_ai_connected ) : ?>
+                        <div class="schedulely-ai-notice schedulely-ai-notice--connected">
+                            <span class="schedulely-ai-notice-icon">✅</span>
+                            <div class="schedulely-ai-notice-text">
+                                <strong><?php esc_html_e( 'AI provider connected via WordPress Connectors.', 'schedulely' ); ?></strong>
+                                <?php esc_html_e( 'No API key needed in Schedulely — managed in', 'schedulely' ); ?>
+                                <a href="<?php echo esc_url( admin_url( 'options-connectors.php' ) ); ?>"><?php esc_html_e( 'Settings → Connectors', 'schedulely' ); ?></a>.
+                            </div>
                         </div>
-                        <div class="schedulely-form-col">
-                            <label class="schedulely-field-label" for="schedulely_ai_model"><?php esc_html_e( 'Model', 'schedulely' ); ?></label>
-                            <input type="text" name="schedulely_ai_model" id="schedulely_ai_model"
-                                   value="<?php echo esc_attr( get_option( 'schedulely_ai_model', Schedulely_Defaults::AI_MODEL ) ); ?>"
-                                   placeholder="deepseek-v4-flash" autocomplete="off">
+                        <div class="schedulely-form-row" style="margin:12px 0;">
+                            <div class="schedulely-form-col">
+                                <label class="schedulely-field-label" for="schedulely_ai_model"><?php esc_html_e( 'Preferred model', 'schedulely' ); ?></label>
+                                <input type="text" name="schedulely_ai_model" id="schedulely_ai_model"
+                                       value="<?php echo esc_attr( get_option( 'schedulely_ai_model', Schedulely_Defaults::AI_MODEL ) ); ?>"
+                                       placeholder="deepseek-v4-flash" autocomplete="off">
+                                <p class="schedulely-field-hint">
+                                    <?php esc_html_e( 'Tried first for reordering, ahead of the built-in fallbacks. DeepSeek IDs: deepseek-v4-flash (fast, recommended) or deepseek-v4-pro. Leave as the default unless your connector exposes a different model. The provider still comes from Settings → Connectors.', 'schedulely' ); ?>
+                                </p>
+                            </div>
                         </div>
-                    </div>
-                    <div style="margin-bottom:14px;">
-                        <?php if ( $stored_ai_key_len > 0 ) :
-                            $masked_key = strlen( $stored_ai_key_raw ) > 8
-                                ? substr( $stored_ai_key_raw, 0, 4 ) . str_repeat( '•', max( 4, strlen( $stored_ai_key_raw ) - 8 ) ) . substr( $stored_ai_key_raw, -4 )
-                                : str_repeat( '•', strlen( $stored_ai_key_raw ) );
-                        ?>
-                            <label class="schedulely-field-label"><?php esc_html_e( 'Current API Key', 'schedulely' ); ?></label>
-                            <input type="text" readonly value="<?php echo esc_attr( $masked_key ); ?>"
-                                   style="font-family:monospace; max-width:420px; margin-bottom:10px;" autocomplete="off">
-                            <label class="schedulely-field-label" for="schedulely_ai_api_key"><?php esc_html_e( 'Replace API Key (optional)', 'schedulely' ); ?></label>
-                        <?php else : ?>
-                            <label class="schedulely-field-label" for="schedulely_ai_api_key"><?php esc_html_e( 'API Key', 'schedulely' ); ?></label>
-                        <?php endif; ?>
-                        <p style="margin-bottom:8px;">
+                        <p>
                             <button type="button" class="btn btn-secondary" id="schedulely-test-ai-connection"><?php esc_html_e( 'Test connection', 'schedulely' ); ?></button>
                         </p>
                         <p class="schedulely-field-hint" id="schedulely-ai-test-result" style="display:none; margin-top:8px;" aria-live="polite"></p>
-                        <input type="password" name="schedulely_ai_api_key" id="schedulely_ai_api_key"
-                               style="max-width:420px;" value="" autocomplete="new-password"
-                               placeholder="<?php echo $stored_ai_key_len > 0 ? esc_attr__( 'Leave blank to keep saved key', 'schedulely' ) : esc_attr__( 'Enter your API key', 'schedulely' ); ?>">
-                    </div>
-                    <label class="schedulely-checkbox-row">
-                        <input type="checkbox" name="schedulely_ai_clear_api_key" id="schedulely_ai_clear_api_key" value="1">
-                        <div><span class="schedulely-chk-label"><?php esc_html_e( 'Remove stored API key on save', 'schedulely' ); ?></span></div>
-                    </label>
 
-                    <!-- US Timezone-Aware Ordering — legacy path -->
-                    <hr class="schedulely-divider" style="margin:16px 0;">
-                    <label class="schedulely-checkbox-row">
-                        <input type="checkbox" name="schedulely_ai_us_timezone_ordering" id="schedulely_ai_us_timezone_ordering"
-                               value="1" <?php checked( get_option( 'schedulely_ai_us_timezone_ordering', Schedulely_Defaults::AI_US_TIMEZONE_ORDERING ) ); ?>>
-                        <div>
-                            <span class="schedulely-chk-label"><?php esc_html_e( 'US Timezone-Aware Queue Ordering', 'schedulely' ); ?></span>
-                            <p class="schedulely-field-hint">
-                                <?php esc_html_e( 'Orders posts by US timezone (Eastern → Pacific) so content reaches each audience during their peak hours. The AI extracts the target state from each post\'s title and slug. Only useful if your posts target specific US states. Requires Random scheduling mode.', 'schedulely' ); ?>
-                            </p>
+                    <?php elseif ( $wp_ai_ready && ! $wp_ai_connected ) : ?>
+                        <div class="schedulely-ai-notice schedulely-ai-notice--warn">
+                            <span class="schedulely-ai-notice-icon">⚠️</span>
+                            <div class="schedulely-ai-notice-text">
+                                <strong><?php esc_html_e( 'No AI provider connected.', 'schedulely' ); ?></strong>
+                                <?php esc_html_e( 'Connect one in', 'schedulely' ); ?>
+                                <a href="<?php echo esc_url( admin_url( 'options-connectors.php' ) ); ?>"><?php esc_html_e( 'Settings → Connectors', 'schedulely' ); ?></a>,
+                                <?php esc_html_e( 'or switch Queue Ordering above to PHP (no provider needed). AI mode falls back to PHP automatically if no provider is present.', 'schedulely' ); ?>
+                            </div>
                         </div>
-                    </label>
+
+                    <?php else : ?>
+                        <!-- Legacy path — pre-WP-7.0 -->
+                        <p class="schedulely-field-hint" style="margin-bottom:12px;">
+                            <?php echo wp_kses(
+                                sprintf( __( 'Defaults target the DeepSeek OpenAI-compatible API (<a href="%s" target="_blank" rel="noopener noreferrer">API overview</a>). You can change the base URL and model for any compatible provider.', 'schedulely' ), esc_url( 'https://apidog.com/blog/how-to-use-deepseek-v4-api/' ) ),
+                                [ 'a' => [ 'href' => true, 'target' => true, 'rel' => true ] ]
+                            ); ?>
+                        </p>
+                        <div class="schedulely-form-row" style="margin-bottom:12px;">
+                            <div class="schedulely-form-col">
+                                <label class="schedulely-field-label" for="schedulely_ai_base_url"><?php esc_html_e( 'API Base URL', 'schedulely' ); ?></label>
+                                <input type="url" name="schedulely_ai_base_url" id="schedulely_ai_base_url"
+                                       value="<?php echo esc_attr( get_option( 'schedulely_ai_base_url', Schedulely_Defaults::AI_BASE_URL ) ); ?>"
+                                       placeholder="https://api.deepseek.com/v1" autocomplete="off">
+                            </div>
+                            <div class="schedulely-form-col">
+                                <label class="schedulely-field-label" for="schedulely_ai_model"><?php esc_html_e( 'Model', 'schedulely' ); ?></label>
+                                <input type="text" name="schedulely_ai_model" id="schedulely_ai_model"
+                                       value="<?php echo esc_attr( get_option( 'schedulely_ai_model', Schedulely_Defaults::AI_MODEL ) ); ?>"
+                                       placeholder="deepseek-v4-flash" autocomplete="off">
+                            </div>
+                        </div>
+                        <div style="margin-bottom:14px;">
+                            <?php if ( $stored_ai_key_len > 0 ) :
+                                $masked_key = strlen( $stored_ai_key_raw ) > 8
+                                    ? substr( $stored_ai_key_raw, 0, 4 ) . str_repeat( '•', max( 4, strlen( $stored_ai_key_raw ) - 8 ) ) . substr( $stored_ai_key_raw, -4 )
+                                    : str_repeat( '•', strlen( $stored_ai_key_raw ) );
+                            ?>
+                                <label class="schedulely-field-label"><?php esc_html_e( 'Current API Key', 'schedulely' ); ?></label>
+                                <input type="text" readonly value="<?php echo esc_attr( $masked_key ); ?>"
+                                       style="font-family:monospace; max-width:420px; margin-bottom:10px;" autocomplete="off">
+                                <label class="schedulely-field-label" for="schedulely_ai_api_key"><?php esc_html_e( 'Replace API Key (optional)', 'schedulely' ); ?></label>
+                            <?php else : ?>
+                                <label class="schedulely-field-label" for="schedulely_ai_api_key"><?php esc_html_e( 'API Key', 'schedulely' ); ?></label>
+                            <?php endif; ?>
+                            <p style="margin-bottom:8px;">
+                                <button type="button" class="btn btn-secondary" id="schedulely-test-ai-connection"><?php esc_html_e( 'Test connection', 'schedulely' ); ?></button>
+                            </p>
+                            <p class="schedulely-field-hint" id="schedulely-ai-test-result" style="display:none; margin-top:8px;" aria-live="polite"></p>
+                            <input type="password" name="schedulely_ai_api_key" id="schedulely_ai_api_key"
+                                   style="max-width:420px;" value="" autocomplete="new-password"
+                                   placeholder="<?php echo $stored_ai_key_len > 0 ? esc_attr__( 'Leave blank to keep saved key', 'schedulely' ) : esc_attr__( 'Enter your API key', 'schedulely' ); ?>">
+                        </div>
+                        <label class="schedulely-checkbox-row">
+                            <input type="checkbox" name="schedulely_ai_clear_api_key" id="schedulely_ai_clear_api_key" value="1">
+                            <div><span class="schedulely-chk-label"><?php esc_html_e( 'Remove stored API key on save', 'schedulely' ); ?></span></div>
+                        </label>
+                    <?php endif; ?>
+
+                <?php else : ?>
+                    <hr class="schedulely-divider" style="margin:16px 0;">
+                    <p class="schedulely-field-hint">
+                        <?php esc_html_e( 'PHP ordering selected — the queue is ordered locally with no AI provider, API key, or tokens. To use a model instead, switch Queue Ordering above to AI.', 'schedulely' ); ?>
+                    </p>
                 <?php endif; ?>
 
                 <!-- AI Reorder Log -->
