@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.7.13] - 29/05/2026
+
+### Fixed
+- **Reorder crashed with "Object of class WP_Error could not be converted to string," masking the real failure.** `reorder_via_wp_ai()` did `$content = (string) $builder->generate_text();`. The WP AI client can *return* a `WP_Error` on failure (rather than throwing), and casting that object to a string raises a PHP `Error`, which our `\Throwable` catch then logged as a generic `schedulely_ai_exception` with the cast message — destroying the actual error (timeout, connector, quota, etc.) before it could be seen. Now the result is checked with `is_wp_error()` before any cast: a returned `WP_Error` is logged with its true code/message and returned as-is, and non-string results coerce safely. This both stops the crash and surfaces the genuine reason a reorder failed — a prerequisite for diagnosing the large-pool timeouts.
+
+---
+
 ## [1.7.12] - 29/05/2026
 
 ### Changed

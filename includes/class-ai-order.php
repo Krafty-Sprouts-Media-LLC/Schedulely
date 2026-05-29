@@ -292,7 +292,23 @@ class Schedulely_AI_Order {
 				return $err;
 			}
 
-			$content = (string) $builder->generate_text();
+			$result = $builder->generate_text();
+
+			// generate_text() can return a WP_Error on failure rather than throwing.
+			// Casting that to string fatals ("Object of class WP_Error could not be
+			// converted to string"), which previously masked the real failure reason.
+			if ( is_wp_error( $result ) ) {
+				remove_filter( 'wp_ai_client_default_request_timeout', $timeout_filter, 999 );
+				$this->log_attempt( 'error', 'wp_ai', count( $post_ids ), null, null,
+					$result->get_error_code(),
+					schedulely_ai_log_sanitize_excerpt( $result->get_error_message(), 500 ),
+					'', '',
+					__( 'WP AI client returned an error while generating text; queue kept its input order.', 'schedulely' )
+				);
+				return $result;
+			}
+
+			$content = is_string( $result ) ? $result : '';
 
 		} catch ( \Throwable $e ) {
 			remove_filter( 'wp_ai_client_default_request_timeout', $timeout_filter, 999 );
