@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.7.12] - 29/05/2026
+
+### Changed
+- **Removed the per-post timeout guess; the reorder now uses a flat 30-minute budget.** Both the old `60 + post_count×0.45` and the interim `120 + post_count×3.6` formulas multiplied a *made-up* per-post rate — a guess about how fast the model is, which we have no data for. At 300 posts the old formula produced a 195s ceiling that hung up the call before DeepSeek replied (the failure was our guessed limit, not the model). A timeout should guard against a *hung* request, not cap a *slow* one, so `get_wp_ai_timeout_filter()` now returns a single flat budget (default 1800s/30 min, clamped 30..1800), filterable via the new `schedulely_ai_reorder_timeout` filter. The reorder log records the real duration on the next run — that measured number, not arithmetic, is the only legitimate basis for any future limit. NOTE: a flat cURL budget only applies if PHP `max_execution_time` and the web/cron server timeout are at least as high; a death at a round number (e.g. 300s) indicates one of those lower ceilings instead.
+
+---
+
 ## [1.7.11] - 29/05/2026
 
 ### Changed

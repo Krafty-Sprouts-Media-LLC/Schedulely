@@ -864,23 +864,24 @@ class Schedulely_AI_Order {
 	}
 
 	/**
-	 * Return a closure that overrides the WP AI client timeout for large pools.
+	 * Return a closure that overrides the WP AI client timeout.
 	 *
-	 * Reasoning-style models (e.g. deepseek-v4-flash) can spend minutes on
-	 * internal reasoning before emitting the first byte, especially on large
-	 * prompts. The previous 60 + post_count×0.45 formula capped 300 posts at
-	 * 195s and hung up before any response arrived. Scaled up so large pools get
-	 * real headroom: 120 + post_count×3.6, clamped 120..1800s (≈20 min at 300
-	 * posts, 30 min ceiling). Override with the wp_ai_client_default_request_timeout
-	 * filter if a lower ceiling is needed.
+	 * Deliberately NOT scaled by post count. Earlier versions multiplied a made-up
+	 * per-post rate (e.g. 60 + post_count×0.45) which guessed how fast the model
+	 * is — a number we have no data for. At 300 posts that produced a 195s ceiling
+	 * that hung up the call before DeepSeek replied (the model wasn't slow, our
+	 * guess was wrong). A timeout should guard against a *hung* request, not cap a
+	 * *slow* one, so this is a single generous flat budget. The reorder log then
+	 * records the real duration, which is the only legitimate basis for any limit.
 	 *
 	 * @since 1.7.6
-	 * @since 1.7.11 Raised scaling/ceiling to accommodate reasoning-model latency.
-	 * @param int $post_count Number of posts in the queue.
+	 * @since 1.7.12 Flat budget; removed the per-post guess. Filterable.
+	 * @param int $post_count Number of posts in the queue (passed to the filter).
 	 * @return \Closure
 	 */
 	private function get_wp_ai_timeout_filter( int $post_count ): \Closure {
-		$timeout = max( 120, min( 1800, 120 + (int) round( $post_count * 3.6 ) ) );
+		$timeout = (int) apply_filters( 'schedulely_ai_reorder_timeout', 1800, $post_count );
+		$timeout = max( 30, min( 1800, $timeout ) );
 		return function () use ( $timeout ) {
 			return (float) $timeout;
 		};
