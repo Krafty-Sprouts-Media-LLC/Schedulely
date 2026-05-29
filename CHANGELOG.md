@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.7.14] - 29/05/2026
+
+### Fixed
+- **Stopped the AI reorder from looping into tens of thousands of tokens by lowering temperature, capping output, and tightening the prompt.** A "successful" 300-post reorder revealed the real failure mode: the model emitted **528 IDs for 300 posts** (~45 unique repeated) and burned **29,344 output tokens** (~189s), with reconciliation salvaging only ~15% as genuine ordering. The reorder is a permutation, not a creative task, yet we were sending it at `temperature 1.0` with a 16k-token ceiling — both of which invite degenerate repetition loops. Three changes target the loop directly: (1) `using_temperature()` now defaults to **0.3** (filter `schedulely_ai_reorder_temperature`) instead of 1.0, so the model produces a clean finite answer rather than wandering; (2) the WP 7.0 path now sets `using_max_tokens()` to a count-scaled ceiling (≈`post_count×10 + 512`, clamped 256..12000; filter `schedulely_ai_reorder_max_tokens`) so a looping model is physically cut off long before 29k tokens; (3) the user prompt and system instruction now state the exact stop condition — "all N IDs, each exactly once, array length exactly N, stop after the N-th ID; never repeat an ID already emitted." The legacy HTTP path uses the same temperature and token helpers for consistency.
+
+---
+
 ## [1.7.13] - 29/05/2026
 
 ### Fixed

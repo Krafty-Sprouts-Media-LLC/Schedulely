@@ -263,7 +263,8 @@ class Schedulely_AI_Order {
 		try {
 			$builder = wp_ai_client_prompt( $prompt )
 				->using_system_instruction( $this->get_system_instruction() )
-				->using_temperature( 1.0 );
+				->using_temperature( $this->get_reorder_temperature() )
+				->using_max_tokens( $this->get_reorder_max_tokens( count( $post_ids ) ) );
 
 			/**
 			 * Fires just before Schedulely sends an AI reorder request.
@@ -665,7 +666,7 @@ class Schedulely_AI_Order {
 	 */
 	private function build_user_prompt( array $lines, int $count ): string {
 		$header = sprintf(
-			"Reorder these %d posts. Respond with JSON only: {\"ordered_ids\":[...]}\n\n",
+			"Reorder these %1\$d posts. Output a JSON object {\"ordered_ids\":[...]} whose array contains all %1\$d post IDs, each appearing exactly once, in your new order. Do not repeat any ID. Do not invent IDs. The array length must be exactly %1\$d. Stop immediately after the %1\$d-th ID.\n\n",
 			$count
 		);
 		return $header . implode( "\n", $lines );
@@ -692,6 +693,7 @@ class Schedulely_AI_Order {
 			. 'Prioritize diversity of topics over original order. '
 			. 'Return a JSON object with a single key "ordered_ids" whose value is an array of integers. '
 			. 'It MUST list every input post ID exactly once: same length as the input list, no duplicates, no made-up IDs, no omissions. '
+			. 'Never repeat an ID you have already emitted. As soon as every ID has appeared once, close the array and stop — do not keep generating. '
 			. 'Output only valid JSON, no markdown fences, no commentary.';
 	}
 
@@ -711,9 +713,9 @@ class Schedulely_AI_Order {
 				[ 'role' => 'system', 'content' => $this->get_system_instruction() ],
 				[ 'role' => 'user',   'content' => $this->build_user_prompt( $lines, $count ) ],
 			],
-			'temperature'     => 1.0,
+			'temperature'     => $this->get_reorder_temperature(),
 			'top_p'           => 1.0,
-			'max_tokens'      => (int) apply_filters( 'schedulely_ai_max_output_tokens', 16384 ),
+			'max_tokens'      => $this->get_reorder_max_tokens( $count ),
 			'response_format' => [ 'type' => 'json_object' ],
 		];
 		return $body;
@@ -901,6 +903,43 @@ class Schedulely_AI_Order {
 		return function () use ( $timeout ) {
 			return (float) $timeout;
 		};
+	}
+
+	/**
+	 * Sampling temperature for the reorder request.
+	 *
+	 * A low temperature (default 0.3) is deliberate. The reorder task is a
+	 * permutation, not a creative one — high temperature (we previously used 1.0)
+	 * makes the model wander and is a known trigger for degenerate repetition
+	 * loops, where it re-emits the same handful of IDs hundreds of times instead
+	 * of finishing. Keeping it low produces a clean, finite answer.
+	 *
+	 * @since 1.7.14
+	 * @return float Clamped to the valid 0.0–2.0 range.
+	 */
+	private function get_reorder_temperature(): float {
+		$temp = (float) apply_filters( 'schedulely_ai_reorder_temperature', 0.3 );
+		return max( 0.0, min( 2.0, $temp ) );
+	}
+
+	/**
+	 * Hard ceiling on output tokens for the reorder request.
+	 *
+	 * A correct response is just an array of the input IDs, so the size scales
+	 * with the post count. We allow generous headroom (≈10 tokens per ID plus a
+	 * small constant) but cap it so a model that slips into a repetition loop is
+	 * physically cut off long before it can run to tens of thousands of tokens
+	 * (the 29k-token loop we observed on a 300-post pool). Reconciliation then
+	 * salvages whatever valid prefix arrived.
+	 *
+	 * @since 1.7.14
+	 * @param int $post_count Number of posts in the queue.
+	 * @return int
+	 */
+	private function get_reorder_max_tokens( int $post_count ): int {
+		$default = ( $post_count * 10 ) + 512;
+		$max     = (int) apply_filters( 'schedulely_ai_reorder_max_tokens', $default, $post_count );
+		return max( 256, min( 12000, $max ) );
 	}
 
 	/**
