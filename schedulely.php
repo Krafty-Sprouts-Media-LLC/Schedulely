@@ -3,7 +3,7 @@
  * Plugin Name: Schedulely
  * Plugin URI: https://kraftysprouts.com
  * Description: Intelligently schedule posts from any status with smart deficit tracking, random author assignment, and customizable time windows.
- * Version: 1.8.1
+ * Version: 1.8.2
  * Author: Krafty Sprouts Media, LLC
  * Author URI: https://kraftysprouts.com
  * License: GPL v2 or later
@@ -23,7 +23,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('SCHEDULELY_VERSION', '1.8.1');
+define('SCHEDULELY_VERSION', '1.8.2');
 define('SCHEDULELY_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('SCHEDULELY_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('SCHEDULELY_PLUGIN_BASENAME', plugin_basename(__FILE__));
@@ -409,9 +409,20 @@ function schedulely_upgrade($from_version)
     }
 
     if (version_compare($from_version, '1.8.0', '<')) {
-        // Default existing installs to the AI ordering method to preserve
-        // current behavior; the deterministic PHP method is opt-in.
+        // Ensure the ordering-method option exists on installs upgrading from
+        // before it was introduced.
         add_option('schedulely_ordering_method', Schedulely_Defaults::ORDERING_METHOD);
+    }
+
+    if (version_compare($from_version, '1.8.2', '<')) {
+        // Switch installs still on the AI method to PHP ordering. The AI path
+        // was shown to loop (~59K tokens / ~6 min) and still need PHP
+        // reconciliation on large pools; PHP ordering is instant and reliable.
+        // Reversible: re-select AI in Tools → Schedulely → AI & Notifications.
+        if ('ai' === get_option('schedulely_ordering_method', Schedulely_Defaults::ORDERING_METHOD)) {
+            update_option('schedulely_ordering_method', 'php');
+            schedulely_log_error('Ordering method switched from AI to PHP on upgrade to 1.8.2 (reversible in settings).');
+        }
     }
 
     // CRITICAL FIX: Clear old hourly cron and reschedule with twicedaily (v1.0.8+)

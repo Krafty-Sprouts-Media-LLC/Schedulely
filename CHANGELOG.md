@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.8.2] - 29/05/2026
+
+### Changed
+- **PHP ordering is now the default queue-ordering method (was AI), and existing installs are switched to PHP on upgrade.** Three independent 300-post runs on the AI path — including 1.8.1 with JSON mode, a worked example, and a 64K fuse all in place — each looped to **~59K output tokens over ~6 minutes** and *still* required PHP reconciliation to yield a usable order (the model returned duplicate-laden arrays that weren't valid permutations). JSON mode fixed the hard crash but not the over-generation: emitting a 300-element, no-duplicates permutation and stopping is stateful bookkeeping an LLM can't do reliably. Deterministic PHP ordering produces the same even spacing instantly, for free, with no tokens and no timeout. New installs default to `php`; on upgrade, any install still set to `ai` is switched to `php` (logged, and reversible at any time in Tools → Schedulely → AI & Notifications). The AI method remains fully available for anyone who selects it.
+
+### Added
+- **The PHP ordering log row now shows the resulting order and a series-grouping summary** instead of only a "PHP ran" confirmation. The AI Reorder Log's `model: php` row now includes an excerpt of the produced `{"ordered_ids":[...]}` sequence (same shape the AI rows log) plus a plain-language summary — e.g. "47 series detected across 300 posts; largest \"rabies-vaccine-requirements-for-cats\" = 50 posts, interleaved for even spacing." This makes the spacing decision visible for verification without inspecting every scheduled post, and applies both when PHP is the chosen method and when it runs as an automatic fallback after an AI failure.
+
+---
+
 ## [1.8.1] - 29/05/2026
 
 ### Added

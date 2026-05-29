@@ -90,8 +90,10 @@ class Schedulely_AI_Order {
 		if ( 'php' === $this->get_ordering_method() ) {
 			$ordered = $this->order_via_php( $post_ids );
 			$this->log_attempt( 'success', 'php', count( $post_ids ), null, null,
-				'', '', '', '',
+				'', '',
+				$this->php_order_excerpt( $ordered ), '',
 				__( 'PHP ordering applied — ordering method is set to PHP; the AI was not called.', 'schedulely' )
+					. ' ' . $this->php_grouping_summary( $post_ids )
 			);
 			return $ordered;
 		}
@@ -111,12 +113,13 @@ class Schedulely_AI_Order {
 			);
 			$php_ordered = $this->order_via_php( $post_ids );
 			$this->log_attempt( 'success', 'php', count( $post_ids ), null, null,
-				(string) $code, '', '', '',
+				(string) $code, '',
+				$this->php_order_excerpt( $php_ordered ), '',
 				sprintf(
 					/* translators: %s: the AI error code that triggered the fallback */
 					__( 'PHP ordering applied as automatic fallback after the AI request failed (%s).', 'schedulely' ),
 					(string) $code
-				)
+				) . ' ' . $this->php_grouping_summary( $post_ids )
 			);
 			return $php_ordered;
 		}
@@ -142,13 +145,7 @@ class Schedulely_AI_Order {
 	 * @return array<int>
 	 */
 	private function order_via_php( array $post_ids ): array {
-		$groups = [];
-		foreach ( $post_ids as $id ) {
-			$groups[ $this->slug_stem( (int) $id ) ][] = (int) $id;
-		}
-
-		// Largest groups first so the most-repeated topics get the widest spread.
-		uasort( $groups, fn( $a, $b ) => count( $b ) <=> count( $a ) );
+		$groups = $this->group_by_slug_stem( $post_ids );
 
 		$ordered = [];
 		do {
@@ -163,6 +160,79 @@ class Schedulely_AI_Order {
 		} while ( $progress );
 
 		return $ordered;
+	}
+
+	/**
+	 * Group post IDs by slug-stem, largest group first.
+	 *
+	 * Shared by order_via_php() (which interleaves the groups) and
+	 * php_grouping_summary() (which describes them for the log). Largest first
+	 * means the most-repeated topics get the widest spread when interleaved.
+	 *
+	 * @since 1.8.2
+	 * @param array<int> $post_ids
+	 * @return array<string,array<int>> Map of slug-stem => list of post IDs.
+	 */
+	private function group_by_slug_stem( array $post_ids ): array {
+		$groups = [];
+		foreach ( $post_ids as $id ) {
+			$groups[ $this->slug_stem( (int) $id ) ][] = (int) $id;
+		}
+		uasort( $groups, fn( $a, $b ) => count( $b ) <=> count( $a ) );
+		return $groups;
+	}
+
+	/**
+	 * Human-readable summary of how PHP ordering grouped the queue.
+	 *
+	 * Lets the AI Reorder Log show *why* the order looks the way it does — how
+	 * many series were detected and how big the largest one is — so the spacing
+	 * decision is visible without inspecting every scheduled post.
+	 *
+	 * @since 1.8.2
+	 * @param array<int> $post_ids
+	 * @return string
+	 */
+	private function php_grouping_summary( array $post_ids ): string {
+		$groups = $this->group_by_slug_stem( $post_ids );
+		$series = count( $groups );
+
+		$largest_stem = '';
+		$largest_n    = 0;
+		foreach ( $groups as $stem => $ids ) {
+			if ( count( $ids ) > $largest_n ) {
+				$largest_n    = count( $ids );
+				$largest_stem = (string) $stem;
+			}
+		}
+
+		return sprintf(
+			/* translators: 1: number of series 2: total posts 3: largest series slug-stem 4: size of largest series */
+			__( '%1$d series detected across %2$d posts; largest "%3$s" = %4$d posts, interleaved for even spacing.', 'schedulely' ),
+			$series,
+			count( $post_ids ),
+			$largest_stem,
+			$largest_n
+		);
+	}
+
+	/**
+	 * Build a log excerpt of the PHP-produced order, mirroring the AI rows.
+	 *
+	 * Same {"ordered_ids":[...]} shape the AI path logs, truncated by the shared
+	 * sanitizer, so the resulting sequence is visible in the AI Reorder Log
+	 * instead of only a "PHP ran" confirmation.
+	 *
+	 * @since 1.8.2
+	 * @param array<int> $ordered
+	 * @return string
+	 */
+	private function php_order_excerpt( array $ordered ): string {
+		$json = '{"ordered_ids":[' . implode( ',', array_map( 'intval', $ordered ) ) . ']}';
+		if ( function_exists( 'schedulely_ai_log_sanitize_excerpt' ) ) {
+			return schedulely_ai_log_sanitize_excerpt( $json, 1200 );
+		}
+		return strlen( $json ) > 1200 ? substr( $json, 0, 1200 ) . '…' : $json;
 	}
 
 	/**

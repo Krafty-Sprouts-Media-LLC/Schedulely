@@ -124,9 +124,13 @@ class Schedulely_Defaults {
 	 *         for even series spacing. Instant, free, never times out.
 	 *
 	 * @since 1.8.0
+	 * @since 1.8.2 Default changed from 'ai' to 'php'. Three independent 300-post
+	 *              runs showed the AI looping to ~59K output tokens over ~6 minutes
+	 *              and still needing PHP reconciliation to produce a usable order;
+	 *              PHP ordering is instant, free, and deterministic.
 	 * @var string
 	 */
-	const ORDERING_METHOD = 'ai';
+	const ORDERING_METHOD = 'php';
 
 	/** @var bool Default US timezone-aware queue ordering state. */
 	const AI_US_TIMEZONE_ORDERING = false;
