@@ -827,6 +827,7 @@ class Schedulely_AI_Order {
 			. 'Return a JSON object with a single key "ordered_ids" whose value is an array of integers. '
 			. 'It MUST list every input post ID exactly once: same length as the input list, no duplicates, no made-up IDs, no omissions. '
 			. 'Never repeat an ID you have already emitted. As soon as every ID has appeared once, close the array and stop — do not keep generating. '
+			. 'Example: for the 4 input lines "12 cats-in-texas", "7 dogs-in-ohio", "30 cats-in-ohio", "4 dogs-in-texas", a complete valid response is exactly {"ordered_ids":[12,7,30,4]} — every input ID present once, similar slugs spaced apart, the array closed, and nothing after it. '
 			. 'Output only valid JSON, no markdown fences, no commentary.';
 	}
 
