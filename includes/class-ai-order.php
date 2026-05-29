@@ -263,8 +263,7 @@ class Schedulely_AI_Order {
 		try {
 			$builder = wp_ai_client_prompt( $prompt )
 				->using_system_instruction( $this->get_system_instruction() )
-				->using_temperature( $this->get_reorder_temperature() )
-				->using_max_tokens( $this->get_reorder_max_tokens( count( $post_ids ) ) );
+				->using_temperature( $this->get_reorder_temperature() );
 
 			/**
 			 * Fires just before Schedulely sends an AI reorder request.
@@ -715,7 +714,6 @@ class Schedulely_AI_Order {
 			],
 			'temperature'     => $this->get_reorder_temperature(),
 			'top_p'           => 1.0,
-			'max_tokens'      => $this->get_reorder_max_tokens( $count ),
 			'response_format' => [ 'type' => 'json_object' ],
 		];
 		return $body;
@@ -920,26 +918,6 @@ class Schedulely_AI_Order {
 	private function get_reorder_temperature(): float {
 		$temp = (float) apply_filters( 'schedulely_ai_reorder_temperature', 0.3 );
 		return max( 0.0, min( 2.0, $temp ) );
-	}
-
-	/**
-	 * Hard ceiling on output tokens for the reorder request.
-	 *
-	 * A correct response is just an array of the input IDs, so the size scales
-	 * with the post count. We allow generous headroom (≈10 tokens per ID plus a
-	 * small constant) but cap it so a model that slips into a repetition loop is
-	 * physically cut off long before it can run to tens of thousands of tokens
-	 * (the 29k-token loop we observed on a 300-post pool). Reconciliation then
-	 * salvages whatever valid prefix arrived.
-	 *
-	 * @since 1.7.14
-	 * @param int $post_count Number of posts in the queue.
-	 * @return int
-	 */
-	private function get_reorder_max_tokens( int $post_count ): int {
-		$default = ( $post_count * 10 ) + 512;
-		$max     = (int) apply_filters( 'schedulely_ai_reorder_max_tokens', $default, $post_count );
-		return max( 256, min( 12000, $max ) );
 	}
 
 	/**
