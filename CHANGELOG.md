@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.7.11] - 29/05/2026
+
+### Changed
+- **Raised the WP AI reorder request timeout to diagnose large-pool failures.** The reorder kept failing with `cURL error 28: Operation timed out after 195002 ms with 14 bytes received` at 300 posts — but 195s was exactly our own ceiling (`60 + post_count×0.45`), so we were hanging up before DeepSeek replied, not because it couldn't. Reasoning-style models can spend minutes on internal reasoning before the first byte, especially on large prompts. `get_wp_ai_timeout_filter()` now scales `120 + post_count×3.6`, clamped 120..1800s (≈20 min at 300 posts, 30 min ceiling), so we can see whether the model is *slow* (finishes with more time) or genuinely *stuck* (still fails at 30 min). Lower the ceiling with the `wp_ai_client_default_request_timeout` filter if needed. NOTE: a 20–30 min synchronous AI call is a diagnostic measure, not a long-term design — if the model is merely slow, ordering will move to deterministic PHP (no API call) in a later release.
+
+---
+
 ## [1.7.10] - 28/05/2026
 
 ### Changed

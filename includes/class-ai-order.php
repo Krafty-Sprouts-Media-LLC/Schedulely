@@ -866,17 +866,21 @@ class Schedulely_AI_Order {
 	/**
 	 * Return a closure that overrides the WP AI client timeout for large pools.
 	 *
-	 * Uses the same scaling formula as the legacy path:
-	 *   60 + (post_count × 0.45), clamped between 120 and 1200 seconds.
-	 *
-	 * The WP AI client default is 30s which is far too short for 200+ posts.
+	 * Reasoning-style models (e.g. deepseek-v4-flash) can spend minutes on
+	 * internal reasoning before emitting the first byte, especially on large
+	 * prompts. The previous 60 + post_count×0.45 formula capped 300 posts at
+	 * 195s and hung up before any response arrived. Scaled up so large pools get
+	 * real headroom: 120 + post_count×3.6, clamped 120..1800s (≈20 min at 300
+	 * posts, 30 min ceiling). Override with the wp_ai_client_default_request_timeout
+	 * filter if a lower ceiling is needed.
 	 *
 	 * @since 1.7.6
+	 * @since 1.7.11 Raised scaling/ceiling to accommodate reasoning-model latency.
 	 * @param int $post_count Number of posts in the queue.
 	 * @return \Closure
 	 */
 	private function get_wp_ai_timeout_filter( int $post_count ): \Closure {
-		$timeout = max( 120, min( 1200, 60 + (int) round( $post_count * 0.45 ) ) );
+		$timeout = max( 120, min( 1800, 120 + (int) round( $post_count * 3.6 ) ) );
 		return function () use ( $timeout ) {
 			return (float) $timeout;
 		};
