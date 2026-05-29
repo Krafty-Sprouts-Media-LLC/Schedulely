@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.8.0] - 29/05/2026
+
+### Added
+- **Deterministic PHP queue ordering as a switchable alternative to the AI — and as an automatic fallback when the AI fails.** The AI reorder is fuzzy, slow, and can time out or loop on large pools; series spacing, however, doesn't actually need a model. A new **Queue Ordering** setting (Tools → Schedulely → AI & Notifications) offers two methods: **AI ordering** (asks the model, as before) and **PHP ordering** (instant, free, never touches the network). PHP ordering reproduces the model's real job — keeping near-identical posts apart — by grouping post IDs on their *slug-stem* (the slug with the target US state name removed, so `best-pizza-in-texas` and `best-pizza-in-ohio` share the stem `best pizza in`) and round-robin interleaving the groups so same-topic posts are spread evenly through the queue instead of clustering. Largest groups are interleaved first for the widest spread. Default is **AI** to preserve existing behavior; existing installs are migrated to `ai` on upgrade. Filterable via `schedulely_ordering_method`.
+- **AI ordering now falls back to PHP ordering automatically on any failure.** Previously a failed AI request meant the run kept the queue's raw input order (or, for the timezone path, input order with groups applied). Now `reorder_post_ids()` selects the method, and when the AI method errors — timeout, no provider connected, no API key, malformed response — it logs the reason and orders the queue deterministically in PHP instead of losing the run. The scheduler's old "no provider/key → skip ordering" gate is removed, since the fallback now covers that case. The timezone path uses the same PHP ordering for its fallback rather than plain input order.
+
+### Changed
+- **The AI section's ordering UI is now a method chooser, not just an on/off AI toggle.** The new radio selector makes the AI-vs-PHP choice explicit and documents that PHP mode needs no provider or API key. The existing "Use AI to order the queue" enable toggle remains the master switch for whether ordering runs at all on a manual "Run Schedule Now".
+
+---
+
 ## [1.7.14] - 29/05/2026
 
 ### Fixed

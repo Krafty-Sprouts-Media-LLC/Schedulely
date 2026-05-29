@@ -198,14 +198,10 @@ class Schedulely_Scheduler
             return false;
         }
 
-        $using_wp_ai = function_exists( 'wp_ai_client_prompt' );
-        if ( ! $using_wp_ai ) {
-            $key = apply_filters('schedulely_ai_api_key', get_option('schedulely_ai_api_key', ''));
-            if ('' === trim((string) $key)) {
-                return false;
-            }
-        }
-
+        // No credentials gate here: the PHP ordering method needs no provider,
+        // and the AI method falls back to PHP ordering automatically inside
+        // Schedulely_AI_Order when no provider/key is available or a request
+        // fails. Bailing early would forfeit that deterministic fallback.
         $ai = new Schedulely_AI_Order();
 
         // Timezone-aware path.

@@ -420,6 +420,28 @@ $pres_authors    = get_option( 'schedulely_preserved_authors', Schedulely_Defaul
             <!-- ══ TAB: AI & NOTIFICATIONS ════════════════════════ -->
             <div class="schedulely-tab-panel" id="sly-tab-ai" role="tabpanel" hidden>
 
+                <p class="schedulely-section-label"><?php esc_html_e( 'Queue Ordering', 'schedulely' ); ?></p>
+
+                <?php $ordering_method = get_option( 'schedulely_ordering_method', Schedulely_Defaults::ORDERING_METHOD ); ?>
+                <p class="schedulely-field-hint" style="margin-bottom:10px;">
+                    <?php esc_html_e( 'How the queue is ordered before scheduling, so related posts are spaced out instead of clustering. Ordering only runs on a manual "Run Schedule Now" when the toggle below is on.', 'schedulely' ); ?>
+                </p>
+                <label class="schedulely-checkbox-row" style="margin-bottom:8px;">
+                    <input type="radio" name="schedulely_ordering_method" value="ai" <?php checked( 'ai', $ordering_method ); ?>>
+                    <div>
+                        <span class="schedulely-chk-label"><?php esc_html_e( 'AI ordering (smart spacing)', 'schedulely' ); ?></span>
+                        <p class="schedulely-field-hint"><?php esc_html_e( 'Asks the configured AI to order the queue. If the request fails or no provider is available, it falls back automatically to PHP ordering — the run is never lost.', 'schedulely' ); ?></p>
+                    </div>
+                </label>
+                <label class="schedulely-checkbox-row" style="margin-bottom:16px;">
+                    <input type="radio" name="schedulely_ordering_method" value="php" <?php checked( 'php', $ordering_method ); ?>>
+                    <div>
+                        <span class="schedulely-chk-label"><?php esc_html_e( 'PHP ordering (instant, no AI)', 'schedulely' ); ?></span>
+                        <p class="schedulely-field-hint"><?php esc_html_e( 'Orders the queue locally by grouping posts on their slug (target US state removed) and interleaving them for even spacing. Instant, free, never times out — no provider or API key needed.', 'schedulely' ); ?></p>
+                    </div>
+                </label>
+
+                <hr class="schedulely-divider" style="margin:16px 0;">
                 <p class="schedulely-section-label"><?php esc_html_e( 'AI Series Spacing', 'schedulely' ); ?></p>
 
                 <?php

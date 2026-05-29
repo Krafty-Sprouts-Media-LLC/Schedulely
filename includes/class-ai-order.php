@@ -85,11 +85,132 @@ class Schedulely_AI_Order {
 			return $post_ids;
 		}
 
-		if ( $this->wp_ai_available() ) {
-			return $this->reorder_via_wp_ai( $post_ids );
+		// When the deterministic PHP method is selected, never touch the network.
+		if ( 'php' === $this->get_ordering_method() ) {
+			return $this->order_via_php( $post_ids );
 		}
 
-		return $this->reorder_via_legacy_http( $post_ids );
+		$ordered = $this->wp_ai_available()
+			? $this->reorder_via_wp_ai( $post_ids )
+			: $this->reorder_via_legacy_http( $post_ids );
+
+		// Auto-fallback: a failed AI request must not lose the run. Order the
+		// queue deterministically in PHP instead of leaving it un-ordered.
+		if ( is_wp_error( $ordered ) ) {
+			schedulely_log_error(
+				'AI reorder failed; falling back to deterministic PHP ordering: ' . $ordered->get_error_message()
+			);
+			return $this->order_via_php( $post_ids );
+		}
+
+		return $ordered;
+	}
+
+	/**
+	 * Deterministically order post IDs in PHP — no network, no timeout.
+	 *
+	 * Mirrors what the AI was asked to do for "series spacing": stop near-
+	 * identical posts (same topic, different target state) from clustering. We
+	 * group IDs by slug-stem — the slug with the US state name stripped out — so
+	 * "best-pizza-in-texas" and "best-pizza-in-ohio" share the stem
+	 * "best pizza in", then round-robin across groups so same-stem posts are
+	 * spread evenly through the queue instead of sitting back-to-back.
+	 *
+	 * Used both as the explicit 'php' ordering method and as the automatic
+	 * fallback when an AI request fails.
+	 *
+	 * @since 1.8.0
+	 * @param array<int> $post_ids
+	 * @return array<int>
+	 */
+	private function order_via_php( array $post_ids ): array {
+		$groups = [];
+		foreach ( $post_ids as $id ) {
+			$groups[ $this->slug_stem( (int) $id ) ][] = (int) $id;
+		}
+
+		// Largest groups first so the most-repeated topics get the widest spread.
+		uasort( $groups, fn( $a, $b ) => count( $b ) <=> count( $a ) );
+
+		$ordered = [];
+		do {
+			$progress = false;
+			foreach ( $groups as &$ids ) {
+				if ( ! empty( $ids ) ) {
+					$ordered[] = array_shift( $ids );
+					$progress  = true;
+				}
+			}
+			unset( $ids );
+		} while ( $progress );
+
+		return $ordered;
+	}
+
+	/**
+	 * Resolve a post's slug-stem: its slug with any US state name removed.
+	 *
+	 * Falls back to the title (slugified) when a post has no slug yet, so
+	 * grouping still works for drafts. Multi-word state names are stripped
+	 * before single-word ones (longest-first) so "west virginia" doesn't leave
+	 * a stray "west" behind.
+	 *
+	 * @since 1.8.0
+	 * @param int $post_id
+	 * @return string
+	 */
+	private function slug_stem( int $post_id ): string {
+		$slug = get_post_field( 'post_name', $post_id, 'raw' );
+		$slug = is_string( $slug ) ? strtolower( $slug ) : '';
+		if ( '' === $slug ) {
+			$title = get_post_field( 'post_title', $post_id, 'raw' );
+			$slug  = is_string( $title ) ? sanitize_title( $title ) : '';
+		}
+
+		$hay = ' ' . trim( (string) preg_replace( '/[^a-z]+/', ' ', $slug ) ) . ' ';
+		foreach ( $this->states_by_length_desc() as $state ) {
+			$hay = str_replace( ' ' . $state . ' ', ' ', $hay );
+		}
+		$stem = trim( (string) preg_replace( '/\s+/', ' ', $hay ) );
+
+		return '' === $stem ? $slug : $stem;
+	}
+
+	/**
+	 * Flat list of every US state name, sorted longest-first.
+	 *
+	 * Longest-first matters when stripping states from a slug: removing
+	 * "virginia" before "west virginia" would orphan the "west". Cached for the
+	 * request since the source map is a constant.
+	 *
+	 * @since 1.8.0
+	 * @return array<int,string>
+	 */
+	private function states_by_length_desc(): array {
+		static $list = null;
+		if ( null !== $list ) {
+			return $list;
+		}
+		$list = [];
+		foreach ( self::STATE_TIMEZONE_MAP as $states ) {
+			foreach ( $states as $state ) {
+				$list[] = $state;
+			}
+		}
+		usort( $list, fn( $a, $b ) => strlen( $b ) <=> strlen( $a ) );
+		return $list;
+	}
+
+	/**
+	 * Read the configured queue-ordering method ('ai' or 'php').
+	 *
+	 * @since 1.8.0
+	 * @return string 'ai' or 'php'.
+	 */
+	private function get_ordering_method(): string {
+		$method = get_option( 'schedulely_ordering_method', Schedulely_Defaults::ORDERING_METHOD );
+		$method = apply_filters( 'schedulely_ordering_method', $method );
+		return in_array( $method, [ 'ai', 'php' ], true ) ? $method : Schedulely_Defaults::ORDERING_METHOD;
 	}
 
 	/**
@@ -106,8 +227,9 @@ class Schedulely_AI_Order {
 	 *    deterministically in classify_timezone_group(). This never times out
 	 *    and is always correct, unlike asking the model to emit a per-post map.
 	 *
-	 * If AI ordering fails the queue keeps its input order, but timezone groups
-	 * are still assigned. Never returns WP_Error — the scheduler relies on this.
+	 * If AI ordering fails the queue is ordered deterministically in PHP instead,
+	 * and timezone groups are still assigned. Never returns WP_Error — the
+	 * scheduler relies on this.
 	 *
 	 * @since 1.7.0
 	 * @since 1.7.7 Timezone groups are now computed in PHP; the AI only orders.
@@ -122,12 +244,15 @@ class Schedulely_AI_Order {
 			return [];
 		}
 
+		// reorder_post_ids() already falls back to deterministic PHP ordering on
+		// AI failure; the guard below is belt-and-suspenders so a WP_Error can
+		// never reach the timezone mapping.
 		$ordered = $this->reorder_post_ids( $post_ids );
 		if ( is_wp_error( $ordered ) ) {
 			schedulely_log_error(
-				'AI queue ordering failed; using input order, timezone groups still applied: ' . $ordered->get_error_message()
+				'AI queue ordering failed; using deterministic PHP ordering, timezone groups still applied: ' . $ordered->get_error_message()
 			);
-			$ordered = $post_ids;
+			$ordered = $this->order_via_php( $post_ids );
 		}
 
 		return array_map(

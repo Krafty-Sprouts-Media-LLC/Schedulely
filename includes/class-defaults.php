@@ -114,6 +114,20 @@ class Schedulely_Defaults {
 	/** @var bool Default AI ordering state. */
 	const AI_ORDER_ENABLED = false;
 
+	/**
+	 * Default queue-ordering method.
+	 *
+	 * 'ai'  — Ask the configured AI to order the queue, falling back to the
+	 *         deterministic PHP ordering automatically if the request fails.
+	 * 'php' — Skip the network entirely and order the queue in PHP by grouping
+	 *         posts by slug-stem (target state removed) and interleaving them
+	 *         for even series spacing. Instant, free, never times out.
+	 *
+	 * @since 1.8.0
+	 * @var string
+	 */
+	const ORDERING_METHOD = 'ai';
+
 	/** @var bool Default US timezone-aware queue ordering state. */
 	const AI_US_TIMEZONE_ORDERING = false;
 

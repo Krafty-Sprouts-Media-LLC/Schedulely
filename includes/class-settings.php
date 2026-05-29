@@ -66,6 +66,18 @@ class Schedulely_Settings {
 	}
 
 	/**
+	 * Sanitize the queue-ordering method.
+	 *
+	 * @since 1.8.0
+	 * @param mixed $value
+	 * @return string 'ai' or 'php'.
+	 */
+	public function sanitize_ordering_method( $value ): string {
+		$allowed = [ 'ai', 'php' ];
+		return in_array( $value, $allowed, true ) ? $value : Schedulely_Defaults::ORDERING_METHOD;
+	}
+
+	/**
 	 * Sanitize post status.
 	 *
 	 * @since 1.0.0
@@ -263,6 +275,9 @@ class Schedulely_Settings {
 
 		update_option( 'schedulely_ai_order_enabled',
 			$this->sanitize_checkbox( $_POST['schedulely_ai_order_enabled'] ?? false ) );
+
+		update_option( 'schedulely_ordering_method',
+			$this->sanitize_ordering_method( wp_unslash( $_POST['schedulely_ordering_method'] ?? '' ) ) );
 
 		update_option( 'schedulely_ai_us_timezone_ordering',
 			$this->sanitize_checkbox( $_POST['schedulely_ai_us_timezone_ordering'] ?? false ) );
