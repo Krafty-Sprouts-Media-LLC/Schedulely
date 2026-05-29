@@ -132,6 +132,20 @@ class Schedulely_Defaults {
 	 */
 	const ORDERING_METHOD = 'php';
 
+	/**
+	 * Default PHP spacing strategy (used when ordering runs in PHP — either as the
+	 * chosen method or as the automatic fallback after an AI failure).
+	 *
+	 * 'even'        — Position-based: each series is spread evenly across the whole
+	 *                 queue (and therefore across publish days) end-to-end.
+	 * 'round_robin' — One post per series per pass; simpler, but the largest series
+	 *                 can bunch up near the tail of the queue.
+	 *
+	 * @since 1.8.4
+	 * @var string
+	 */
+	const PHP_SPREAD = 'even';
+
 	/** @var bool Default US timezone-aware queue ordering state. */
 	const AI_US_TIMEZONE_ORDERING = false;
 

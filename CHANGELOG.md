@@ -17,6 +17,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.8.4] - 29/05/2026
+
+### Added
+- **Even (position-based) PHP spacing — a new default strategy that spreads each series end-to-end, plus a selector to switch back to round-robin.** The original PHP ordering used round-robin (one post per series per pass), which spaces well through the body of the queue but lets the *largest* series bunch up at the tail once smaller series run out — and because publish days are filled in queue order, that tail-clustering pushes the big series onto the last days (e.g. a 35-post series landing mostly on the final 1–2 days of a 6-day run). The new **even distribution** gives every post a normalized target position `(i + 0.5) / n` within its series and sorts the whole queue by it, so each series stays evenly spaced from the first slot to the last — which also spreads it evenly across the publish calendar (~6/day instead of a tail burst). A **Spacing strategy** selector (Tools → Schedulely → AI & Notifications, shown when PHP ordering is selected) chooses **Even distribution** (default) or **Round-robin**; also filterable via `schedulely_php_spread`. New default is `even`; existing installs are set to `even` on upgrade (round-robin remains one click away). Timezone-aware behavior is unaffected — it sets each post's time-of-day by US zone, independent of this sequence change. The PHP log row's grouping summary now names the strategy used.
+
+---
+
 ## [1.8.3] - 29/05/2026
 
 ### Fixed

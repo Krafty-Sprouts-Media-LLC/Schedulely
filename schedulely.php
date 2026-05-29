@@ -3,7 +3,7 @@
  * Plugin Name: Schedulely
  * Plugin URI: https://kraftysprouts.com
  * Description: Intelligently schedule posts from any status with smart deficit tracking, random author assignment, and customizable time windows.
- * Version: 1.8.3
+ * Version: 1.8.4
  * Author: Krafty Sprouts Media, LLC
  * Author URI: https://kraftysprouts.com
  * License: GPL v2 or later
@@ -23,7 +23,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('SCHEDULELY_VERSION', '1.8.3');
+define('SCHEDULELY_VERSION', '1.8.4');
 define('SCHEDULELY_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('SCHEDULELY_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('SCHEDULELY_PLUGIN_BASENAME', plugin_basename(__FILE__));
@@ -136,6 +136,7 @@ function schedulely_activate()
     add_option('schedulely_scheduling_mode', Schedulely_Defaults::SCHEDULING_MODE); // random | sequential | hybrid
     add_option('schedulely_ai_order_enabled', false);
     add_option('schedulely_ordering_method', Schedulely_Defaults::ORDERING_METHOD); // ai | php
+    add_option('schedulely_php_spread', Schedulely_Defaults::PHP_SPREAD); // even | round_robin
     add_option('schedulely_ai_us_timezone_ordering', Schedulely_Defaults::AI_US_TIMEZONE_ORDERING);
     add_option('schedulely_ai_api_key', '');
     add_option('schedulely_ai_base_url', 'https://api.deepseek.com/v1');
@@ -423,6 +424,12 @@ function schedulely_upgrade($from_version)
             update_option('schedulely_ordering_method', 'php');
             schedulely_log_error('Ordering method switched from AI to PHP on upgrade to 1.8.2 (reversible in settings).');
         }
+    }
+
+    if (version_compare($from_version, '1.8.4', '<')) {
+        // Default the PHP spacing strategy to even distribution; round-robin
+        // remains selectable in Tools → Schedulely → AI & Notifications.
+        add_option('schedulely_php_spread', Schedulely_Defaults::PHP_SPREAD);
     }
 
     // CRITICAL FIX: Clear old hourly cron and reschedule with twicedaily (v1.0.8+)

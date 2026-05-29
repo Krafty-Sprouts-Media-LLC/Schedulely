@@ -147,6 +147,55 @@ class Schedulely_AI_Order {
 	private function order_via_php( array $post_ids ): array {
 		$groups = $this->group_by_slug_stem( $post_ids );
 
+		return ( 'round_robin' === $this->get_php_spread_method() )
+			? $this->spread_round_robin( $groups )
+			: $this->spread_even( $groups );
+	}
+
+	/**
+	 * Even (position-based) spread — the default and recommended strategy.
+	 *
+	 * Each post is given a normalized target position (i + 0.5) / n in [0,1)
+	 * within its own series, so a series of n posts claims n evenly-spaced points
+	 * across the whole queue. Sorting every post by that target merges the series
+	 * into one sequence where each series stays evenly spaced from start to
+	 * finish — unlike round-robin, which lets the largest series bunch up at the
+	 * tail once the smaller series run out. Because day assignment follows queue
+	 * order, this also spreads each series evenly across the publish calendar.
+	 *
+	 * PHP 8.0+ sort is stable, so posts that tie on target keep their input order
+	 * (largest series first, from group_by_slug_stem()).
+	 *
+	 * @since 1.8.4
+	 * @param array<string,array<int>> $groups Slug-stem => post IDs (largest first).
+	 * @return array<int>
+	 */
+	private function spread_even( array $groups ): array {
+		$tagged = [];
+		foreach ( $groups as $ids ) {
+			$ids = array_values( $ids );
+			$n   = count( $ids );
+			foreach ( $ids as $i => $id ) {
+				$tagged[] = [ 'pos' => ( $i + 0.5 ) / $n, 'id' => (int) $id ];
+			}
+		}
+		usort( $tagged, fn( $a, $b ) => $a['pos'] <=> $b['pos'] );
+		return array_map( static fn( $t ) => $t['id'], $tagged );
+	}
+
+	/**
+	 * Round-robin spread — legacy strategy, kept as a switchable option.
+	 *
+	 * Emits one post from each series per pass. Evenly spaced while every series
+	 * still has posts, but the largest series clusters near the tail once the
+	 * smaller series are exhausted. Retained for anyone who prefers it.
+	 *
+	 * @since 1.8.0
+	 * @since 1.8.4 Extracted from order_via_php() behind the spread option.
+	 * @param array<string,array<int>> $groups Slug-stem => post IDs (largest first).
+	 * @return array<int>
+	 */
+	private function spread_round_robin( array $groups ): array {
 		$ordered = [];
 		do {
 			$progress = false;
@@ -160,6 +209,18 @@ class Schedulely_AI_Order {
 		} while ( $progress );
 
 		return $ordered;
+	}
+
+	/**
+	 * Read the configured PHP spacing strategy ('even' or 'round_robin').
+	 *
+	 * @since 1.8.4
+	 * @return string
+	 */
+	private function get_php_spread_method(): string {
+		$spread = get_option( 'schedulely_php_spread', Schedulely_Defaults::PHP_SPREAD );
+		$spread = apply_filters( 'schedulely_php_spread', $spread );
+		return in_array( $spread, [ 'even', 'round_robin' ], true ) ? $spread : Schedulely_Defaults::PHP_SPREAD;
 	}
 
 	/**
@@ -206,13 +267,18 @@ class Schedulely_AI_Order {
 			}
 		}
 
+		$strategy = ( 'round_robin' === $this->get_php_spread_method() )
+			? __( 'round-robin', 'schedulely' )
+			: __( 'even distribution', 'schedulely' );
+
 		return sprintf(
-			/* translators: 1: number of series 2: total posts 3: largest series slug-stem 4: size of largest series */
-			__( '%1$d series detected across %2$d posts; largest "%3$s" = %4$d posts, interleaved for even spacing.', 'schedulely' ),
+			/* translators: 1: number of series 2: total posts 3: largest series slug-stem 4: size of largest series 5: spacing strategy */
+			__( '%1$d series detected across %2$d posts; largest "%3$s" = %4$d posts, spread by %5$s.', 'schedulely' ),
 			$series,
 			count( $post_ids ),
 			$largest_stem,
-			$largest_n
+			$largest_n,
+			$strategy
 		);
 	}
 

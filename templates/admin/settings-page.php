@@ -573,9 +573,22 @@ $pres_authors    = get_option( 'schedulely_preserved_authors', Schedulely_Defaul
 
                 <?php else : ?>
                     <hr class="schedulely-divider" style="margin:16px 0;">
-                    <p class="schedulely-field-hint">
+                    <p class="schedulely-field-hint" style="margin-bottom:12px;">
                         <?php esc_html_e( 'PHP ordering selected — the queue is ordered locally with no AI provider, API key, or tokens. To use a model instead, switch Queue Ordering above to AI.', 'schedulely' ); ?>
                     </p>
+                    <?php $php_spread = get_option( 'schedulely_php_spread', Schedulely_Defaults::PHP_SPREAD ); ?>
+                    <div class="schedulely-form-row">
+                        <div class="schedulely-form-col">
+                            <label class="schedulely-field-label" for="schedulely_php_spread"><?php esc_html_e( 'Spacing strategy', 'schedulely' ); ?></label>
+                            <select name="schedulely_php_spread" id="schedulely_php_spread">
+                                <option value="even" <?php selected( 'even', $php_spread ); ?>><?php esc_html_e( 'Even distribution (recommended)', 'schedulely' ); ?></option>
+                                <option value="round_robin" <?php selected( 'round_robin', $php_spread ); ?>><?php esc_html_e( 'Round-robin', 'schedulely' ); ?></option>
+                            </select>
+                            <p class="schedulely-field-hint">
+                                <?php esc_html_e( 'Even distribution spreads each series evenly across the whole queue — and therefore across publish days — from start to finish. Round-robin cycles one post per series per pass; simpler, but the largest series can bunch up near the end of the queue (and the last publish days).', 'schedulely' ); ?>
+                            </p>
+                        </div>
+                    </div>
                 <?php endif; ?>
 
                 <!-- AI Reorder Log -->
