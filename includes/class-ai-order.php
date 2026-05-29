@@ -388,7 +388,18 @@ class Schedulely_AI_Order {
 		try {
 			$builder = wp_ai_client_prompt( $prompt )
 				->using_system_instruction( $this->get_system_instruction() )
-				->using_temperature( $this->get_reorder_temperature() );
+				->using_temperature( $this->get_reorder_temperature() )
+				// Request JSON output mode. For OpenAI-compatible providers
+				// (DeepSeek) this sends response_format {"type":"json_object"},
+				// constraining the decoder to emit parseable, properly-closed
+				// JSON. This is the guardrail the pre-connector legacy path had
+				// (and lost on the WP AI path): it prevents the truncated,
+				// unparseable output that produced schedulely_ai_shape errors,
+				// and makes "close the array and stop" a reachable state. The
+				// prompt contains the word "JSON", satisfying DeepSeek's
+				// json_object precondition. Reconciliation still backstops any
+				// duplicate/short multiset the model returns.
+				->as_json_response();
 
 			/**
 			 * Fires just before Schedulely sends an AI reorder request.
