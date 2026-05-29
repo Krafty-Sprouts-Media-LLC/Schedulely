@@ -389,6 +389,11 @@ class Schedulely_AI_Order {
 			$builder = wp_ai_client_prompt( $prompt )
 				->using_system_instruction( $this->get_system_instruction() )
 				->using_temperature( $this->get_reorder_temperature() )
+				// Deliberate 64K output ceiling. Far above any real answer
+				// (~15K even at 1,500 posts) so it never truncates valid output,
+				// but well below the model's 384K maximum so a degenerate
+				// repetition loop is cut off instead of running toward 384K.
+				->using_max_tokens( $this->get_reorder_max_tokens() )
 				// Request JSON output mode. For OpenAI-compatible providers
 				// (DeepSeek) this sends response_format {"type":"json_object"},
 				// constraining the decoder to emit parseable, properly-closed
@@ -849,6 +854,7 @@ class Schedulely_AI_Order {
 			],
 			'temperature'     => $this->get_reorder_temperature(),
 			'top_p'           => 1.0,
+			'max_tokens'      => $this->get_reorder_max_tokens(),
 			'response_format' => [ 'type' => 'json_object' ],
 		];
 		return $body;
@@ -1063,6 +1069,28 @@ class Schedulely_AI_Order {
 	private function get_reorder_temperature(): float {
 		$temp = (float) apply_filters( 'schedulely_ai_reorder_temperature', 0.3 );
 		return max( 0.0, min( 2.0, $temp ) );
+	}
+
+	/**
+	 * Maximum output tokens for the reorder request.
+	 *
+	 * Deliberately set to 64K (65,536). This is NOT the "low cap that truncates
+	 * a valid answer" we avoid — a legitimate reorder of even a 1,500-post pool
+	 * is only ~12–15K tokens, so 64K is roughly 4× the largest real response and
+	 * cannot cut one off. It is a runaway-loop fuse: deepseek-v4-flash's true
+	 * maximum output is 384K, so leaving this unset would let a degenerate
+	 * repetition loop run toward 384K (many minutes, large cost) before failing.
+	 * DeepSeek's JSON-mode guide also explicitly recommends setting max_tokens to
+	 * prevent the JSON being truncated mid-string. Filterable for operators who
+	 * want a different ceiling; floored at 1 and capped at the model's 384K
+	 * documented maximum so we never send an invalid request.
+	 *
+	 * @since 1.8.0
+	 * @return int
+	 */
+	private function get_reorder_max_tokens(): int {
+		$max = (int) apply_filters( 'schedulely_ai_reorder_max_tokens', 65536 );
+		return max( 1, min( 384000, $max ) );
 	}
 
 	/**
