@@ -368,12 +368,75 @@ $pres_authors    = get_option( 'schedulely_preserved_authors', Schedulely_Defaul
 
                 <hr class="schedulely-divider">
                 <p class="schedulely-section-label"><?php esc_html_e( 'Queue Order', 'schedulely' ); ?></p>
+
+                <?php
+                $ordering_method = get_option( 'schedulely_ordering_method', Schedulely_Defaults::ORDERING_METHOD );
+                $tz_ordering_on  = (bool) get_option( 'schedulely_ai_us_timezone_ordering', Schedulely_Defaults::AI_US_TIMEZONE_ORDERING );
+                ?>
+
+                <label class="schedulely-checkbox-row" style="margin-bottom:14px;">
+                    <input type="checkbox" name="schedulely_ai_order_enabled" id="schedulely_ai_order_enabled"
+                           value="1" <?php checked( get_option( 'schedulely_ai_order_enabled', Schedulely_Defaults::AI_ORDER_ENABLED ) ); ?>>
+                    <div>
+                        <span class="schedulely-chk-label"><?php esc_html_e( 'Reorder the queue before scheduling', 'schedulely' ); ?></span>
+                        <p class="schedulely-field-hint"><?php esc_html_e( 'Spaces related posts apart instead of letting a series cluster. Uses the method chosen below. Only runs on a manual "Run Schedule Now" — never on cron. When off, posts keep oldest-first draft order (or the shuffle below).', 'schedulely' ); ?></p>
+                    </div>
+                </label>
+
+                <p class="schedulely-field-label" style="margin-bottom:6px;"><?php esc_html_e( 'Method', 'schedulely' ); ?></p>
+                <label class="schedulely-checkbox-row" style="margin-bottom:8px;">
+                    <input type="radio" name="schedulely_ordering_method" value="php" <?php checked( 'php', $ordering_method ); ?>>
+                    <div>
+                        <span class="schedulely-chk-label"><?php esc_html_e( 'PHP ordering (instant, no AI) — recommended', 'schedulely' ); ?></span>
+                        <p class="schedulely-field-hint"><?php esc_html_e( 'Orders locally by grouping posts on their slug (target US state removed) and spreading each series evenly. Instant, free, never times out — no provider or API key needed.', 'schedulely' ); ?></p>
+                    </div>
+                </label>
+                <label class="schedulely-checkbox-row" style="margin-bottom:12px;">
+                    <input type="radio" name="schedulely_ordering_method" value="ai" <?php checked( 'ai', $ordering_method ); ?>>
+                    <div>
+                        <span class="schedulely-chk-label"><?php esc_html_e( 'AI ordering (smart spacing)', 'schedulely' ); ?></span>
+                        <p class="schedulely-field-hint"><?php esc_html_e( 'Asks the configured AI to order the queue, falling back to PHP automatically if it fails. Configure the provider in the AI & Notifications tab.', 'schedulely' ); ?></p>
+                    </div>
+                </label>
+
+                <?php if ( 'php' === $ordering_method ) : $php_spread = get_option( 'schedulely_php_spread', Schedulely_Defaults::PHP_SPREAD ); ?>
+                    <div class="schedulely-form-row" style="margin-bottom:12px;">
+                        <div class="schedulely-form-col">
+                            <label class="schedulely-field-label" for="schedulely_php_spread"><?php esc_html_e( 'PHP spacing strategy', 'schedulely' ); ?></label>
+                            <select name="schedulely_php_spread" id="schedulely_php_spread">
+                                <option value="even" <?php selected( 'even', $php_spread ); ?>><?php esc_html_e( 'Even distribution (recommended)', 'schedulely' ); ?></option>
+                                <option value="round_robin" <?php selected( 'round_robin', $php_spread ); ?>><?php esc_html_e( 'Round-robin', 'schedulely' ); ?></option>
+                            </select>
+                            <p class="schedulely-field-hint"><?php esc_html_e( 'Even distribution spreads each series evenly across the whole queue — and therefore across publish days — from start to finish. Round-robin cycles one post per series per pass; simpler, but the largest series can bunch up near the end of the queue (and the last publish days).', 'schedulely' ); ?></p>
+                        </div>
+                    </div>
+                <?php endif; ?>
+
+                <?php if ( $tz_ordering_on && in_array( $current_mode, [ 'sequential', 'hybrid' ], true ) ) : ?>
+                    <div class="schedulely-ai-notice schedulely-ai-notice--warn" style="margin-bottom:12px;">
+                        <span class="schedulely-ai-notice-icon">⚠️</span>
+                        <div class="schedulely-ai-notice-text">
+                            <strong><?php esc_html_e( 'Timezone ordering works best with Random mode.', 'schedulely' ); ?></strong>
+                            <?php esc_html_e( 'Sequential and Hybrid modes assign times by slot position, not queue order, so timezone bands may not align as expected.', 'schedulely' ); ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
+                <label class="schedulely-checkbox-row" style="margin-bottom:14px;">
+                    <input type="checkbox" name="schedulely_ai_us_timezone_ordering" id="schedulely_ai_us_timezone_ordering"
+                           value="1" <?php checked( $tz_ordering_on ); ?>>
+                    <div>
+                        <span class="schedulely-chk-label"><?php esc_html_e( 'US Timezone-Aware Queue Ordering', 'schedulely' ); ?></span>
+                        <p class="schedulely-field-hint"><?php esc_html_e( 'Publishes each post during its US timezone\'s peak hours (Eastern → Pacific). The target state is detected from the title and slug in PHP, so it works with either method. Only useful for US-state-targeted posts. Requires Random scheduling mode.', 'schedulely' ); ?></p>
+                    </div>
+                </label>
+
+                <hr class="schedulely-divider">
                 <label class="schedulely-checkbox-row">
                     <input type="checkbox" name="schedulely_shuffle_queue" id="schedulely_shuffle_queue"
                            value="1" <?php checked( get_option( 'schedulely_shuffle_queue', Schedulely_Defaults::SHUFFLE_QUEUE ) ); ?>>
                     <div>
                         <span class="schedulely-chk-label"><?php esc_html_e( 'Shuffle posts before assigning dates', 'schedulely' ); ?></span>
-                        <p class="schedulely-field-hint"><?php esc_html_e( 'Randomises which eligible posts get the next slots instead of always using oldest-first draft date.', 'schedulely' ); ?></p>
+                        <p class="schedulely-field-hint"><?php esc_html_e( 'Used only when "Reorder the queue" above is off. Randomises which eligible posts get the next slots instead of oldest-first draft date.', 'schedulely' ); ?></p>
                     </div>
                 </label>
 
@@ -420,70 +483,13 @@ $pres_authors    = get_option( 'schedulely_preserved_authors', Schedulely_Defaul
             <!-- ══ TAB: AI & NOTIFICATIONS ════════════════════════ -->
             <div class="schedulely-tab-panel" id="sly-tab-ai" role="tabpanel" hidden>
 
-                <p class="schedulely-section-label"><?php esc_html_e( 'Queue Ordering', 'schedulely' ); ?></p>
+                <p class="schedulely-section-label"><?php esc_html_e( 'AI Ordering Provider', 'schedulely' ); ?></p>
 
                 <?php $ordering_method = get_option( 'schedulely_ordering_method', Schedulely_Defaults::ORDERING_METHOD ); ?>
-                <p class="schedulely-field-hint" style="margin-bottom:10px;">
-                    <?php esc_html_e( 'How the queue is ordered before scheduling, so related posts are spaced out instead of clustering. Ordering only runs on a manual "Run Schedule Now" when the toggle below is on.', 'schedulely' ); ?>
-                </p>
-                <label class="schedulely-checkbox-row" style="margin-bottom:8px;">
-                    <input type="radio" name="schedulely_ordering_method" value="ai" <?php checked( 'ai', $ordering_method ); ?>>
-                    <div>
-                        <span class="schedulely-chk-label"><?php esc_html_e( 'AI ordering (smart spacing)', 'schedulely' ); ?></span>
-                        <p class="schedulely-field-hint"><?php esc_html_e( 'Asks the configured AI to order the queue. If the request fails or no provider is available, it falls back automatically to PHP ordering — the run is never lost.', 'schedulely' ); ?></p>
-                    </div>
-                </label>
-                <label class="schedulely-checkbox-row" style="margin-bottom:16px;">
-                    <input type="radio" name="schedulely_ordering_method" value="php" <?php checked( 'php', $ordering_method ); ?>>
-                    <div>
-                        <span class="schedulely-chk-label"><?php esc_html_e( 'PHP ordering (instant, no AI)', 'schedulely' ); ?></span>
-                        <p class="schedulely-field-hint"><?php esc_html_e( 'Orders the queue locally by grouping posts on their slug (target US state removed) and interleaving them for even spacing. Instant, free, never times out — no provider or API key needed.', 'schedulely' ); ?></p>
-                    </div>
-                </label>
-
-                <hr class="schedulely-divider" style="margin:16px 0;">
-
-                <?php
-                $tz_ordering_on  = (bool) get_option( 'schedulely_ai_us_timezone_ordering', Schedulely_Defaults::AI_US_TIMEZONE_ORDERING );
-                $current_mode_ai = get_option( 'schedulely_scheduling_mode', Schedulely_Defaults::SCHEDULING_MODE );
-                ?>
-
-                <!-- Master enable — method-neutral, applies to AI and PHP alike -->
-                <label class="schedulely-checkbox-row" style="margin-bottom:12px;">
-                    <input type="checkbox" name="schedulely_ai_order_enabled" id="schedulely_ai_order_enabled"
-                           value="1" <?php checked( get_option( 'schedulely_ai_order_enabled', Schedulely_Defaults::AI_ORDER_ENABLED ) ); ?>>
-                    <div>
-                        <span class="schedulely-chk-label"><?php esc_html_e( 'Enable queue ordering on manual runs', 'schedulely' ); ?></span>
-                        <p class="schedulely-field-hint"><?php esc_html_e( 'Master switch for the method chosen above (AI or PHP). Skips shuffle. Only runs on "Run Schedule Now" — never on cron.', 'schedulely' ); ?></p>
-                    </div>
-                </label>
-
-                <!-- US Timezone-Aware Ordering — works with either method (state detection is done in PHP) -->
-                <?php if ( $tz_ordering_on && in_array( $current_mode_ai, [ 'sequential', 'hybrid' ], true ) ) : ?>
-                    <div class="schedulely-ai-notice schedulely-ai-notice--warn" style="margin-bottom:16px;">
-                        <span class="schedulely-ai-notice-icon">⚠️</span>
-                        <div class="schedulely-ai-notice-text">
-                            <strong><?php esc_html_e( 'Timezone ordering works best with Random mode.', 'schedulely' ); ?></strong>
-                            <?php esc_html_e( 'Sequential and Hybrid modes assign times by slot position, not queue order, so timezone bands may not align as expected. Switch to Random mode in the Queue tab.', 'schedulely' ); ?>
-                        </div>
-                    </div>
-                <?php endif; ?>
-                <label class="schedulely-checkbox-row">
-                    <input type="checkbox" name="schedulely_ai_us_timezone_ordering" id="schedulely_ai_us_timezone_ordering"
-                           value="1" <?php checked( get_option( 'schedulely_ai_us_timezone_ordering', Schedulely_Defaults::AI_US_TIMEZONE_ORDERING ) ); ?>>
-                    <div>
-                        <span class="schedulely-chk-label"><?php esc_html_e( 'US Timezone-Aware Queue Ordering', 'schedulely' ); ?></span>
-                        <p class="schedulely-field-hint">
-                            <?php esc_html_e( 'Orders posts by US timezone (Eastern → Pacific) so content reaches each audience during their peak hours. The target state is detected from each post\'s title and slug (in PHP, so it works with either ordering method). Only useful if your posts target specific US states. Requires Random scheduling mode.', 'schedulely' ); ?>
-                        </p>
-                    </div>
-                </label>
 
                 <?php if ( 'ai' === $ordering_method ) : ?>
-                    <hr class="schedulely-divider" style="margin:16px 0;">
-                    <p class="schedulely-section-label"><?php esc_html_e( 'AI provider', 'schedulely' ); ?></p>
                     <p class="schedulely-field-hint" style="margin-bottom:12px;">
-                        <?php esc_html_e( 'These settings are used only while Queue Ordering above is set to AI.', 'schedulely' ); ?>
+                        <?php esc_html_e( 'The queue ordering method is set to AI (change it in the Queue tab). These settings configure the provider it uses.', 'schedulely' ); ?>
                     </p>
 
                     <?php if ( $wp_ai_ready && $wp_ai_connected ) : ?>
@@ -572,23 +578,9 @@ $pres_authors    = get_option( 'schedulely_preserved_authors', Schedulely_Defaul
                     <?php endif; ?>
 
                 <?php else : ?>
-                    <hr class="schedulely-divider" style="margin:16px 0;">
-                    <p class="schedulely-field-hint" style="margin-bottom:12px;">
-                        <?php esc_html_e( 'PHP ordering selected — the queue is ordered locally with no AI provider, API key, or tokens. To use a model instead, switch Queue Ordering above to AI.', 'schedulely' ); ?>
+                    <p class="schedulely-field-hint">
+                        <?php esc_html_e( 'PHP ordering is selected — it uses no AI provider, API key, or tokens. Manage ordering (method, spacing strategy, and timezone) in the Queue tab.', 'schedulely' ); ?>
                     </p>
-                    <?php $php_spread = get_option( 'schedulely_php_spread', Schedulely_Defaults::PHP_SPREAD ); ?>
-                    <div class="schedulely-form-row">
-                        <div class="schedulely-form-col">
-                            <label class="schedulely-field-label" for="schedulely_php_spread"><?php esc_html_e( 'Spacing strategy', 'schedulely' ); ?></label>
-                            <select name="schedulely_php_spread" id="schedulely_php_spread">
-                                <option value="even" <?php selected( 'even', $php_spread ); ?>><?php esc_html_e( 'Even distribution (recommended)', 'schedulely' ); ?></option>
-                                <option value="round_robin" <?php selected( 'round_robin', $php_spread ); ?>><?php esc_html_e( 'Round-robin', 'schedulely' ); ?></option>
-                            </select>
-                            <p class="schedulely-field-hint">
-                                <?php esc_html_e( 'Even distribution spreads each series evenly across the whole queue — and therefore across publish days — from start to finish. Round-robin cycles one post per series per pass; simpler, but the largest series can bunch up near the end of the queue (and the last publish days).', 'schedulely' ); ?>
-                            </p>
-                        </div>
-                    </div>
                 <?php endif; ?>
 
                 <!-- AI Reorder Log -->

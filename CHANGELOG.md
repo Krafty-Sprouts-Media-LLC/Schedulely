@@ -17,6 +17,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.8.5] - 29/05/2026
+
+### Changed
+- **All queue-ordering controls are consolidated under "Queue Order" in the Queue tab.** Previously the controls were split and confusingly named: the Queue tab had a "Queue Order" section (just the Shuffle checkbox) while the AI & Notifications tab had a separate "Queue Ordering" section (the AI/PHP method + spacing). Now the Queue tab's "Queue Order" section holds everything: the enable toggle, the **Method** choice (PHP / AI), the **PHP spacing strategy** (Even distribution / Round-robin — presented as equal options, not a fallback), the US Timezone-Aware toggle, and Shuffle. The AI & Notifications tab keeps only the **AI provider** settings (model, key, Test connection) plus the reorder log and notifications, and links back to the Queue tab for the method choice. No options or behavior changed — only their location and labels.
+
+---
+
 ## [1.8.4] - 29/05/2026
 
 ### Added
