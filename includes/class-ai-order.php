@@ -362,13 +362,12 @@ class Schedulely_AI_Order {
 		$body  = $this->build_request_body( $model, $lines, count( $post_ids ) );
 		$body  = apply_filters( 'schedulely_ai_chat_completions_body', $body, $post_ids );
 
-		$post_count      = count( $post_ids );
-		$default_timeout = max( 120, min( 1200, 60 + (int) round( $post_count * 0.45 ) ) );
-		$timeout         = (int) apply_filters( 'schedulely_ai_request_timeout', $default_timeout, $post_ids );
-		$timeout         = max( 30, $timeout );
-		$max_timeout     = (int) apply_filters( 'schedulely_ai_request_timeout_max', 1200 );
-		$max_timeout     = min( 1200, max( 120, $max_timeout ) );
-		$timeout         = min( $timeout, $max_timeout );
+		$post_count = count( $post_ids );
+		// 0 = no timeout (cURL waits indefinitely). We never cap the request: a large
+		// reorder can legitimately take many minutes, and a ceiling is what caused the
+		// cURL error 28 cutoffs. Only guard against a negative override.
+		$timeout = (int) apply_filters( 'schedulely_ai_request_timeout', 0, $post_ids );
+		$timeout = max( 0, $timeout );
 
 		$response = wp_remote_post(
 			$url,
@@ -892,12 +891,18 @@ class Schedulely_AI_Order {
 	 *
 	 * @since 1.7.6
 	 * @since 1.7.12 Flat budget; removed the per-post guess. Filterable.
+	 * @since 1.7.14 Defaults to 0 (no timeout). A capped budget is what produced the
+	 *               cURL error 28 cutoffs — a large reorder can legitimately run for
+	 *               many minutes, so we let it finish. Downstream this becomes the
+	 *               Guzzle `timeout` option, where 0 means "wait indefinitely."
 	 * @param int $post_count Number of posts in the queue (passed to the filter).
 	 * @return \Closure
 	 */
 	private function get_wp_ai_timeout_filter( int $post_count ): \Closure {
-		$timeout = (int) apply_filters( 'schedulely_ai_reorder_timeout', 1800, $post_count );
-		$timeout = max( 30, min( 1800, $timeout ) );
+		// 0 = no timeout. Only guard against a negative value (the WP AI client and
+		// Guzzle both require >= 0); never impose an upper ceiling.
+		$timeout = apply_filters( 'schedulely_ai_reorder_timeout', 0, $post_count );
+		$timeout = max( 0, (int) $timeout );
 		return function () use ( $timeout ) {
 			return (float) $timeout;
 		};
