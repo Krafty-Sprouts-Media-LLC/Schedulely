@@ -351,6 +351,16 @@
     line-height: 1.5;
 }
 
+.schedulely-pool-notice--info {
+    background: #f0f6fc;
+    border-color: #c5d9ed;
+    border-left-color: #2271b1;
+}
+
+.schedulely-pool-notice--info .dashicons {
+    color: #2271b1;
+}
+
 /* ════════════════════════════════════════════════════════════════
    Main Grid
    ════════════════════════════════════════════════════════════════ */

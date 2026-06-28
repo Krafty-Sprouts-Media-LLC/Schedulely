@@ -279,6 +279,15 @@ class Schedulely_Settings {
 		update_option( 'schedulely_pool_size',
 			max( 1, min( 10000, absint( $_POST['schedulely_pool_size'] ?? Schedulely_Defaults::MAX_POSTS_PER_RUN ) ) ) );
 
+		update_option( 'schedulely_manual_batch_size',
+			max(
+				Schedulely_Defaults::MANUAL_BATCH_SIZE_MIN,
+				min(
+					Schedulely_Defaults::MANUAL_BATCH_SIZE_MAX,
+					absint( $_POST['schedulely_manual_batch_size'] ?? Schedulely_Defaults::MANUAL_BATCH_SIZE )
+				)
+			) );
+
 		update_option( 'schedulely_shuffle_queue',
 			$this->sanitize_checkbox( $_POST['schedulely_shuffle_queue'] ?? false ) );
 

@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.8.11] - 28/06/2026
+
+### Added
+- **Batch Size (Schedule Now)** setting under Content & Volume — configures how many posts are written per AJAX request during a manual run (default 75, range 10–500). Filter `schedulely_manual_schedule_batch_size` still overrides the saved value when set.
+
+### Changed
+- **Clarified pool vs publish order in UI copy.** "Oldest first" only applies when Pool Size caps *which drafts are loaded* (oldest by `post_date`). Publish order has been controlled since v1.3.7+ by **Queue** settings (shuffle, PHP/AI ordering) — not by pool load order. Hints and overflow warnings updated so this is explicit.
+
+## [1.8.10] - 28/06/2026
+
+### Fixed
+- **Completion email overstated what was scheduled on large runs.** The subject/body used the full queue size (e.g. 2,042) even when fewer posts actually moved to `future` — and US timezone totals counted every post in the *ordered queue*, not just posts scheduled this run. The email now reports: **scheduled this run**, **queue loaded**, **failed in queue**, **not loaded (pool cap)**, and **still eligible** (live count). Timezone distribution and AI summary use actual scheduled post IDs only. The calendar section is labelled as site-wide totals per publish date.
+
+## [1.8.9] - 28/06/2026
+
+### Fixed
+- **Schedule Now no longer freezes the entire WordPress admin on large pools.** A single 2,000+ post run held one PHP worker for many minutes (every `wp_update_post` in one HTTP request), so on Local and other single-worker hosts nothing else in wp-admin could load. Manual scheduling now runs in **batches of 75 posts per AJAX request** (filter: `schedulely_manual_schedule_batch_size`), with a progress counter between batches. Each request finishes in seconds and releases the worker — other admin pages work in parallel tabs while scheduling continues. Cron-driven auto-schedule is unchanged (still one pass).
+
+### Changed
+- **Deferred term/comment counting** during the scheduling loop to reduce per-post overhead on large runs.
+
+## [1.8.8] - 28/06/2026
+
+### Fixed
+- **"An unexpected error occurred" when scheduling 2,000+ posts in one run.** The manual Schedule Now AJAX response previously included the full `scheduled_posts` array (every post ID, title, and datetime). At ~2,042 posts that JSON was large enough to break browser parsing — the run could succeed server-side while the UI showed a generic failure. The AJAX payload now returns only `message` and `scheduled_count`; emails still receive the full results internally. Manual runs also raise the PHP time/memory ceiling and keep the connection alive for large pools.
+
+### Added
+- **Large-pool dashboard hint** when a run would process 1,500+ posts — warns that scheduling may take several minutes and to check Posts → Scheduled if the dialog fails.
+- **Clearer Schedule Now error text** when the server returns non-JSON (timeout/memory), with actionable steps instead of a generic retry message.
+
 ## [1.8.7] - 28/06/2026
 
 ### Added

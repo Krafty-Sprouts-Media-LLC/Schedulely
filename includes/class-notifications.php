@@ -44,10 +44,32 @@ class Schedulely_Notifications
         }
 
         $to      = $this->get_notification_email();
-        $subject = sprintf(
-            __('Schedulely: %d Posts Scheduled Successfully', 'schedulely'),
-            $results['scheduled_count']
-        );
+        $scheduled_count = (int) $results['scheduled_count'];
+        $queue_total     = (int) ( $results['queue_total'] ?? $scheduled_count );
+        $failed_count    = (int) ( $results['failed_count'] ?? 0 );
+        $not_loaded      = (int) ( $results['not_loaded_count'] ?? 0 );
+        $still_eligible  = (int) ( $results['eligible_remaining'] ?? 0 );
+
+        if ( $failed_count > 0 || $not_loaded > 0 ) {
+            $subject = sprintf(
+                /* translators: 1: posts scheduled 2: posts in queue */
+                __( 'Schedulely: %1$d of %2$d queued posts scheduled', 'schedulely' ),
+                $scheduled_count,
+                $queue_total
+            );
+        } elseif ( $still_eligible > 0 && $scheduled_count > 0 ) {
+            $subject = sprintf(
+                /* translators: 1: posts scheduled 2: drafts still waiting */
+                __( 'Schedulely: %1$d posts scheduled (%2$d still waiting)', 'schedulely' ),
+                $scheduled_count,
+                $still_eligible
+            );
+        } else {
+            $subject = sprintf(
+                __( 'Schedulely: %d Posts Scheduled Successfully', 'schedulely' ),
+                $scheduled_count
+            );
+        }
 
         $message = $this->build_notification_message($results);
 
@@ -112,10 +134,25 @@ class Schedulely_Notifications
             $ordering_desc = 'AI reordering';
         }
         $ordering_detail = ( '' !== trim( (string) $ordering_info['note'] ) ) ? ' Ordering detail: ' . $ordering_info['note'] : '';
+        $failed_count    = (int) ( $results['failed_count'] ?? 0 );
+        $not_loaded      = (int) ( $results['not_loaded_count'] ?? 0 );
+        $still_eligible  = (int) ( $results['eligible_remaining'] ?? 0 );
+        $extra           = '';
+        if ( $failed_count > 0 ) {
+            $extra .= sprintf( ' %d post(s) in the queue could not be scheduled.', $failed_count );
+        }
+        if ( $not_loaded > 0 ) {
+            $extra .= sprintf( ' %d eligible post(s) were not loaded (pool size cap).', $not_loaded );
+        }
+        if ( $still_eligible > 0 ) {
+            $extra .= sprintf( ' %d post(s) still eligible after the run.', $still_eligible );
+        }
 
         $prompt = sprintf(
-            'You are a publishing operations assistant. Write a 2–3 sentence plain-text summary of this automated post-scheduling run. Be specific, use numbers, no marketing tone. Scheduled: %d posts. Date range: %s. Queue ordering: %s.%s%s',
+            'You are a publishing operations assistant. Write a 2–3 sentence plain-text summary of this automated post-scheduling run. Be specific, use numbers, no marketing tone. Scheduled this run: %d posts (of %d loaded in queue).%s Date range: %s. Queue ordering: %s.%s%s',
             $count,
+            (int) ( $results['queue_total'] ?? $count ),
+            $extra,
             $date_range ?: __( 'same day', 'schedulely' ),
             $ordering_desc,
             $ordering_detail,
@@ -250,7 +287,11 @@ class Schedulely_Notifications
     private function build_notification_message($results)
     {
         $site_name = get_bloginfo('name');
-        $scheduled_count = $results['scheduled_count'];
+        $scheduled_count = (int) $results['scheduled_count'];
+        $queue_total     = (int) ( $results['queue_total'] ?? $scheduled_count );
+        $failed_count    = (int) ( $results['failed_count'] ?? 0 );
+        $not_loaded      = (int) ( $results['not_loaded_count'] ?? 0 );
+        $still_eligible  = (int) ( $results['eligible_remaining'] ?? 0 );
         $completed_last_date = isset($results['completed_last_date']) && $results['completed_last_date'];
         $quota = get_option('schedulely_posts_per_day', 8);
 
@@ -260,8 +301,8 @@ class Schedulely_Notifications
         $start_date = ! empty( $dates ) ? ( wp_date( 'M j, Y', strtotime( $dates[0] ) ) ?? '' ) : '';
         $end_date   = ! empty( $dates ) ? ( wp_date( 'M j, Y', strtotime( end( $dates ) ) ) ?? '' ) : '';
 
-        // CRITICAL FIX: Count TOTAL posts per date (not just from current run)
-        // This fixes the bug where counts reset instead of accumulating
+        // CRITICAL FIX: Count TOTAL posts per date (site-wide, not just this run).
+        // Dates are taken from posts scheduled in this run only.
         $scheduler = new Schedulely_Scheduler();
         $posts_per_date = [];
         foreach ($dates as $date) {
@@ -367,8 +408,19 @@ class Schedulely_Notifications
                 }
             }
             if ( ! empty( $tz_parts ) ) {
-                $tz_distribution_html = '🌎 US Timezone Distribution: <strong>' . esc_html( implode( ' · ', $tz_parts ) ) . '</strong><br>';
+                $tz_distribution_html = '🌎 US Timezone Distribution (this run): <strong>' . esc_html( implode( ' · ', $tz_parts ) ) . '</strong><br>';
             }
+        }
+
+        $run_issues_html = '';
+        if ( $failed_count > 0 ) {
+            $run_issues_html .= '⚠️ Could not schedule: <strong>' . esc_html( (string) $failed_count ) . '</strong> post(s) from this run\'s queue (still in draft/pending).<br>';
+        }
+        if ( $not_loaded > 0 ) {
+            $run_issues_html .= '⚠️ Not loaded this run: <strong>' . esc_html( (string) $not_loaded ) . '</strong> post(s) — Pool Size capped the queue; raise it or run again.<br>';
+        }
+        if ( $still_eligible > 0 ) {
+            $run_issues_html .= '📥 Still eligible now: <strong>' . esc_html( (string) $still_eligible ) . '</strong> post(s) waiting to be scheduled.<br>';
         }
 
         $message = <<<HTML
@@ -389,7 +441,8 @@ class Schedulely_Notifications
     <div style="background: #f9fafb; border-left: 4px solid #2271b1; padding: 15px; margin: 20px 0;">
         <strong>SUMMARY</strong><br>
         🕐 Scheduler Ran: <strong>{$run_datetime}</strong><br>
-        ✅ Total Posts Scheduled: <strong>{$scheduled_count}</strong><br>
+        ✅ Scheduled this run: <strong>{$scheduled_count}</strong> of <strong>{$queue_total}</strong> loaded in queue<br>
+        {$run_issues_html}
         📅 Date Range: <strong>{$start_date} to {$end_date}</strong><br>
         ⏰ Time Window: <strong>{$start_time} - {$end_time}</strong><br>
         📊 Dates Complete: <strong>{$complete_dates}</strong> | Dates Incomplete: <strong>{$incomplete_dates}</strong><br>
@@ -401,7 +454,8 @@ class Schedulely_Notifications
     </div>
     
     <div style="background: #fef3c7; border-left: 4px solid {$overall_status_color}; padding: 15px; margin: 20px 0;">
-        <strong>📅 FULL DATE STATUS REPORT</strong><br>
+        <strong>📅 PUBLISH CALENDAR (site-wide posts per date)</strong><br>
+        <span style="font-size:0.9em;color:#6b7280;">Counts include all scheduled posts on each date, not only this run.</span><br>
         <div style="color: {$overall_status_color}; font-size: 16px; font-weight: bold; margin-bottom: 10px;">
             {$overall_status}
         </div>

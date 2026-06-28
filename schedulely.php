@@ -3,7 +3,7 @@
  * Plugin Name: Schedulely
  * Plugin URI: https://kraftysprouts.com
  * Description: Intelligently schedule posts from any status with smart deficit tracking, random author assignment, and customizable time windows.
- * Version: 1.8.7
+ * Version: 1.8.11
  * Author: Krafty Sprouts Media, LLC
  * Author URI: https://kraftysprouts.com
  * License: GPL v2 or later
@@ -23,7 +23,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('SCHEDULELY_VERSION', '1.8.7');
+define('SCHEDULELY_VERSION', '1.8.11');
 define('SCHEDULELY_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('SCHEDULELY_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('SCHEDULELY_PLUGIN_BASENAME', plugin_basename(__FILE__));
@@ -133,6 +133,7 @@ function schedulely_activate()
     add_option('schedulely_min_interval', 40);
     add_option('schedulely_shuffle_queue', true);
     add_option('schedulely_pool_size', Schedulely_Defaults::MAX_POSTS_PER_RUN); // Max posts fetched per run
+    add_option('schedulely_manual_batch_size', Schedulely_Defaults::MANUAL_BATCH_SIZE); // Posts per Schedule Now AJAX tick
     add_option('schedulely_scheduling_mode', Schedulely_Defaults::SCHEDULING_MODE); // random | sequential | hybrid
     add_option('schedulely_ai_order_enabled', false);
     add_option('schedulely_ordering_method', Schedulely_Defaults::ORDERING_METHOD); // ai | php
@@ -296,35 +297,47 @@ function schedulely_ajax_manual_schedule()
         ]);
     }
 
-    // Run scheduler
+    // Large pools (2000+ posts) can exceed default PHP/web-server limits.
+    if (function_exists('set_time_limit')) {
+        @set_time_limit(0);
+    }
+    if (function_exists('wp_raise_memory_limit')) {
+        wp_raise_memory_limit('admin');
+    }
+    if (function_exists('ignore_user_abort')) {
+        ignore_user_abort(true);
+    }
+
+    // Run scheduler in batches so each HTTP request is short — Local/single-worker
+    // hosts stay responsive while thousands of posts are scheduled.
     try {
+        $run_key = isset( $_POST['run_key'] )
+            ? sanitize_text_field( wp_unslash( $_POST['run_key'] ) )
+            : '';
+
         $scheduler = new Schedulely_Scheduler();
-        // Pass true to allow AI queue reordering — the admin is waiting,
-        // so synchronous HTTP timeouts are acceptable and visible to the user.
-        $results = $scheduler->run_schedule( true );
+        $results   = $scheduler->run_manual_schedule_batch( $run_key, true );
 
-        if ($results['success']) {
-            // Update last run timestamp
-            update_option('schedulely_last_run', time());
-
-            // Send notification if enabled
-            if (get_option('schedulely_email_notifications', true)) {
-                $notifier = new Schedulely_Notifications();
-                $notifier->send_scheduling_notification($results);
+        if ( ! empty( $results['success'] ) || empty( $results['done'] ) ) {
+            if ( ! empty( $results['done'] ) && (int) ( $results['scheduled_total'] ?? 0 ) > 0 ) {
+                update_option( 'schedulely_last_run', time() );
             }
 
             wp_send_json_success([
-                'message' => sprintf(
-                    __('Successfully scheduled %d posts!', 'schedulely'),
-                    $results['scheduled_count']
-                ),
-                'data' => $results
-            ]);
-        } else {
-            wp_send_json_error([
-                'message' => $results['message']
+                'message'         => $results['message'] ?? '',
+                'run_key'         => $results['run_key'] ?? '',
+                'done'            => ! empty( $results['done'] ),
+                'scheduled_count' => (int) ( $results['scheduled_count'] ?? 0 ),
+                'scheduled_total' => (int) ( $results['scheduled_total'] ?? 0 ),
+                'remaining'       => (int) ( $results['remaining'] ?? 0 ),
+                'total'           => (int) ( $results['total'] ?? 0 ),
             ]);
         }
+
+        wp_send_json_error([
+            'message' => $results['message'] ?? __( 'Scheduling failed.', 'schedulely' ),
+            'done'    => ! empty( $results['done'] ),
+        ]);
     } catch (\Throwable $e) {
         schedulely_log_error('AJAX scheduling error: ' . $e->getMessage());
         wp_send_json_error([
@@ -430,6 +443,10 @@ function schedulely_upgrade($from_version)
         // Default the PHP spacing strategy to even distribution; round-robin
         // remains selectable in Tools → Schedulely → AI & Notifications.
         add_option('schedulely_php_spread', Schedulely_Defaults::PHP_SPREAD);
+    }
+
+    if (version_compare($from_version, '1.8.11', '<')) {
+        add_option('schedulely_manual_batch_size', Schedulely_Defaults::MANUAL_BATCH_SIZE);
     }
 
     // CRITICAL FIX: Clear old hourly cron and reschedule with twicedaily (v1.0.8+)

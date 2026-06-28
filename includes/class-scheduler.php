@@ -91,8 +91,8 @@ class Schedulely_Scheduler
             'ai_queue_ordered' => false,
         ];
 
-        $quota = get_option('schedulely_posts_per_day', Schedulely_Defaults::POSTS_PER_DAY);
         $available_posts = $this->get_available_posts();
+        $eligible_at_start = self::count_eligible_posts();
         $ai_ordered = false;
 
         if (!empty($available_posts) && count($available_posts) > 1) {
@@ -113,34 +113,13 @@ class Schedulely_Scheduler
             return $results;
         }
 
-        // Find the last scheduled date
-        $last_scheduled_date = $this->get_last_scheduled_date();
-
-        // Determine starting date and completion count
-        $start_date = null;
-        $complete_count = 0;
-
-        if ($last_scheduled_date) {
-            $posts_on_last_date = $this->count_posts_on_date($last_scheduled_date);
-            list($last_win_start, $last_win_end) = $this->logical_window_bounds_ts($last_scheduled_date);
-            $now_ts = time();
-
-            if ($posts_on_last_date < $quota && $last_win_end >= $now_ts) {
-                $complete_count = $quota - $posts_on_last_date;
-                $start_date = $last_scheduled_date;
-                $results['completed_last_date'] = true;
-            } elseif ($posts_on_last_date < $quota && $last_win_end < $now_ts) {
-                $start_date = $this->get_next_scheduling_date();
-            } elseif ($posts_on_last_date >= $quota) {
-                $start_date = $this->get_next_active_date($last_scheduled_date);
-            }
-        } else {
-            // No scheduled posts exist, start from today/tomorrow
-            $start_date = $this->get_next_scheduling_date();
-        }
+        $start_ctx = $this->resolve_run_start_context();
+        $start_date = $start_ctx['start_date'];
+        $complete_count = $start_ctx['complete_first'];
+        $results['completed_last_date'] = $start_ctx['completed_last_date'];
 
         // Schedule the posts
-        $scheduling_results = $this->schedule_posts_from_date($available_posts, $start_date, $complete_count);
+        $scheduling_results = $this->schedule_posts_from_date( $available_posts, $start_date, $complete_count );
 
         // Merge results
         $results['success'] = $scheduling_results['success'];
@@ -150,16 +129,20 @@ class Schedulely_Scheduler
         $results['message'] = $scheduling_results['message'];
         $results['ai_queue_ordered'] = $ai_ordered;
 
-        // Pass timezone distribution to notifications when timezone ordering was used.
-        if ( ! empty( $this->timezone_queue ) ) {
-            $tz_counts = [ 'eastern' => 0, 'central' => 0, 'mountain' => 0, 'pacific' => 0, 'general' => 0 ];
-            foreach ( $this->timezone_queue as $group ) {
-                if ( isset( $tz_counts[ $group ] ) ) {
-                    $tz_counts[ $group ]++;
-                }
-            }
-            $results['timezone_distribution'] = $tz_counts;
+        // Pass timezone distribution for posts actually scheduled this run (not the full queue).
+        if ( ! empty( $this->timezone_queue ) && ! empty( $scheduling_results['scheduled_posts'] ) ) {
+            $scheduled_ids = array_map(
+                static fn( $row ) => (int) ( $row['post_id'] ?? 0 ),
+                $scheduling_results['scheduled_posts']
+            );
+            $results['timezone_distribution'] = $this->timezone_distribution_for_post_ids( $scheduled_ids );
         }
+
+        $results['eligible_at_start']   = $eligible_at_start;
+        $results['queue_total']         = count( $available_posts );
+        $results['failed_count']        = max( 0, count( $available_posts ) - (int) $scheduling_results['scheduled_count'] );
+        $results['not_loaded_count']    = max( 0, $eligible_at_start - count( $available_posts ) );
+        $results['eligible_remaining']  = self::count_eligible_posts();
 
         if ($ai_ordered && $results['success'] && $results['scheduled_count'] > 0) {
             $results['message'] .= ' ' . __('AI reordered the queue for better series spacing.', 'schedulely');
@@ -169,6 +152,393 @@ class Schedulely_Scheduler
         schedulely_clear_cache();
 
         return $results;
+    }
+
+    /**
+     * Posts scheduled per manual Schedule Now AJAX tick (filterable).
+     *
+     * Small batches release the PHP worker between requests so the rest of the
+     * admin stays usable during large pools (2,000+ posts).
+     *
+     * @since 1.8.9
+     *
+     * @return int
+     */
+    public static function get_manual_batch_size(): int {
+        $configured = (int) get_option( 'schedulely_manual_batch_size', Schedulely_Defaults::MANUAL_BATCH_SIZE );
+        $size       = (int) apply_filters( 'schedulely_manual_schedule_batch_size', $configured );
+        if ( $size < Schedulely_Defaults::MANUAL_BATCH_SIZE_MIN ) {
+            $size = Schedulely_Defaults::MANUAL_BATCH_SIZE_MIN;
+        }
+        if ( $size > Schedulely_Defaults::MANUAL_BATCH_SIZE_MAX ) {
+            $size = Schedulely_Defaults::MANUAL_BATCH_SIZE_MAX;
+        }
+        return $size;
+    }
+
+    /**
+     * Process one batch of a manual Schedule Now run.
+     *
+     * The first call (empty $run_key) builds and orders the full queue, then
+     * schedules the first batch. Later calls resume from a per-user transient.
+     *
+     * @since 1.8.9
+     *
+     * @param string $run_key         Existing run key, or empty string to start.
+     * @param bool   $allow_ai_reorder Whether queue reordering is allowed.
+     * @return array Batch result with run_key, done, progress fields.
+     */
+    public function run_manual_schedule_batch( string $run_key, bool $allow_ai_reorder = true ): array {
+        $user_id = get_current_user_id();
+        $run_key = preg_replace( '/[^a-zA-Z0-9_-]/', '', $run_key ) ?? '';
+
+        if ( '' === $run_key ) {
+            return $this->begin_manual_schedule_batch( $allow_ai_reorder, $user_id );
+        }
+
+        return $this->continue_manual_schedule_batch( $run_key, $user_id );
+    }
+
+    /**
+     * Start a new batched manual scheduling run.
+     *
+     * @since 1.8.9
+     *
+     * @param bool $allow_ai_reorder Whether queue reordering is allowed.
+     * @param int  $user_id          Current user ID.
+     * @return array
+     */
+    private function begin_manual_schedule_batch( bool $allow_ai_reorder, int $user_id ): array {
+        $run_key         = wp_generate_password( 20, false, false );
+        $available_posts = $this->get_available_posts();
+        $ai_ordered      = false;
+
+        if ( ! empty( $available_posts ) && count( $available_posts ) > 1 ) {
+            if ( $allow_ai_reorder ) {
+                $ai_ordered = $this->maybe_apply_ai_queue_order( $available_posts );
+            }
+            if ( ! $ai_ordered && get_option( 'schedulely_shuffle_queue', Schedulely_Defaults::SHUFFLE_QUEUE ) ) {
+                shuffle( $available_posts );
+            }
+        }
+
+        if ( empty( $available_posts ) ) {
+            return [
+                'success'         => false,
+                'done'            => true,
+                'run_key'         => '',
+                'scheduled_count' => 0,
+                'scheduled_total' => 0,
+                'remaining'       => 0,
+                'total'           => 0,
+                'message'         => sprintf(
+                    __( 'No posts available in %s status to schedule.', 'schedulely' ),
+                    get_option( 'schedulely_post_status', 'draft' )
+                ),
+            ];
+        }
+
+        $eligible_at_start = self::count_eligible_posts();
+
+        $start_ctx = $this->resolve_run_start_context();
+
+        $state = [
+            'posts'                 => $available_posts,
+            'offset'                => 0,
+            'cursor'                => null,
+            'timezone_queue'        => $this->timezone_queue,
+            'scheduled_total'       => 0,
+            'scheduled_post_ids'    => [],
+            'scheduled_posts'       => [],
+            'errors'                => [],
+            'start_date'            => $start_ctx['start_date'],
+            'complete_first'        => $start_ctx['complete_first'],
+            'completed_last_date'   => $start_ctx['completed_last_date'],
+            'ai_queue_ordered'      => $ai_ordered,
+            'total'                 => count( $available_posts ),
+            'eligible_at_start'     => $eligible_at_start,
+        ];
+
+        set_transient( $this->manual_run_transient_key( $user_id, $run_key ), $state, HOUR_IN_SECONDS );
+
+        $result = $this->process_manual_schedule_batch( $user_id, $run_key, $state );
+        $result['run_key'] = $run_key;
+
+        return $result;
+    }
+
+    /**
+     * Resume a batched manual scheduling run.
+     *
+     * @since 1.8.9
+     *
+     * @param string $run_key Run key from a prior batch response.
+     * @param int    $user_id Current user ID.
+     * @return array
+     */
+    private function continue_manual_schedule_batch( string $run_key, int $user_id ): array {
+        $transient_key = $this->manual_run_transient_key( $user_id, $run_key );
+        $state         = get_transient( $transient_key );
+
+        if ( ! is_array( $state ) || empty( $state['posts'] ) ) {
+            return [
+                'success'         => false,
+                'done'            => true,
+                'run_key'         => $run_key,
+                'scheduled_count' => 0,
+                'scheduled_total' => 0,
+                'remaining'       => 0,
+                'total'           => 0,
+                'message'         => __( 'Scheduling session expired or was not found. Please start again.', 'schedulely' ),
+            ];
+        }
+
+        $this->timezone_queue = is_array( $state['timezone_queue'] ?? null ) ? $state['timezone_queue'] : [];
+
+        $result = $this->process_manual_schedule_batch( $user_id, $run_key, $state );
+        $result['run_key'] = $run_key;
+
+        return $result;
+    }
+
+    /**
+     * Schedule the next batch for an in-progress manual run.
+     *
+     * @since 1.8.9
+     *
+     * @param int    $user_id Current user ID.
+     * @param string $run_key Run key.
+     * @param array  $state   Run state (by reference via transient).
+     * @return array
+     */
+    private function process_manual_schedule_batch( int $user_id, string $run_key, array $state ): array {
+        $transient_key = $this->manual_run_transient_key( $user_id, $run_key );
+        $batch_size    = self::get_manual_batch_size();
+        $batch         = array_slice( $state['posts'], (int) $state['offset'], $batch_size );
+
+        if ( empty( $batch ) ) {
+            delete_transient( $transient_key );
+            return [
+                'success'         => (int) $state['scheduled_total'] > 0,
+                'done'            => true,
+                'scheduled_count' => 0,
+                'scheduled_total' => (int) $state['scheduled_total'],
+                'remaining'       => 0,
+                'total'           => (int) $state['total'],
+                'message'         => sprintf(
+                    __( 'Successfully scheduled %d posts!', 'schedulely' ),
+                    (int) $state['scheduled_total']
+                ),
+            ];
+        }
+
+        $is_first_batch = ( 0 === (int) $state['offset'] );
+        $cursor         = $state['cursor'];
+        $complete_first = ( $is_first_batch && null === $cursor ) ? (int) $state['complete_first'] : 0;
+
+        $scheduling = $this->schedule_posts_from_date(
+            $batch,
+            $state['start_date'],
+            $complete_first,
+            is_array( $cursor ) ? $cursor : null
+        );
+
+        $state['offset']          = (int) $state['offset'] + count( $batch );
+        $state['cursor']          = $scheduling['cursor'] ?? null;
+        $state['scheduled_total'] += (int) $scheduling['scheduled_count'];
+        if ( ! empty( $scheduling['scheduled_posts'] ) ) {
+            foreach ( $scheduling['scheduled_posts'] as $row ) {
+                $pid = (int) ( $row['post_id'] ?? 0 );
+                if ( $pid > 0 ) {
+                    $state['scheduled_post_ids'][] = $pid;
+                }
+            }
+            $state['scheduled_posts'] = array_merge(
+                $state['scheduled_posts'],
+                $scheduling['scheduled_posts']
+            );
+            if ( count( $state['scheduled_posts'] ) > 50 ) {
+                $state['scheduled_posts'] = array_slice( $state['scheduled_posts'], -50 );
+            }
+        }
+        if ( ! empty( $scheduling['errors'] ) ) {
+            $state['errors'] = array_merge( $state['errors'], $scheduling['errors'] );
+        }
+
+        $remaining = max( 0, (int) $state['total'] - (int) $state['offset'] );
+        $done      = $remaining <= 0;
+
+        if ( $done ) {
+            delete_transient( $transient_key );
+            schedulely_clear_cache();
+
+            $failed_count       = max( 0, (int) $state['offset'] - (int) $state['scheduled_total'] );
+            $eligible_remaining = self::count_eligible_posts();
+            $eligible_at_start  = (int) ( $state['eligible_at_start'] ?? 0 );
+            $not_loaded_count   = max( 0, $eligible_at_start - (int) $state['total'] );
+
+            $final_results = [
+                'success'              => $state['scheduled_total'] > 0,
+                'scheduled_count'      => (int) $state['scheduled_total'],
+                'scheduled_posts'      => $state['scheduled_posts'],
+                'errors'               => $state['errors'],
+                'ai_queue_ordered'     => ! empty( $state['ai_queue_ordered'] ),
+                'completed_last_date'  => ! empty( $state['completed_last_date'] ),
+                'queue_total'          => (int) $state['total'],
+                'failed_count'         => $failed_count,
+                'not_loaded_count'     => $not_loaded_count,
+                'eligible_at_start'    => $eligible_at_start,
+                'eligible_remaining'   => $eligible_remaining,
+            ];
+
+            if ( ! empty( $this->timezone_queue ) && ! empty( $state['scheduled_post_ids'] ) ) {
+                $final_results['timezone_distribution'] = $this->timezone_distribution_for_post_ids(
+                    $state['scheduled_post_ids']
+                );
+            }
+
+            if ( get_option( 'schedulely_email_notifications', Schedulely_Defaults::EMAIL_NOTIFICATIONS ) ) {
+                $notifier = new Schedulely_Notifications();
+                $notifier->send_scheduling_notification( $final_results );
+            }
+        } else {
+            set_transient( $transient_key, $state, HOUR_IN_SECONDS );
+        }
+
+        return [
+            'success'         => ! $done || (int) $state['scheduled_total'] > 0,
+            'done'            => $done,
+            'scheduled_count' => (int) $scheduling['scheduled_count'],
+            'scheduled_total' => (int) $state['scheduled_total'],
+            'remaining'       => $remaining,
+            'total'           => (int) $state['total'],
+            'message'         => $done
+                ? $this->manual_run_completion_message( $state, $failed_count, $not_loaded_count, $eligible_remaining )
+                : sprintf(
+                    /* translators: 1: posts scheduled so far 2: total posts in run */
+                    __( 'Scheduled %1$d of %2$d posts…', 'schedulely' ),
+                    (int) $state['scheduled_total'],
+                    (int) $state['total']
+                ),
+        ];
+    }
+
+    /**
+     * Transient key for an in-progress manual batch run.
+     *
+     * @since 1.8.9
+     *
+     * @param int    $user_id User ID.
+     * @param string $run_key Run key.
+     * @return string
+     */
+    private function manual_run_transient_key( int $user_id, string $run_key ): string {
+        return 'schedulely_man_' . $user_id . '_' . $run_key;
+    }
+
+    /**
+     * US timezone group counts for a specific list of scheduled post IDs.
+     *
+     * @since 1.8.10
+     *
+     * @param array<int> $post_ids Post IDs scheduled this run.
+     * @return array<string,int>
+     */
+    private function timezone_distribution_for_post_ids( array $post_ids ): array {
+        if ( empty( $this->timezone_queue ) || empty( $post_ids ) ) {
+            return [];
+        }
+
+        $tz_counts = [ 'eastern' => 0, 'central' => 0, 'mountain' => 0, 'pacific' => 0, 'general' => 0 ];
+        foreach ( $post_ids as $post_id ) {
+            $group = $this->timezone_queue[ (int) $post_id ] ?? 'general';
+            if ( isset( $tz_counts[ $group ] ) ) {
+                $tz_counts[ $group ]++;
+            }
+        }
+
+        return $tz_counts;
+    }
+
+    /**
+     * User-facing completion message for a batched manual run.
+     *
+     * @since 1.8.10
+     *
+     * @param array $state              Run state.
+     * @param int   $failed_count       Posts in the queue that could not be scheduled.
+     * @param int   $not_loaded_count   Eligible posts beyond pool size (wait for next run).
+     * @param int   $eligible_remaining Live eligible count after the run.
+     * @return string
+     */
+    private function manual_run_completion_message(
+        array $state,
+        int $failed_count,
+        int $not_loaded_count,
+        int $eligible_remaining
+    ): string {
+        $scheduled = (int) $state['scheduled_total'];
+        $queued    = (int) $state['total'];
+
+        if ( $failed_count > 0 || $not_loaded_count > 0 ) {
+            return sprintf(
+                /* translators: 1: scheduled count 2: queue size 3: failed in queue 4: not loaded 5: still eligible */
+                __( 'Scheduled %1$d of %2$d queued posts. %3$d could not be scheduled; %4$d were not loaded (raise Pool Size). %5$d still eligible — run again to continue.', 'schedulely' ),
+                $scheduled,
+                $queued,
+                $failed_count,
+                $not_loaded_count,
+                $eligible_remaining
+            );
+        }
+
+        if ( $eligible_remaining > 0 ) {
+            return sprintf(
+                /* translators: 1: scheduled count 2: drafts still eligible */
+                __( 'Successfully scheduled %1$d posts. %2$d still eligible — run again if you expected zero.', 'schedulely' ),
+                $scheduled,
+                $eligible_remaining
+            );
+        }
+
+        return sprintf( __( 'Successfully scheduled %d posts!', 'schedulely' ), $scheduled );
+    }
+
+    /**
+     * Resolve anchor date and deficit completion for a new scheduling run.
+     *
+     * @since 1.8.9
+     *
+     * @return array{start_date: string, complete_first: int, completed_last_date: bool}
+     */
+    private function resolve_run_start_context(): array {
+        $quota               = (int) get_option( 'schedulely_posts_per_day', Schedulely_Defaults::POSTS_PER_DAY );
+        $last_scheduled_date = $this->get_last_scheduled_date();
+        $start_date          = $this->get_next_scheduling_date();
+        $complete_first      = 0;
+        $completed_last_date = false;
+
+        if ( $last_scheduled_date ) {
+            $posts_on_last_date = $this->count_posts_on_date( $last_scheduled_date );
+            list( $last_win_start, $last_win_end ) = $this->logical_window_bounds_ts( $last_scheduled_date );
+            $now_ts = time();
+
+            if ( $posts_on_last_date < $quota && $last_win_end >= $now_ts ) {
+                $complete_first      = $quota - $posts_on_last_date;
+                $start_date          = $last_scheduled_date;
+                $completed_last_date = true;
+            } elseif ( $posts_on_last_date < $quota && $last_win_end < $now_ts ) {
+                $start_date = $this->get_next_scheduling_date();
+            } elseif ( $posts_on_last_date >= $quota ) {
+                $start_date = $this->get_next_active_date( $last_scheduled_date );
+            }
+        }
+
+        return [
+            'start_date'            => $start_date,
+            'complete_first'        => $complete_first,
+            'completed_last_date'   => $completed_last_date,
+        ];
     }
 
     /**
@@ -667,14 +1037,13 @@ class Schedulely_Scheduler
      * @param array  $posts         Array of post IDs.
      * @param string $start_date    Starting anchor date (Y-m-d).
      * @param int    $complete_first Posts already on the start date (deficit completion).
-     * @return array Scheduling results.
+     * @param array|null $cursor    Resume state from a prior batch, or null for a fresh start.
+     * @return array Scheduling results including cursor for batch continuation.
      */
-    private function schedule_posts_from_date($posts, $start_date, $complete_first = 0)
+    private function schedule_posts_from_date($posts, $start_date, $complete_first = 0, ?array $cursor = null)
     {
         $quota        = (int) get_option( 'schedulely_posts_per_day', Schedulely_Defaults::POSTS_PER_DAY );
         $mode         = (string) get_option( 'schedulely_scheduling_mode', Schedulely_Defaults::SCHEDULING_MODE );
-        $current_date = $start_date;
-        $posts_scheduled_today = 0;
         $scheduled_count  = 0;
         $scheduled_posts  = [];
         $errors           = [];
@@ -684,26 +1053,42 @@ class Schedulely_Scheduler
         $day_slots     = [];
         $slot_index    = 0;
 
+        if ( is_array( $cursor ) ) {
+            $current_date            = (string) ( $cursor['current_date'] ?? $start_date );
+            $posts_scheduled_today   = (int) ( $cursor['posts_scheduled_today'] ?? 0 );
+            $already_scheduled_times = is_array( $cursor['already_scheduled_times'] ?? null )
+                ? $cursor['already_scheduled_times']
+                : [];
+            $day_slots  = is_array( $cursor['day_slots'] ?? null ) ? $cursor['day_slots'] : [];
+            $slot_index = (int) ( $cursor['slot_index'] ?? 0 );
+        } else {
+            $current_date = $start_date;
+            $posts_scheduled_today = 0;
+
+            if ( $complete_first > 0 ) {
+                $posts_scheduled_today   = $quota - $complete_first;
+                $already_scheduled_times = $this->get_scheduled_timestamps_for_anchor( $current_date );
+                if ( in_array( $mode, [ 'sequential', 'hybrid' ], true ) ) {
+                    $day_slots  = $this->generate_day_slots( $current_date, $quota, $mode );
+                    $slot_index = $posts_scheduled_today;
+                }
+            } else {
+                $already_scheduled_times = [];
+                if ( in_array( $mode, [ 'sequential', 'hybrid' ], true ) ) {
+                    $day_slots  = $this->generate_day_slots( $current_date, $quota, $mode );
+                    $slot_index = 0;
+                }
+            }
+        }
+
         // Prime the post object cache once before the loop.
         if ( function_exists( '_prime_post_caches' ) ) {
             _prime_post_caches( $posts, false, false );
         }
 
-        if ( $complete_first > 0 ) {
-            $posts_scheduled_today = $quota - $complete_first;
-            $already_scheduled_times = $this->get_scheduled_timestamps_for_anchor( $current_date );
-            // For slot modes, pre-fill already-used slots by skipping ahead.
-            if ( in_array( $mode, [ 'sequential', 'hybrid' ], true ) ) {
-                $day_slots  = $this->generate_day_slots( $current_date, $quota, $mode );
-                $slot_index = $posts_scheduled_today; // Skip already-placed posts.
-            }
-        } else {
-            $already_scheduled_times = [];
-            if ( in_array( $mode, [ 'sequential', 'hybrid' ], true ) ) {
-                $day_slots  = $this->generate_day_slots( $current_date, $quota, $mode );
-                $slot_index = 0;
-            }
-        }
+        wp_defer_term_counting( true );
+        wp_defer_comment_counting( true );
+        $suspend_cache = wp_suspend_cache_addition();
 
         foreach ( $posts as $post_id ) {
             if ( $posts_scheduled_today >= $quota ) {
@@ -846,12 +1231,23 @@ class Schedulely_Scheduler
             ) );
         }
 
+        wp_suspend_cache_addition( $suspend_cache );
+        wp_defer_term_counting( false );
+        wp_defer_comment_counting( false );
+
         return [
             'success'         => $scheduled_count > 0,
             'scheduled_count' => $scheduled_count,
             'scheduled_posts' => $scheduled_posts,
             'errors'          => $errors,
             'message'         => sprintf( __( 'Successfully scheduled %d posts.', 'schedulely' ), $scheduled_count ),
+            'cursor'          => [
+                'current_date'            => $current_date,
+                'posts_scheduled_today'   => $posts_scheduled_today,
+                'already_scheduled_times' => $already_scheduled_times,
+                'day_slots'               => $day_slots,
+                'slot_index'              => $slot_index,
+            ],
         ];
     }
 

@@ -165,6 +165,15 @@ class Schedulely_Defaults {
 	/** @var int Maximum posts fetched per scheduling run. */
 	const MAX_POSTS_PER_RUN = 1500;
 
+	/** @var int Posts scheduled per manual Schedule Now AJAX request (keeps admin responsive). */
+	const MANUAL_BATCH_SIZE = 75;
+
+	/** @var int Minimum manual batch size (UI and sanitizer). */
+	const MANUAL_BATCH_SIZE_MIN = 10;
+
+	/** @var int Maximum manual batch size (UI and sanitizer). */
+	const MANUAL_BATCH_SIZE_MAX = 500;
+
 	/** @var int Safety buffer in seconds before the scheduling window opens. */
 	const SCHEDULE_SAFETY_BUFFER_SECONDS = 1800; // 30 minutes
 }

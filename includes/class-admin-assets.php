@@ -163,8 +163,13 @@ class Schedulely_Admin_Assets {
 					'capacity_show_suggestions' => __( 'Show suggestions', 'schedulely' ),
 					'capacity_hide_suggestions' => __( 'Hide suggestions', 'schedulely' ),
 					'pool_overflow_title'    => __( 'Pool size limit', 'schedulely' ),
-					'pool_overflow_body'     => __( 'You have %1$s eligible posts but Pool Size is %2$s. This run will schedule %2$s (oldest first); %3$s will remain for a later run.', 'schedulely' ),
-					'pool_overflow_notice'   => __( '<strong>%1$s eligible posts</strong>, but Pool Size is <strong>%2$s</strong>. Each run schedules at most %2$s (oldest first); <strong>%3$s will wait</strong> for a second run. Raise <strong>Pool Size</strong> under Content &amp; Volume to process all at once.', 'schedulely' ),
+					'pool_overflow_body'     => __( 'You have %1$s eligible posts but Pool Size is %2$s. This run loads %2$s into the queue (oldest by draft date); %3$s will remain for a later run. Publish order follows Queue settings.', 'schedulely' ),
+					'pool_overflow_notice'   => __( '<strong>%1$s eligible posts</strong>, but Pool Size is <strong>%2$s</strong>. Each run loads at most %2$s (oldest by draft date); <strong>%3$s will wait</strong> for a second run. Raise <strong>Pool Size</strong> under Content &amp; Volume to process all at once. Publish order still follows your Queue settings.', 'schedulely' ),
+					'schedule_unexpected_error' => __( 'An unexpected error occurred. Please try again.', 'schedulely' ),
+					'schedule_timeout_error' => __( 'The server did not return a valid response — often a timeout or memory limit when scheduling a very large pool (1,500+ posts in one run). Check whether posts were still scheduled (Posts → Scheduled), lower Pool Size and run again, or ask your host to raise <code>max_execution_time</code>. Enable <code>WP_DEBUG_LOG</code> for details.', 'schedulely' ),
+					'scheduling_progress'    => __( 'Scheduled <strong>%1$s</strong> of <strong>%2$s</strong> posts…<br><small>You can open other admin pages in new tabs while this runs.</small>', 'schedulely' ),
+					'scheduling_wait'        => __( 'Starting… large pools are processed in small batches so the rest of the admin stays responsive.', 'schedulely' ),
+					'close'                  => __( 'Close', 'schedulely' ),
 				],
 			]
 		);

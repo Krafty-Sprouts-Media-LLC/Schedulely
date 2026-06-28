@@ -228,7 +228,7 @@ $pres_authors    = get_option( 'schedulely_preserved_authors', Schedulely_Defaul
                     echo wp_kses_post(
                         sprintf(
                             /* translators: 1: total eligible posts 2: per-run pool size 3: posts deferred to a later run */
-                            __( '<strong>%1$s eligible posts</strong>, but Pool Size is <strong>%2$s</strong>. Each run schedules at most %2$s (oldest first); <strong>%3$s will wait</strong> for a second run. Raise <strong>Pool Size</strong> under Content &amp; Volume to process all at once.', 'schedulely' ),
+                            __( '<strong>%1$s eligible posts</strong>, but Pool Size is <strong>%2$s</strong>. Each run loads at most %2$s (oldest by draft date); <strong>%3$s will wait</strong> for a second run. Raise <strong>Pool Size</strong> under Content &amp; Volume to process all at once. Publish order still follows your Queue settings.', 'schedulely' ),
                             number_format_i18n( $stats['available_posts'] ),
                             number_format_i18n( $stats['pool_size'] ),
                             number_format_i18n( $stats['pool_overflow'] )
@@ -239,6 +239,28 @@ $pres_authors    = get_option( 'schedulely_preserved_authors', Schedulely_Defaul
             </p>
         </div>
     </div>
+
+    <?php
+    $batch_size = min( (int) $stats['available_posts'], (int) $stats['pool_size'] );
+    if ( $batch_size >= 1500 && $stats['available_posts'] > 0 ) :
+        ?>
+    <div class="schedulely-pool-notice schedulely-pool-notice--info" id="schedulely-large-pool-notice" role="status">
+        <span class="dashicons dashicons-clock" aria-hidden="true"></span>
+        <div class="schedulely-pool-notice-body">
+            <p class="schedulely-pool-notice-text">
+                <?php
+                echo wp_kses_post(
+                    sprintf(
+                        /* translators: %s: number of posts processed in one run */
+                        __( '<strong>Large pool (%s posts per run).</strong> Schedule Now processes posts in small batches (~75 per request) so other admin pages stay usable. Keep the progress dialog open until it finishes — you can browse other tabs in the meantime.', 'schedulely' ),
+                        number_format_i18n( $batch_size )
+                    )
+                );
+                ?>
+            </p>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <!-- ═══════════════════════════════════════════════════════════════
          MAIN GRID  — tabbed config card + sidebar
@@ -309,7 +331,18 @@ $pres_authors    = get_option( 'schedulely_preserved_authors', Schedulely_Defaul
                         <input type="number" name="schedulely_pool_size" id="schedulely_pool_size"
                                value="<?php echo esc_attr( get_option( 'schedulely_pool_size', Schedulely_Defaults::MAX_POSTS_PER_RUN ) ); ?>"
                                min="1" max="10000">
-                        <p class="schedulely-field-hint"><?php esc_html_e( 'Larger pool = more variety for shuffle & AI. Each run loads at most this many posts (oldest first).', 'schedulely' ); ?></p>
+                        <p class="schedulely-field-hint"><?php esc_html_e( 'Larger pool = more variety for shuffle & ordering. Caps how many drafts load per run (oldest by draft date when capped). Publish order is set under Queue — not here.', 'schedulely' ); ?></p>
+                    </div>
+                </div>
+
+                <div class="schedulely-form-row" style="margin-top:4px;">
+                    <div class="schedulely-form-col">
+                        <label class="schedulely-field-label" for="schedulely_manual_batch_size"><?php esc_html_e( 'Batch Size (Schedule Now)', 'schedulely' ); ?></label>
+                        <input type="number" name="schedulely_manual_batch_size" id="schedulely_manual_batch_size"
+                               value="<?php echo esc_attr( get_option( 'schedulely_manual_batch_size', Schedulely_Defaults::MANUAL_BATCH_SIZE ) ); ?>"
+                               min="<?php echo esc_attr( (string) Schedulely_Defaults::MANUAL_BATCH_SIZE_MIN ); ?>"
+                               max="<?php echo esc_attr( (string) Schedulely_Defaults::MANUAL_BATCH_SIZE_MAX ); ?>">
+                        <p class="schedulely-field-hint"><?php esc_html_e( 'Posts written per request when you click Schedule Now. Smaller = admin stays responsive on large pools; larger = fewer round-trips. Does not change Pool Size.', 'schedulely' ); ?></p>
                     </div>
                 </div>
 

@@ -21,6 +21,7 @@ delete_option('schedulely_active_days');
 delete_option('schedulely_min_interval');
 delete_option('schedulely_shuffle_queue');
 delete_option('schedulely_pool_size');
+delete_option('schedulely_manual_batch_size');
 delete_option('schedulely_scheduling_mode');
 delete_option('schedulely_ai_order_enabled');
 delete_option('schedulely_ai_us_timezone_ordering');

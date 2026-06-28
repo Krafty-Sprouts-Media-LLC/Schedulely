@@ -145,6 +145,10 @@ class Schedulely_AI_Order {
 	 * @return array<int>
 	 */
 	private function order_via_php( array $post_ids ): array {
+		if ( function_exists( '_prime_post_caches' ) ) {
+			_prime_post_caches( $post_ids, false, false );
+		}
+
 		$groups = $this->group_by_slug_stem( $post_ids );
 
 		return ( 'round_robin' === $this->get_php_spread_method() )

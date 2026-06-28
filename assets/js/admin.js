@@ -293,16 +293,54 @@
     }
 
     /**
-     * Execute the scheduling process
+     * POST one manual-schedule batch and parse the JSON response.
+     *
+     * @param {string} runKey
+     * @return {Promise<object>}
      */
-    function scheduleNow(button) {
+    async function requestScheduleBatch(runKey) {
+        const response = await fetch(schedulely_admin.ajaxurl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+                action: 'schedulely_manual_schedule',
+                nonce: schedulely_admin.nonce,
+                run_key: runKey || ''
+            })
+        });
+
+        const raw = await response.text();
+        let data;
+
+        try {
+            data = raw ? JSON.parse(raw) : null;
+        } catch (parseError) {
+            const err = new Error('invalid_json');
+            err.raw = raw;
+            err.status = response.status;
+            throw err;
+        }
+
+        if (!data) {
+            throw new Error('empty_response');
+        }
+
+        return data;
+    }
+
+    /**
+     * Execute the scheduling process (batched AJAX — keeps admin responsive).
+     */
+    async function scheduleNow(button) {
         button.disabled = true;
         const originalText = button.textContent;
         button.innerHTML = '<span class="dashicons dashicons-update spin"></span> Scheduling...';
 
         Swal.fire({
-            title: 'Scheduling Posts...',
-            html: 'Please wait while we schedule your posts.',
+            title: schedulely_admin.strings.scheduling || 'Scheduling...',
+            html: schedulely_admin.strings.scheduling_wait || 'Please wait while we schedule your posts.',
             allowOutsideClick: false,
             allowEscapeKey: false,
             showConfirmButton: false,
@@ -311,22 +349,41 @@
             }
         });
 
-        fetch(schedulely_admin.ajaxurl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: new URLSearchParams({
-                action: 'schedulely_manual_schedule',
-                nonce: schedulely_admin.nonce
-            })
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
+        let runKey = '';
+
+        try {
+            let done = false;
+
+            while (!done) {
+                const data = await requestScheduleBatch(runKey);
+
+                if (!data.success) {
+                    Swal.fire({
+                        title: schedulely_admin.strings.error || 'Error',
+                        html: data.data?.message || 'An error occurred while scheduling posts.',
+                        icon: 'error',
+                        confirmButtonColor: '#d63638',
+                        confirmButtonText: schedulely_admin.strings.close || 'Close'
+                    });
+                    return;
+                }
+
+                const payload = data.data || {};
+                runKey = payload.run_key || runKey;
+                done = !!payload.done;
+
+                if (!done) {
+                    Swal.update({
+                        html: formatI18n(
+                            schedulely_admin.strings.scheduling_progress || 'Scheduled %1$s of %2$s posts…',
+                            (payload.scheduled_total || 0).toLocaleString(),
+                            (payload.total || 0).toLocaleString()
+                        )
+                    });
+                } else {
                     Swal.fire({
                         title: schedulely_admin.strings.success || 'Success!',
-                        html: data.data.message || 'Posts scheduled successfully!',
+                        html: payload.message || 'Posts scheduled successfully!',
                         icon: 'success',
                         confirmButtonColor: '#2271b1',
                         confirmButtonText: schedulely_admin.strings.view_scheduled || 'View Scheduled Posts',
@@ -336,37 +393,33 @@
                         reverseButtons: true
                     }).then((result) => {
                         if (result.isConfirmed) {
-                            // Navigate to WordPress scheduled posts page
                             window.location.href = schedulely_admin.scheduled_posts_url;
                         } else {
-                            // Just reload to update the Upcoming Posts list
                             location.reload();
                         }
                     });
-                } else {
-                    Swal.fire({
-                        title: 'Error',
-                        html: data.data.message || 'An error occurred while scheduling posts.',
-                        icon: 'error',
-                        confirmButtonColor: '#d63638',
-                        confirmButtonText: 'Close'
-                    });
                 }
-            })
-            .catch(error => {
-                Swal.fire({
-                    title: 'Error',
-                    html: 'An unexpected error occurred. Please try again.',
-                    icon: 'error',
-                    confirmButtonColor: '#d63638',
-                    confirmButtonText: 'Close'
-                });
-                console.error('Schedulely error:', error);
-            })
-            .finally(() => {
-                button.disabled = false;
-                button.textContent = originalText;
+            }
+        } catch (error) {
+            let message = schedulely_admin.strings.schedule_unexpected_error
+                || 'An unexpected error occurred. Please try again.';
+
+            if (error && (error.message === 'invalid_json' || error.message === 'empty_response')) {
+                message = schedulely_admin.strings.schedule_timeout_error || message;
+            }
+
+            Swal.fire({
+                title: schedulely_admin.strings.error || 'Error',
+                html: message,
+                icon: 'error',
+                confirmButtonColor: '#d63638',
+                confirmButtonText: schedulely_admin.strings.close || 'Close'
             });
+            console.error('Schedulely error:', error);
+        } finally {
+            button.disabled = false;
+            button.textContent = originalText;
+        }
     }
 
     /**
