@@ -115,6 +115,9 @@ class Schedulely_Admin_Assets {
 		);
 
 		// Localise script with nonces, URLs, and all translatable strings.
+		$eligible_posts = Schedulely_Scheduler::count_eligible_posts();
+		$pool_size      = Schedulely_Scheduler::get_pool_size_limit();
+
 		wp_localize_script(
 			'schedulely-admin',
 			'schedulely_admin',
@@ -122,6 +125,11 @@ class Schedulely_Admin_Assets {
 				'nonce'               => wp_create_nonce( 'schedulely_admin' ),
 				'ajaxurl'             => admin_url( 'admin-ajax.php' ),
 				'scheduled_posts_url' => admin_url( 'edit.php?post_status=future' ),
+				'pool'                => [
+					'eligible'  => $eligible_posts,
+					'size'      => $pool_size,
+					'overflow'  => max( 0, $eligible_posts - $pool_size ),
+				],
 				'strings'             => [
 					'confirm_schedule'       => __( 'Schedule available posts now?', 'schedulely' ),
 					'scheduling'             => __( 'Scheduling...', 'schedulely' ),
@@ -154,6 +162,9 @@ class Schedulely_Admin_Assets {
 					'capacity_error'         => __( 'Settings error', 'schedulely' ),
 					'capacity_show_suggestions' => __( 'Show suggestions', 'schedulely' ),
 					'capacity_hide_suggestions' => __( 'Hide suggestions', 'schedulely' ),
+					'pool_overflow_title'    => __( 'Pool size limit', 'schedulely' ),
+					'pool_overflow_body'     => __( 'You have %1$s eligible posts but Pool Size is %2$s. This run will schedule %2$s (oldest first); %3$s will remain for a later run.', 'schedulely' ),
+					'pool_overflow_notice'   => __( '<strong>%1$s eligible posts</strong>, but Pool Size is <strong>%2$s</strong>. Each run schedules at most %2$s (oldest first); <strong>%3$s will wait</strong> for a second run. Raise <strong>Pool Size</strong> under Content &amp; Volume to process all at once.', 'schedulely' ),
 				],
 			]
 		);

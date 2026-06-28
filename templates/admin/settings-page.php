@@ -157,10 +157,20 @@ $pres_authors    = get_option( 'schedulely_preserved_authors', Schedulely_Defaul
             <div class="schedulely-stat-body">
                 <div class="schedulely-stat-value"><?php echo esc_html( (string) $stats['available_posts'] ); ?></div>
                 <div class="schedulely-stat-label"><?php esc_html_e( 'Drafts Available', 'schedulely' ); ?></div>
-                <div class="schedulely-stat-sub">
+                <div class="schedulely-stat-sub <?php echo $stats['pool_overflow'] > 0 ? 'schedulely-sub-warn' : ''; ?>">
                     <?php
-                    /* translators: %s: post count */
-                    echo esc_html( sprintf( __( '%s currently in pool', 'schedulely' ), $stats['available_posts'] ) );
+                    if ( $stats['pool_overflow'] > 0 ) {
+                        /* translators: 1: total eligible posts 2: per-run pool size 3: posts waiting for a later run */
+                        echo esc_html( sprintf(
+                            __( '%1$s eligible — %2$s per run (%3$s waiting)', 'schedulely' ),
+                            number_format_i18n( $stats['available_posts'] ),
+                            number_format_i18n( $stats['pool_size'] ),
+                            number_format_i18n( $stats['pool_overflow'] )
+                        ) );
+                    } else {
+                        /* translators: %s: post count */
+                        echo esc_html( sprintf( __( '%s eligible for scheduling', 'schedulely' ), number_format_i18n( $stats['available_posts'] ) ) );
+                    }
                     ?>
                 </div>
             </div>
@@ -207,6 +217,28 @@ $pres_authors    = get_option( 'schedulely_preserved_authors', Schedulely_Defaul
         </div>
 
     </div><!-- /.schedulely-stats-row -->
+
+    <div class="schedulely-pool-notice" id="schedulely-pool-notice" role="status"
+         data-available="<?php echo esc_attr( (string) $stats['available_posts'] ); ?>"<?php echo $stats['pool_overflow'] <= 0 ? ' hidden' : ''; ?>>
+        <span class="dashicons dashicons-info-outline" aria-hidden="true"></span>
+        <div class="schedulely-pool-notice-body">
+            <p class="schedulely-pool-notice-text" id="schedulely-pool-notice-text">
+                <?php
+                if ( $stats['pool_overflow'] > 0 ) {
+                    echo wp_kses_post(
+                        sprintf(
+                            /* translators: 1: total eligible posts 2: per-run pool size 3: posts deferred to a later run */
+                            __( '<strong>%1$s eligible posts</strong>, but Pool Size is <strong>%2$s</strong>. Each run schedules at most %2$s (oldest first); <strong>%3$s will wait</strong> for a second run. Raise <strong>Pool Size</strong> under Content &amp; Volume to process all at once.', 'schedulely' ),
+                            number_format_i18n( $stats['available_posts'] ),
+                            number_format_i18n( $stats['pool_size'] ),
+                            number_format_i18n( $stats['pool_overflow'] )
+                        )
+                    );
+                }
+                ?>
+            </p>
+        </div>
+    </div>
 
     <!-- ═══════════════════════════════════════════════════════════════
          MAIN GRID  — tabbed config card + sidebar
@@ -277,7 +309,7 @@ $pres_authors    = get_option( 'schedulely_preserved_authors', Schedulely_Defaul
                         <input type="number" name="schedulely_pool_size" id="schedulely_pool_size"
                                value="<?php echo esc_attr( get_option( 'schedulely_pool_size', Schedulely_Defaults::MAX_POSTS_PER_RUN ) ); ?>"
                                min="1" max="10000">
-                        <p class="schedulely-field-hint"><?php esc_html_e( 'Larger pool = more variety for shuffle & AI.', 'schedulely' ); ?></p>
+                        <p class="schedulely-field-hint"><?php esc_html_e( 'Larger pool = more variety for shuffle & AI. Each run loads at most this many posts (oldest first).', 'schedulely' ); ?></p>
                     </div>
                 </div>
 

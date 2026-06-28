@@ -457,20 +457,15 @@ class Schedulely_Settings {
 	 * @since 1.0.0
 	 * @since 1.6.0 Replaced unbounded get_posts with wp_count_posts.
 	 *
-	 * @return array{available_posts: int, next_scheduled: string, last_date_status: string, last_run: string}
+	 * @since 1.8.7 Added pool_size and pool_overflow for per-run batch warnings.
+	 *
+	 * @return array{available_posts: int, pool_size: int, pool_overflow: int, next_scheduled: string, last_date_status: string, last_run: string}
 	 */
 	private function get_statistics(): array {
-		$status     = get_option( 'schedulely_post_status', Schedulely_Defaults::POST_STATUS );
-		$post_types = get_option( 'schedulely_post_types', Schedulely_Defaults::POST_TYPES );
-
-		// Count available posts — wp_count_posts is cached by WP core.
-		$available_posts = 0;
-		foreach ( $post_types as $pt ) {
-			$counts = wp_count_posts( $pt );
-			if ( $counts && isset( $counts->{$status} ) ) {
-				$available_posts += (int) $counts->{$status};
-			}
-		}
+		$post_types      = get_option( 'schedulely_post_types', Schedulely_Defaults::POST_TYPES );
+		$available_posts = Schedulely_Scheduler::count_eligible_posts();
+		$pool_size       = Schedulely_Scheduler::get_pool_size_limit();
+		$pool_overflow   = max( 0, $available_posts - $pool_size );
 
 		// Next scheduled post.
 		$next_posts = get_posts( [
@@ -511,6 +506,8 @@ class Schedulely_Settings {
 
 		return [
 			'available_posts'   => $available_posts,
+			'pool_size'         => $pool_size,
+			'pool_overflow'     => $pool_overflow,
 			'next_scheduled'    => $next_scheduled,
 			'last_date_status'  => $last_date_status,
 			'last_run'          => $last_run_text,

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.8.7] - 28/06/2026
+
+### Added
+- **Pool overflow warning when eligible posts exceed Pool Size.** If you have more drafts than the per-run limit (e.g. 1,800 eligible with Pool Size 1,500), the dashboard now shows a banner explaining that each run schedules at most the pool size (oldest first) and how many posts will wait for a later run. The Drafts Available stat card subtext changes from the misleading "currently in pool" to "X eligible — Y per run (Z waiting)". **Schedule Now** includes the same warning in its confirmation dialog. Changing Pool Size in the form updates the banner live.
+
 ## [1.8.2] - 29/05/2026
 
 ### Changed

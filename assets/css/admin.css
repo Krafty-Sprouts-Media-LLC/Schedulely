@@ -322,6 +322,35 @@
 .schedulely-sub-good { color: #00a32a; font-weight: 600; }
 .schedulely-sub-warn { color: #d63638; font-weight: 600; }
 
+.schedulely-pool-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 0 0 20px;
+    padding: 12px 14px;
+    background: #fcf0f1;
+    border: 1px solid #f1aeb5;
+    border-left: 4px solid #d63638;
+    border-radius: 4px;
+    color: #1d2327;
+}
+
+.schedulely-pool-notice[hidden] {
+    display: none !important;
+}
+
+.schedulely-pool-notice .dashicons {
+    color: #d63638;
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+.schedulely-pool-notice-text {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
 /* ════════════════════════════════════════════════════════════════
    Main Grid
    ════════════════════════════════════════════════════════════════ */

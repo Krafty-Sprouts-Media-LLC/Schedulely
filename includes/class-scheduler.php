@@ -233,6 +233,49 @@ class Schedulely_Scheduler
     }
 
     /**
+     * Effective max posts loaded per scheduling run (saved option + filter, clamped 1–10000).
+     *
+     * @since 1.8.7
+     *
+     * @return int
+     */
+    public static function get_pool_size_limit(): int {
+        $configured_max = (int) get_option( 'schedulely_pool_size', self::MAX_POSTS_PER_RUN );
+        $max            = (int) apply_filters( 'schedulely_max_posts_per_run', $configured_max );
+        if ( $max < 1 ) {
+            $max = 1;
+        }
+        if ( $max > 10000 ) {
+            $max = 10000;
+        }
+        return $max;
+    }
+
+    /**
+     * Count eligible posts in the monitored status across configured post types.
+     *
+     * Uses wp_count_posts (cached by core) — does not load post IDs.
+     *
+     * @since 1.8.7
+     *
+     * @return int
+     */
+    public static function count_eligible_posts(): int {
+        $status     = get_option( 'schedulely_post_status', Schedulely_Defaults::POST_STATUS );
+        $post_types = get_option( 'schedulely_post_types', Schedulely_Defaults::POST_TYPES );
+        $total      = 0;
+
+        foreach ( (array) $post_types as $post_type ) {
+            $counts = wp_count_posts( $post_type );
+            if ( $counts && isset( $counts->{$status} ) ) {
+                $total += (int) $counts->{$status};
+            }
+        }
+
+        return $total;
+    }
+
+    /**
      * Get available posts based on monitored status
      * 
      * @return array Array of post IDs
@@ -241,13 +284,7 @@ class Schedulely_Scheduler
     {
         $status = get_option('schedulely_post_status', Schedulely_Defaults::POST_STATUS);
         $post_types = get_option('schedulely_post_types', Schedulely_Defaults::POST_TYPES);
-
-        // Read the user-configured pool size (set in Tools → Schedulely).
-        // The filter lets hosts with tight execution time lower it programmatically.
-        $configured_max = (int) get_option( 'schedulely_pool_size', self::MAX_POSTS_PER_RUN );
-        $max = (int) apply_filters( 'schedulely_max_posts_per_run', $configured_max );
-        if ( $max < 1 )     $max = 1;
-        if ( $max > 10000 ) $max = 10000;
+        $max = self::get_pool_size_limit();
 
         $args = [
             'post_type' => $post_types,

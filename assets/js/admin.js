@@ -17,6 +17,7 @@
         initAuthorSelect();
         initTimePickers();
         initCapacityChecker();
+        initPoolSizeNotice();
         initAutoScheduleToggle();
         initAiTestConnection();
         initModeCards();
@@ -174,13 +175,110 @@
     }
 
     /**
+     * Replace %1$s-style placeholders in a localized string.
+     *
+     * @param {string} template
+     * @param {...string} values
+     * @return {string}
+     */
+    function formatI18n(template, ...values) {
+        if (!template) {
+            return '';
+        }
+        return template.replace(/%(\d+)\$s/g, function (_match, index) {
+            const value = values[parseInt(index, 10) - 1];
+            return value !== undefined && value !== null ? String(value) : '';
+        });
+    }
+
+    /**
+     * Current eligible vs pool-size overflow (reads live pool-size input).
+     *
+     * @return {{eligible: number, poolSize: number, overflow: number}}
+     */
+    function getPoolOverflowInfo() {
+        const notice = document.getElementById('schedulely-pool-notice');
+        const poolInput = document.getElementById('schedulely_pool_size');
+        const eligible = notice
+            ? parseInt(notice.getAttribute('data-available') || '0', 10)
+            : (schedulely_admin.pool?.eligible || 0);
+        let poolSize = poolInput
+            ? parseInt(poolInput.value || '0', 10)
+            : (schedulely_admin.pool?.size || 0);
+
+        if (isNaN(poolSize) || poolSize < 1) {
+            poolSize = 1;
+        }
+        if (poolSize > 10000) {
+            poolSize = 10000;
+        }
+
+        return {
+            eligible: eligible,
+            poolSize: poolSize,
+            overflow: Math.max(0, eligible - poolSize)
+        };
+    }
+
+    /**
+     * Show or hide the pool-overflow banner when Pool Size changes in the form.
+     */
+    function initPoolSizeNotice() {
+        const $input = $('#schedulely_pool_size');
+        const $notice = $('#schedulely-pool-notice');
+        const $noticeText = $('#schedulely-pool-notice-text');
+
+        if (!$input.length || !$notice.length || !$noticeText.length) {
+            return;
+        }
+
+        function refreshPoolNotice() {
+            const pool = getPoolOverflowInfo();
+            const template = schedulely_admin.strings.pool_overflow_notice || '';
+
+            if (pool.overflow > 0 && template) {
+                $noticeText.html(
+                    formatI18n(
+                        template,
+                        pool.eligible.toLocaleString(),
+                        pool.poolSize.toLocaleString(),
+                        pool.overflow.toLocaleString()
+                    )
+                );
+                $notice.prop('hidden', false);
+            } else {
+                $notice.prop('hidden', true);
+            }
+        }
+
+        $input.on('input change', refreshPoolNotice);
+    }
+
+    /**
      * Show normal schedule confirmation dialog
      */
     function showScheduleConfirmation(button) {
+        const pool = getPoolOverflowInfo();
+        let bodyHtml = schedulely_admin.strings.schedule_posts_body || 'This will schedule all available posts according to your settings.<br><br><strong>Do you want to continue?</strong>';
+
+        if (pool.overflow > 0) {
+            const warning = formatI18n(
+                schedulely_admin.strings.pool_overflow_body || '',
+                pool.eligible.toLocaleString(),
+                pool.poolSize.toLocaleString(),
+                pool.overflow.toLocaleString()
+            );
+            bodyHtml = '<div style="text-align:left;margin-bottom:12px;padding:10px 12px;background:#fcf0f1;border-left:4px solid #d63638;border-radius:2px;">'
+                + '<strong>' + (schedulely_admin.strings.pool_overflow_title || 'Pool size limit') + '</strong>'
+                + '<p style="margin:6px 0 0;font-size:14px;">' + warning + '</p>'
+                + '</div>'
+                + bodyHtml;
+        }
+
         Swal.fire({
             title: schedulely_admin.strings.schedule_posts_title || 'Schedule Posts Now?',
-            html: schedulely_admin.strings.schedule_posts_body || 'This will schedule all available posts according to your settings.<br><br><strong>Do you want to continue?</strong>',
-            icon: 'question',
+            html: bodyHtml,
+            icon: pool.overflow > 0 ? 'warning' : 'question',
             showCancelButton: true,
             confirmButtonColor: '#2271b1',
             cancelButtonColor: '#d63638',
