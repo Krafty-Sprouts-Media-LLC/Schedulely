@@ -3,7 +3,7 @@
  * Filename: class-scheduler.php
  * Author: Krafty Sprouts Media, LLC
  * Created: 06/10/2025
- * Last Modified: 03/05/2026
+ * Last Modified: 25/10/2026
  * Description: Main Scheduling Engine - Handles all post scheduling logic with last date completion and optional overnight time windows.
  *
  * @package Schedulely
@@ -683,7 +683,7 @@ class Schedulely_Scheduler
      * @param string|null $end_time   End time string or null to read option.
      * @return bool
      */
-    private function is_overnight_window($start_time = null, $end_time = null)
+    public function is_overnight_window($start_time = null, $end_time = null)
     {
         if (null === $start_time) {
             $start_time = get_option('schedulely_start_time', '5:00 PM');
@@ -701,6 +701,153 @@ class Schedulely_Scheduler
         }
 
         return $end_ts <= $start_ts;
+    }
+
+    /**
+     * Human-readable time window. Overnight windows name the next morning.
+     *
+     * @since 1.8.12
+     * @return string
+     */
+    public function format_time_window_label(): string
+    {
+        $start_time = get_option('schedulely_start_time', Schedulely_Defaults::START_TIME);
+        $end_time   = get_option('schedulely_end_time', Schedulely_Defaults::END_TIME);
+
+        if ($this->is_overnight_window($start_time, $end_time)) {
+            return sprintf(
+                /* translators: 1: start time, 2: end time */
+                __('%1$s → %2$s next day (overnight)', 'schedulely'),
+                $start_time,
+                $end_time
+            );
+        }
+
+        return sprintf(
+            /* translators: 1: start time, 2: end time */
+            __('%1$s – %2$s', 'schedulely'),
+            $start_time,
+            $end_time
+        );
+    }
+
+    /**
+     * One publishing window as a span (overnight) or a calendar date (same-day).
+     *
+     * @since 1.8.12
+     * @param string $anchor_date Logical anchor Y-m-d.
+     * @return string
+     */
+    public function format_window_span($anchor_date): string
+    {
+        list($start_ts, $end_ts) = $this->logical_window_bounds_ts($anchor_date);
+
+        if ($start_ts <= 0 || $end_ts <= 0) {
+            return (string) $anchor_date;
+        }
+
+        if ($this->is_overnight_window()) {
+            return sprintf(
+                /* translators: 1: window start datetime, 2: window end datetime */
+                __('%1$s → %2$s', 'schedulely'),
+                wp_date('D M j, g:i A', $start_ts) ?? '',
+                wp_date('D M j, g:i A', $end_ts) ?? ''
+            );
+        }
+
+        return wp_date('l, M j, Y', $start_ts) ?? (string) $anchor_date;
+    }
+
+    /**
+     * Date/window range for a run. Overnight names the morning the last posts go live.
+     *
+     * @since 1.8.12
+     * @param string $start_anchor First logical anchor Y-m-d.
+     * @param string $end_anchor   Last logical anchor Y-m-d.
+     * @return string
+     */
+    public function format_date_range_label($start_anchor, $end_anchor): string
+    {
+        if ('' === (string) $start_anchor) {
+            return '';
+        }
+
+        $start_ts      = $this->site_local_string_to_timestamp($start_anchor, '12:00:00');
+        $end_noon      = $this->site_local_string_to_timestamp($end_anchor, '12:00:00');
+        $start_display = $start_ts ? (wp_date('M j, Y', $start_ts) ?? '') : $start_anchor;
+        $end_display   = $end_noon ? (wp_date('M j, Y', $end_noon) ?? '') : $end_anchor;
+
+        if (!$this->is_overnight_window()) {
+            return sprintf(
+                /* translators: 1: start date, 2: end date */
+                __('%1$s to %2$s', 'schedulely'),
+                $start_display,
+                $end_display
+            );
+        }
+
+        list(, $last_end_ts) = $this->logical_window_bounds_ts($end_anchor);
+        $last_live           = $last_end_ts ? (wp_date('M j, Y', $last_end_ts) ?? '') : $end_display;
+        $end_time            = get_option('schedulely_end_time', Schedulely_Defaults::END_TIME);
+
+        return sprintf(
+            /* translators: 1: first window date, 2: last window date, 3: last live calendar date, 4: end time */
+            __('%1$s – %2$s windows (last posts go live %3$s by %4$s)', 'schedulely'),
+            $start_display,
+            $end_display,
+            $last_live,
+            $end_time
+        );
+    }
+
+    /**
+     * First-window start through last-window end (used when every overnight window is full).
+     *
+     * @since 1.8.12
+     * @param string $start_anchor First logical anchor Y-m-d.
+     * @param string $end_anchor   Last logical anchor Y-m-d.
+     * @return string
+     */
+    public function format_span_through($start_anchor, $end_anchor): string
+    {
+        list($start_ts, ) = $this->logical_window_bounds_ts($start_anchor);
+        list(, $end_ts)   = $this->logical_window_bounds_ts($end_anchor);
+
+        if ($start_ts <= 0 || $end_ts <= 0) {
+            return '';
+        }
+
+        return sprintf(
+            /* translators: 1: first window start datetime, 2: last window end datetime */
+            __('%1$s through %2$s', 'schedulely'),
+            wp_date('M j, g:i A', $start_ts) ?? '',
+            wp_date('M j, g:i A', $end_ts) ?? ''
+        );
+    }
+
+    /**
+     * Short "Window ends …" line for the furthest-date dashboard card.
+     *
+     * @since 1.8.12
+     * @param string $anchor_date Logical anchor Y-m-d.
+     * @return string Empty when not overnight or bounds fail.
+     */
+    public function format_window_end_label($anchor_date): string
+    {
+        if (!$this->is_overnight_window()) {
+            return '';
+        }
+
+        list(, $end_ts) = $this->logical_window_bounds_ts($anchor_date);
+        if ($end_ts <= 0) {
+            return '';
+        }
+
+        return sprintf(
+            /* translators: %s: datetime the overnight window ends */
+            __('Window ends %s', 'schedulely'),
+            wp_date('M j, g:i A', $end_ts) ?? ''
+        );
     }
 
     /**

@@ -3,7 +3,7 @@
  * Filename: class-notifications.php
  * Author: Krafty Sprouts Media, LLC
  * Created: 06/10/2025
- * Last Modified: 03/05/2026
+ * Last Modified: 25/10/2026
  * Description: Email Notification System - Sends email notifications for scheduling events
  *
  * @package Schedulely
@@ -293,46 +293,89 @@ class Schedulely_Notifications
         $not_loaded      = (int) ( $results['not_loaded_count'] ?? 0 );
         $still_eligible  = (int) ( $results['eligible_remaining'] ?? 0 );
         $completed_last_date = isset($results['completed_last_date']) && $results['completed_last_date'];
-        $quota = get_option('schedulely_posts_per_day', 8);
+        $quota = (int) get_option('schedulely_posts_per_day', Schedulely_Defaults::POSTS_PER_DAY);
 
-        // Get all unique dates
+        // Unique logical anchors from this run (overnight: one window, not one calendar day).
         $dates = array_unique(array_column($results['scheduled_posts'], 'date'));
         sort($dates);
-        $start_date = ! empty( $dates ) ? ( wp_date( 'M j, Y', strtotime( $dates[0] ) ) ?? '' ) : '';
-        $end_date   = ! empty( $dates ) ? ( wp_date( 'M j, Y', strtotime( end( $dates ) ) ) ?? '' ) : '';
 
-        // CRITICAL FIX: Count TOTAL posts per date (site-wide, not just this run).
-        // Dates are taken from posts scheduled in this run only.
         $scheduler = new Schedulely_Scheduler();
+        $overnight = $scheduler->is_overnight_window();
+        $date_range = ! empty($dates)
+            ? $scheduler->format_date_range_label($dates[0], end($dates))
+            : '';
+        $time_window = $scheduler->format_time_window_label();
+
+        // Count TOTAL posts per logical window (site-wide, not just this run).
         $posts_per_date = [];
         foreach ($dates as $date) {
             $posts_per_date[$date] = $scheduler->count_posts_on_date($date);
         }
 
-        // Build FULL date status report (ALL dates with their completion status)
         $date_status_html = '';
         $incomplete_dates = 0;
         $complete_dates = 0;
+        $incomplete_html = '';
 
         foreach ($posts_per_date as $date => $count) {
-            $date_display = wp_date( 'l, M j, Y', strtotime( $date ) ) ?? $date;
+            $date_display = esc_html($scheduler->format_window_span($date));
             if ($count >= $quota) {
-                $date_status_html .= "✅ <strong>{$date_display}</strong>: {$count}/{$quota} posts (Complete)<br>\n";
+                if (! $overnight) {
+                    $date_status_html .= "✅ <strong>{$date_display}</strong>: {$count}/{$quota} posts (Complete)<br>\n";
+                }
                 $complete_dates++;
             } else {
                 $needed = $quota - $count;
-                $date_status_html .= "⚠️ <strong>{$date_display}</strong>: {$count}/{$quota} posts <span style='color: #dc2626;'>(NEEDS {$needed} MORE)</span><br>\n";
+                $line = "⚠️ <strong>{$date_display}</strong>: {$count}/{$quota} posts <span style='color: #dc2626;'>(NEEDS {$needed} MORE)</span><br>\n";
+                $date_status_html .= $line;
+                $incomplete_html .= $line;
                 $incomplete_dates++;
             }
         }
 
-        // Overall status
-        $overall_status = $incomplete_dates === 0 ? '✅ All dates complete' : "⚠️ {$incomplete_dates} date(s) incomplete";
+        if ($overnight && $incomplete_dates === 0 && $complete_dates > 0) {
+            $date_status_html = '<span style="font-size:0.9em;color:#6b7280;">'
+                . esc_html($scheduler->format_span_through($dates[0], end($dates)))
+                . '</span><br>' . "\n";
+        } elseif ($overnight && $incomplete_dates > 0) {
+            $date_status_html = $incomplete_html;
+        }
+
+        if ($overnight) {
+            $overall_status = $incomplete_dates === 0
+                ? '✅ ' . sprintf(
+                    /* translators: 1: window count, 2: daily quota */
+                    __('All %1$d overnight windows complete · %2$d posts each', 'schedulely'),
+                    $complete_dates,
+                    $quota
+                )
+                : '⚠️ ' . sprintf(
+                    /* translators: %d: number of incomplete windows */
+                    _n('%d window incomplete', '%d windows incomplete', $incomplete_dates, 'schedulely'),
+                    $incomplete_dates
+                );
+        } else {
+            $overall_status = $incomplete_dates === 0
+                ? '✅ All dates complete'
+                : "⚠️ {$incomplete_dates} date(s) incomplete";
+        }
         $overall_status_color = $incomplete_dates === 0 ? '#059669' : '#dc2626';
 
-        // Get scheduling time window
-        $start_time = get_option('schedulely_start_time', '5:00 PM');
-        $end_time = get_option('schedulely_end_time', '11:00 PM');
+        $range_label = $overnight
+            ? __('Window Range', 'schedulely')
+            : __('Date Range', 'schedulely');
+        $complete_count_label = $overnight
+            ? __('Windows Complete', 'schedulely')
+            : __('Dates Complete', 'schedulely');
+        $incomplete_count_label = $overnight
+            ? __('Windows Incomplete', 'schedulely')
+            : __('Dates Incomplete', 'schedulely');
+        $calendar_heading = $overnight
+            ? __('PUBLISH WINDOWS (site-wide posts per window)', 'schedulely')
+            : __('PUBLISH CALENDAR (site-wide posts per date)', 'schedulely');
+        $calendar_hint = $overnight
+            ? __('Each count is one overnight window (start day through next morning), not a single calendar date. Counts include all scheduled posts in that window, not only this run.', 'schedulely')
+            : __('Counts include all scheduled posts on each date, not only this run.', 'schedulely');
 
         // Get the current date/time when scheduler ran.
         // wp_date() respects the site timezone set in Settings → General.
@@ -423,6 +466,15 @@ class Schedulely_Notifications
             $run_issues_html .= '📥 Still eligible now: <strong>' . esc_html( (string) $still_eligible ) . '</strong> post(s) waiting to be scheduled.<br>';
         }
 
+        $range_label            = esc_html( $range_label );
+        $date_range             = esc_html( $date_range );
+        $time_window            = esc_html( $time_window );
+        $complete_count_label   = esc_html( $complete_count_label );
+        $incomplete_count_label = esc_html( $incomplete_count_label );
+        $calendar_heading       = esc_html( $calendar_heading );
+        $calendar_hint          = esc_html( $calendar_hint );
+        $overall_status         = esc_html( $overall_status );
+
         $message = <<<HTML
 <!DOCTYPE html>
 <html>
@@ -443,9 +495,9 @@ class Schedulely_Notifications
         🕐 Scheduler Ran: <strong>{$run_datetime}</strong><br>
         ✅ Scheduled this run: <strong>{$scheduled_count}</strong> of <strong>{$queue_total}</strong> loaded in queue<br>
         {$run_issues_html}
-        📅 Date Range: <strong>{$start_date} to {$end_date}</strong><br>
-        ⏰ Time Window: <strong>{$start_time} - {$end_time}</strong><br>
-        📊 Dates Complete: <strong>{$complete_dates}</strong> | Dates Incomplete: <strong>{$incomplete_dates}</strong><br>
+        📅 {$range_label}: <strong>{$date_range}</strong><br>
+        ⏰ Time Window: <strong>{$time_window}</strong><br>
+        📊 {$complete_count_label}: <strong>{$complete_dates}</strong> | {$incomplete_count_label}: <strong>{$incomplete_dates}</strong><br>
         📋 Filled Previous Incomplete: <strong>{$completion_status}</strong><br>
         🔄 Authors Randomized: <strong>{$author_randomized}</strong><br>
         🧠 Queue ordering (this run): <strong>{$ai_queue_summary_esc}</strong>{$ordering_note_html}
@@ -454,8 +506,8 @@ class Schedulely_Notifications
     </div>
     
     <div style="background: #fef3c7; border-left: 4px solid {$overall_status_color}; padding: 15px; margin: 20px 0;">
-        <strong>📅 PUBLISH CALENDAR (site-wide posts per date)</strong><br>
-        <span style="font-size:0.9em;color:#6b7280;">Counts include all scheduled posts on each date, not only this run.</span><br>
+        <strong>📅 {$calendar_heading}</strong><br>
+        <span style="font-size:0.9em;color:#6b7280;">{$calendar_hint}</span><br>
         <div style="color: {$overall_status_color}; font-size: 16px; font-weight: bold; margin-bottom: 10px;">
             {$overall_status}
         </div>

@@ -22,11 +22,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // ── Pre-compute values used across multiple sections ──────────────────────────
-$scheduler_stat = new Schedulely_Scheduler();
-$last_date      = $scheduler_stat->get_last_scheduled_date();
-$quota          = (int) get_option( 'schedulely_posts_per_day', Schedulely_Defaults::POSTS_PER_DAY );
-$posts_count    = $last_date ? $scheduler_stat->count_posts_on_date( $last_date ) : 0;
-$is_complete    = $posts_count >= $quota;
+$scheduler_stat   = new Schedulely_Scheduler();
+$last_date        = $scheduler_stat->get_last_scheduled_date();
+$quota            = (int) get_option( 'schedulely_posts_per_day', Schedulely_Defaults::POSTS_PER_DAY );
+$posts_count      = $last_date ? $scheduler_stat->count_posts_on_date( $last_date ) : 0;
+$is_complete      = $posts_count >= $quota;
+$is_overnight     = $scheduler_stat->is_overnight_window();
+$window_end_label = ( $last_date && $is_overnight ) ? $scheduler_stat->format_window_end_label( $last_date ) : '';
 unset( $scheduler_stat );
 
 $auto_schedule  = (bool) get_option( 'schedulely_auto_schedule', Schedulely_Defaults::AUTO_SCHEDULE );
@@ -185,13 +187,16 @@ $pres_authors    = get_option( 'schedulely_preserved_authors', Schedulely_Defaul
                 <div class="schedulely-stat-value">
                     <?php echo $last_date ? esc_html( wp_date( 'M j', strtotime( $last_date ) ) ) : esc_html__( 'None', 'schedulely' ); ?>
                 </div>
-                <div class="schedulely-stat-label"><?php esc_html_e( 'Furthest Scheduled Date', 'schedulely' ); ?></div>
+                <div class="schedulely-stat-label"><?php echo $is_overnight ? esc_html__( 'Furthest Scheduled Window', 'schedulely' ) : esc_html__( 'Furthest Scheduled Date', 'schedulely' ); ?></div>
                 <div class="schedulely-stat-sub <?php echo $is_complete ? 'schedulely-sub-good' : 'schedulely-sub-warn'; ?>">
                     <?php
                     if ( $last_date ) {
                         /* translators: 1: posts on date 2: daily quota */
                         echo esc_html( sprintf( __( '%1$d/%2$d posts — ', 'schedulely' ), $posts_count, $quota ) );
                         echo $is_complete ? esc_html__( 'quota met ✓', 'schedulely' ) : esc_html__( 'incomplete', 'schedulely' );
+                        if ( '' !== $window_end_label ) {
+                            echo '<br>' . esc_html( $window_end_label );
+                        }
                     } else {
                         esc_html_e( 'No posts scheduled yet', 'schedulely' );
                     }

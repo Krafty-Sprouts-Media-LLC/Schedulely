@@ -4,7 +4,7 @@ Tags: schedule, posts, automation, publishing, cron
 Requires at least: 6.8
 Tested up to: 6.8
 Requires PHP: 8.2
-Stable tag: 1.8.6
+Stable tag: 1.8.12
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -106,6 +106,9 @@ Uncheck "Enable Automatic Scheduling" in the Automation Settings section. You ca
 5. Deficit status tracking
 
 == Changelog ==
+
+= 1.8.12 - 25/10/2026 =
+* Changed: Overnight windows are labelled as windows in the completion email and on the furthest-date dashboard card (span through next morning, collapsed list when every window is full)
 
 = 1.6.0 - 27/05/2026 =
 * Changed: Pool size default 1500 (configurable from settings — "Pool Size" field under Content & Volume). Larger pool = better shuffle variety and AI series spacing

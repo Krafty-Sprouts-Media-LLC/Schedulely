@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.8.12] - 25/10/2026
+
+### Changed
+- **Overnight windows now read as windows, not calendar dates**, in the completion email and on the dashboard furthest-date card. The summary shows `2:00 PM → 3:00 AM next day (overnight)` and a range that names the morning the last posts go live. The yellow list collapses when every window is full (`All 24 overnight windows complete · 50 posts each`) and, when a window is short, lists only those spans (`Tue Oct 13, 2:00 PM → Wed Oct 14, 3:00 AM — 42/50`). Same-day windows keep the previous per-date list.
+
+---
+
 ## [1.8.11] - 28/06/2026
 
 ### Added
