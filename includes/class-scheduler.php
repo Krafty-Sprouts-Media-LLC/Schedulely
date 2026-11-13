@@ -250,8 +250,9 @@ class Schedulely_Scheduler
             'scheduled_total'       => 0,
             'scheduled_post_ids'    => [],
             'scheduled_posts'       => [],
+            'scheduled_dates'       => [],
             'errors'                => [],
-            'start_date'            => $start_ctx['start_date'],
+            'start_date'          => $start_ctx['start_date'],
             'complete_first'        => $start_ctx['complete_first'],
             'completed_last_date'   => $start_ctx['completed_last_date'],
             'ai_queue_ordered'      => $ai_ordered,
@@ -352,13 +353,20 @@ class Schedulely_Scheduler
                 if ( $pid > 0 ) {
                     $state['scheduled_post_ids'][] = $pid;
                 }
+                // reason: the email needs every window this run touched, not just the
+                // posts kept below. One key per window keeps the transient small.
+                if ( ! empty( $row['date'] ) ) {
+                    $state['scheduled_dates'][ $row['date'] ] = true;
+                }
             }
-            $state['scheduled_posts'] = array_merge(
-                $state['scheduled_posts'],
-                $scheduling['scheduled_posts']
-            );
-            if ( count( $state['scheduled_posts'] ) > 50 ) {
-                $state['scheduled_posts'] = array_slice( $state['scheduled_posts'], -50 );
+            // Keep only the earliest 10 for the email's "Upcoming posts" list. Keeping the
+            // last N (pre-1.8.14) made the email describe only the final batch.
+            if ( count( $state['scheduled_posts'] ) < 10 ) {
+                $state['scheduled_posts'] = array_slice(
+                    array_merge( $state['scheduled_posts'], $scheduling['scheduled_posts'] ),
+                    0,
+                    10
+                );
             }
         }
         if ( ! empty( $scheduling['errors'] ) ) {
@@ -381,6 +389,7 @@ class Schedulely_Scheduler
                 'success'              => $state['scheduled_total'] > 0,
                 'scheduled_count'      => (int) $state['scheduled_total'],
                 'scheduled_posts'      => $state['scheduled_posts'],
+                'scheduled_dates'      => array_keys( $state['scheduled_dates'] ?? [] ),
                 'errors'               => $state['errors'],
                 'ai_queue_ordered'     => ! empty( $state['ai_queue_ordered'] ),
                 'completed_last_date'  => ! empty( $state['completed_last_date'] ),

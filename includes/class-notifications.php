@@ -92,6 +92,26 @@ class Schedulely_Notifications
     }
 
     /**
+     * Sorted unique window anchor dates touched by a scheduling run.
+     *
+     * Batched manual runs pass `scheduled_dates` (every window), because
+     * `scheduled_posts` there holds only the first 10 posts. Single-pass runs
+     * (cron) fall back to deriving dates from `scheduled_posts`.
+     *
+     * @since 1.8.14
+     * @param array $results Scheduling results.
+     * @return string[] Y-m-d dates, ascending.
+     */
+    private function get_run_dates( array $results ): array {
+        $dates = ! empty( $results['scheduled_dates'] ) && is_array( $results['scheduled_dates'] )
+            ? $results['scheduled_dates']
+            : array_column( $results['scheduled_posts'] ?? [], 'date' );
+        $dates = array_values( array_unique( array_map( 'strval', $dates ) ) );
+        sort( $dates );
+        return $dates;
+    }
+
+    /**
      * Generate a 2–3 sentence AI summary of the scheduling run.
      *
      * Only called when `schedulely_ai_email_summary` is true and WP 7.0 AI is available.
@@ -103,8 +123,7 @@ class Schedulely_Notifications
      */
     private function generate_ai_email_summary( array $results ): string {
         $count      = (int) $results['scheduled_count'];
-        $dates      = array_unique( array_column( $results['scheduled_posts'] ?? [], 'date' ) );
-        sort( $dates );
+        $dates      = $this->get_run_dates( $results );
         $date_range = ! empty( $dates )
             ? ( wp_date( 'M j', strtotime( $dates[0] ) ) . ( count( $dates ) > 1 ? ' – ' . wp_date( 'M j', strtotime( end( $dates ) ) ) : '' ) )
             : '';
@@ -296,8 +315,7 @@ class Schedulely_Notifications
         $quota = (int) get_option('schedulely_posts_per_day', Schedulely_Defaults::POSTS_PER_DAY);
 
         // Unique logical anchors from this run (overnight: one window, not one calendar day).
-        $dates = array_unique(array_column($results['scheduled_posts'], 'date'));
-        sort($dates);
+        $dates = $this->get_run_dates($results);
 
         $scheduler = new Schedulely_Scheduler();
         $overnight = $scheduler->is_overnight_window();
@@ -412,7 +430,11 @@ class Schedulely_Notifications
 
         // Build upcoming posts list (first 10)
         $upcoming_posts_html = '';
-        $posts_to_show = array_slice($results['scheduled_posts'], 0, 10);
+        $posts_to_show = $results['scheduled_posts'];
+        usort($posts_to_show, static function ($a, $b) {
+            return strcmp((string) ($a['datetime'] ?? ''), (string) ($b['datetime'] ?? ''));
+        });
+        $posts_to_show = array_slice($posts_to_show, 0, 10);
 
         foreach ($posts_to_show as $post_data) {
             $display_time = wp_date( 'M j, g:i A', strtotime( $post_data['datetime'] ) ) ?? $post_data['datetime'];

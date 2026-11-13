@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.8.14] - 13/11/2026
+
+### Fixed
+- **Completion email described only the last batch of a large Schedule Now run.** Batched runs kept just the last 50 scheduled posts, and the email built its window range, window counts and "Upcoming posts" list from them. A 1,765-post run spanning ~35 windows was reported as two December windows, and "Upcoming posts" showed December instead of the next posts. The run now records every window it touches and keeps the earliest 10 posts (sorted by time) for the Upcoming list.
+
+---
+
 ## [1.8.13] - 13/11/2026
 
 ### Added
