@@ -358,6 +358,10 @@ class Schedulely_Scheduler
                 if ( ! empty( $row['date'] ) ) {
                     $state['scheduled_dates'][ $row['date'] ] = true;
                 }
+                // Y-m-d H:i:s strings compare correctly as strings.
+                if ( ! empty( $row['datetime'] ) && (string) $row['datetime'] > (string) ( $state['last_post_datetime'] ?? '' ) ) {
+                    $state['last_post_datetime'] = (string) $row['datetime'];
+                }
             }
             // Keep only the earliest 10 for the email's "Upcoming posts" list. Keeping the
             // last N (pre-1.8.14) made the email describe only the final batch.
@@ -390,6 +394,7 @@ class Schedulely_Scheduler
                 'scheduled_count'      => (int) $state['scheduled_total'],
                 'scheduled_posts'      => $state['scheduled_posts'],
                 'scheduled_dates'      => array_keys( $state['scheduled_dates'] ?? [] ),
+                'last_post_datetime'   => (string) ( $state['last_post_datetime'] ?? '' ),
                 'errors'               => $state['errors'],
                 'ai_queue_ordered'     => ! empty( $state['ai_queue_ordered'] ),
                 'completed_last_date'  => ! empty( $state['completed_last_date'] ),
@@ -773,9 +778,14 @@ class Schedulely_Scheduler
      * @since 1.8.12
      * @param string $start_anchor First logical anchor Y-m-d.
      * @param string $end_anchor   Last logical anchor Y-m-d.
+     * @param string $last_post_datetime Optional. Actual publish datetime of the run's
+     *                                   latest post (site-local). When given, overnight
+     *                                   labels name it instead of the window close time.
+     *                                   @since 1.8.14
      * @return string
+     * @since 1.8.14 Overnight label shows the real last publish time when known.
      */
-    public function format_date_range_label($start_anchor, $end_anchor): string
+    public function format_date_range_label($start_anchor, $end_anchor, string $last_post_datetime = ''): string
     {
         if ('' === (string) $start_anchor) {
             return '';
@@ -792,6 +802,17 @@ class Schedulely_Scheduler
                 __('%1$s to %2$s', 'schedulely'),
                 $start_display,
                 $end_display
+            );
+        }
+
+        $last_post_ts = '' !== $last_post_datetime ? strtotime($last_post_datetime) : false;
+        if ($last_post_ts) {
+            return sprintf(
+                /* translators: 1: first window date, 2: last window date, 3: last post date and time */
+                __('%1$s – %2$s windows (last post goes live %3$s)', 'schedulely'),
+                $start_display,
+                $end_display,
+                wp_date('M j, Y \a\t g:i A', $last_post_ts, new DateTimeZone('UTC')) ?? $last_post_datetime
             );
         }
 

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.8.15] - 13/11/2026
+
+### Fixed
+- **Completion email named the window close time as when the last post goes live.** For overnight windows the range read e.g. "last posts go live Dec 19 by 5:30 AM" even when the final window was only partly filled and its last post was Dec 18 at 3:55 PM. The email now shows the actual publish time of the run's latest post ("last post goes live Dec 18, 2026 at 3:55 PM").
+
+---
+
 ## [1.8.14] - 13/11/2026
 
 ### Fixed

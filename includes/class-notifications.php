@@ -112,6 +112,21 @@ class Schedulely_Notifications
     }
 
     /**
+     * Latest publish datetime (site-local Y-m-d H:i:s) scheduled by a run.
+     *
+     * @since 1.8.14
+     * @param array $results Scheduling results.
+     * @return string Empty when unknown.
+     */
+    private function get_last_post_datetime( array $results ): string {
+        if ( ! empty( $results['last_post_datetime'] ) ) {
+            return (string) $results['last_post_datetime'];
+        }
+        $all = array_map( 'strval', array_column( $results['scheduled_posts'] ?? [], 'datetime' ) );
+        return empty( $all ) ? '' : max( $all );
+    }
+
+    /**
      * Generate a 2–3 sentence AI summary of the scheduling run.
      *
      * Only called when `schedulely_ai_email_summary` is true and WP 7.0 AI is available.
@@ -320,7 +335,7 @@ class Schedulely_Notifications
         $scheduler = new Schedulely_Scheduler();
         $overnight = $scheduler->is_overnight_window();
         $date_range = ! empty($dates)
-            ? $scheduler->format_date_range_label($dates[0], end($dates))
+            ? $scheduler->format_date_range_label($dates[0], end($dates), $this->get_last_post_datetime($results))
             : '';
         $time_window = $scheduler->format_time_window_label();
 
