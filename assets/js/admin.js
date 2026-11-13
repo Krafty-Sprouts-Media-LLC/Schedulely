@@ -350,17 +350,21 @@
         });
 
         let runKey = '';
+        let batchNo = 0;
+        let lastProgress = null;
 
         try {
             let done = false;
 
             while (!done) {
+                batchNo++;
                 const data = await requestScheduleBatch(runKey);
 
                 if (!data.success) {
                     Swal.fire({
                         title: schedulely_admin.strings.error || 'Error',
-                        html: data.data?.message || 'An error occurred while scheduling posts.',
+                        html: escapeHtml(data.data?.message || 'An error occurred while scheduling posts.')
+                            + buildErrorDetails({ batch: batchNo, progress: lastProgress, response: JSON.stringify(data) }),
                         icon: 'error',
                         confirmButtonColor: '#d63638',
                         confirmButtonText: schedulely_admin.strings.close || 'Close'
@@ -371,6 +375,7 @@
                 const payload = data.data || {};
                 runKey = payload.run_key || runKey;
                 done = !!payload.done;
+                lastProgress = (payload.scheduled_total || 0) + ' / ' + (payload.total || 0);
 
                 if (!done) {
                     Swal.update({
@@ -410,16 +415,78 @@
 
             Swal.fire({
                 title: schedulely_admin.strings.error || 'Error',
-                html: message,
+                html: message + buildErrorDetails({
+                    batch: batchNo,
+                    progress: lastProgress,
+                    status: error && error.status,
+                    error: error && error.message,
+                    response: error && error.raw
+                }),
                 icon: 'error',
+                width: 640,
                 confirmButtonColor: '#d63638',
                 confirmButtonText: schedulely_admin.strings.close || 'Close'
             });
-            console.error('Schedulely error:', error);
+            console.error('Schedulely error:', error, error && error.raw);
         } finally {
             button.disabled = false;
             button.textContent = originalText;
         }
+    }
+
+    /**
+     * Escape a string for safe insertion into SweetAlert HTML.
+     *
+     * @since 1.8.13
+     * @param {string} str
+     * @return {string}
+     */
+    function escapeHtml(str) {
+        return String(str == null ? '' : str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    /**
+     * Build a collapsible "Technical details" block for a failed Schedule Now run,
+     * so the real cause (HTTP status, PHP fatal, proxy timeout page) is visible
+     * without needing server logs.
+     *
+     * @since 1.8.13
+     * @param {Object} info { batch, progress, status, error, response }
+     * @return {string} Escaped HTML.
+     */
+    function buildErrorDetails(info) {
+        const lines = [];
+        if (info.batch) lines.push('Batch: #' + info.batch);
+        if (info.progress) lines.push('Progress before failure: ' + info.progress);
+        if (info.status) lines.push('HTTP status: ' + info.status);
+        if (info.error) lines.push('Error: ' + info.error);
+        lines.push('Time: ' + new Date().toISOString());
+
+        let body = '';
+        if (info.response) {
+            // Strip markup from HTML error pages (PHP fatals, 502/504 pages) and trim.
+            const text = String(info.response)
+                .replace(/<script[\s\S]*?<\/script>/gi, '')
+                .replace(/<style[\s\S]*?<\/style>/gi, '')
+                .replace(/<[^>]+>/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+            body = text.length > 2000 ? text.slice(0, 2000) + '…' : text;
+        }
+
+        const full = lines.join('\n') + (body ? '\n\nResponse:\n' + body : '');
+
+        return '<details style="margin-top:14px;text-align:left;">'
+            + '<summary style="cursor:pointer;font-size:13px;">Technical details</summary>'
+            + '<pre style="white-space:pre-wrap;word-break:break-word;max-height:260px;overflow:auto;'
+            + 'background:#f6f7f7;border:1px solid #dcdcde;padding:10px;font-size:12px;margin-top:8px;">'
+            + escapeHtml(full)
+            + '</pre></details>';
     }
 
     /**

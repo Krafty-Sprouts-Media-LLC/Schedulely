@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ==========================================================================
 
 
+## [1.8.13] - 13/11/2026
+
+### Added
+- **Schedule Now error dialog shows technical details.** When a manual run fails, the dialog now has a collapsible "Technical details" section with the batch number, progress before the failure, HTTP status, and the server's actual response (PHP fatal text or host timeout page, tags stripped). This lets intermittent production failures be diagnosed without server logs.
+
+---
+
 ## [1.8.12] - 25/10/2026
 
 ### Changed
